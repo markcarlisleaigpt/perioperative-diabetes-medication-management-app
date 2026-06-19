@@ -1,0 +1,1655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Perioperative Diabetes Medication Management Tool</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+html { color-scheme: light dark; scroll-behavior: smooth; }
+body {
+  font-family: 'Inter', -apple-system, sans-serif;
+  background: linear-gradient(135deg, #0a1628 0%, #1a2e4a 50%, #0f1f35 100%);
+  color: #f5f5f5; line-height: 1.6; min-height: 100vh;
+  overflow-x: hidden; position: relative;
+}
+body::before {
+  content:''; position:fixed; top:0; left:0; width:100%; height:100%;
+  background: radial-gradient(circle at 20% 50%, rgba(0,200,200,.1) 0%, transparent 50%),
+              radial-gradient(circle at 80% 80%, rgba(200,100,200,.05) 0%, transparent 50%);
+  pointer-events:none; z-index:0;
+}
+.container { max-width:680px; margin:0 auto; padding:16px; min-height:100vh; position:relative; z-index:1; }
+@keyframes fadeInUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+@keyframes slideDown { from{opacity:0;transform:translateY(-10px)} to{opacity:1;transform:translateY(0)} }
+/* ===== HEADER ===== */
+.header-banner {
+  background: linear-gradient(135deg, rgba(0,180,219,.15) 0%, rgba(100,80,200,.15) 100%);
+  border:1px solid rgba(0,200,220,.3); backdrop-filter:blur(20px);
+  border-radius:20px; padding:28px 24px; margin-bottom:20px;
+  box-shadow:0 8px 32px rgba(0,0,0,.3); animation:slideDown .6s ease-out;
+  text-align:center; position:relative; overflow:hidden;
+}
+.header-banner::before {
+  content:''; position:absolute; top:-50%; right:-50%; width:200%; height:200%;
+  background:radial-gradient(circle, rgba(0,200,220,.1) 0%, transparent 70%); pointer-events:none;
+}
+.clinic-label { font-size:11px; font-weight:700; color:#00c8db; margin-bottom:8px; text-transform:uppercase; letter-spacing:1.2px; }
+.header-banner h1 { font-family:'Playfair Display',serif; font-size:26px; font-weight:700; margin-bottom:8px; letter-spacing:-.5px; line-height:1.2; }
+.header-banner p { font-size:13px; opacity:.8; font-weight:300; letter-spacing:.3px; }
+.step-indicator { font-size:11px; color:#00c8db; margin-bottom:6px; font-weight:600; text-transform:uppercase; letter-spacing:1px; }
+/* ===== CARDS ===== */
+.card {
+  background: linear-gradient(135deg, rgba(255,255,255,.08) 0%, rgba(255,255,255,.03) 100%);
+  border:1px solid rgba(255,255,255,.15); backdrop-filter:blur(20px);
+  border-radius:16px; padding:24px; margin-bottom:16px;
+  box-shadow:0 8px 32px rgba(0,0,0,.3); animation:fadeInUp .5s ease-out both;
+  position:relative;
+}
+.card::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:1px;
+  background:linear-gradient(90deg, transparent, rgba(255,255,255,.2), transparent);
+}
+.question { font-size:16px; font-weight:600; margin-bottom:16px; font-family:'Playfair Display',serif; }
+.section-label { font-size:11px; font-weight:700; color:#00c8db; margin-bottom:6px; text-transform:uppercase; letter-spacing:1.2px; margin-top:16px; }
+.section-label:first-of-type { margin-top:0; }
+.section-text { font-size:13.5px; line-height:1.7; color:#d4d4d4; font-weight:300; margin-bottom:12px; }
+/* ===== BUTTONS ===== */
+button {
+  display:block; width:100%; padding:14px 16px; margin-bottom:10px;
+  font-size:14px; border:1px solid rgba(255,255,255,.2);
+  background:linear-gradient(135deg,rgba(255,255,255,.08) 0%,rgba(255,255,255,.03) 100%);
+  color:#f5f5f5; border-radius:10px; cursor:pointer; text-align:left;
+  transition:all .3s cubic-bezier(.34,1.56,.64,1); font-family:'Inter',sans-serif; font-weight:500;
+  position:relative; overflow:hidden;
+}
+button:hover { border-color:rgba(0,200,220,.5); background:linear-gradient(135deg,rgba(0,200,220,.15),rgba(100,80,200,.1)); transform:translateY(-1px); box-shadow:0 8px 24px rgba(0,200,220,.2); }
+button:active { transform:translateY(0); }
+.btn-primary { background:linear-gradient(135deg,#00c8db,#0088aa); border:none; color:#0a1628; font-weight:700; text-align:center; }
+.btn-primary:hover { background:linear-gradient(135deg,#00d4e8,#0096ba); border:none; }
+.btn-back { background:transparent; border:1px solid rgba(255,255,255,.2); color:#aaa; font-size:13px; padding:10px 14px; text-align:center; margin-bottom:12px; }
+.btn-back:hover { border-color:rgba(255,255,255,.4); color:#f5f5f5; transform:none; }
+.btn-row { display:flex; gap:10px; }
+.btn-row button { flex:1; }
+.btn-sm { padding:10px 14px; font-size:13px; margin-bottom:8px; }
+/* ===== FORM INPUTS ===== */
+.field-group { margin-bottom:16px; }
+.field-label { font-size:12px; font-weight:600; color:#00c8db; text-transform:uppercase; letter-spacing:.8px; margin-bottom:6px; display:block; }
+input[type="text"], input[type="date"], input[type="number"] {
+  width:100%; padding:12px 14px; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.2);
+  border-radius:10px; color:#f5f5f5; font-family:'Inter',sans-serif; font-size:14px;
+  transition:border-color .3s;
+}
+input[type="text"]:focus, input[type="date"]:focus, input[type="number"]:focus {
+  outline:none; border-color:#00c8db; background:rgba(0,200,220,.08);
+}
+input[type="text"]::placeholder, input[type="number"]::placeholder { color:#666; }
+input[type="number"] { -moz-appearance:textfield; }
+input[type="number"]::-webkit-inner-spin-button { opacity:.5; }
+/* ===== CHECKBOX + RADIO ===== */
+.check-label {
+  display:flex; align-items:flex-start; gap:12px; padding:12px 14px; margin-bottom:8px;
+  background:linear-gradient(135deg,rgba(0,200,220,.06),rgba(100,80,200,.04));
+  border:1px solid rgba(0,200,220,.18); border-radius:10px; cursor:pointer; font-size:14px; transition:all .3s;
+}
+.check-label:hover { background:linear-gradient(135deg,rgba(0,200,220,.12),rgba(100,80,200,.08)); border-color:rgba(0,200,220,.4); }
+.check-label.selected { border-color:#00c8db; background:linear-gradient(135deg,rgba(0,200,220,.18),rgba(100,80,200,.1)); }
+.check-label { touch-action: manipulation; -webkit-tap-highlight-color: transparent; user-select:none; }
+.custom-check {
+  width:20px; height:20px; border:2px solid rgba(0,200,220,.5); border-radius:4px;
+  flex-shrink:0; display:flex; align-items:center; justify-content:center;
+  font-size:13px; font-weight:700; color:transparent; background:transparent;
+  transition:all .2s; margin-top:1px;
+}
+.check-label.selected .custom-check { background:#00c8db; border-color:#00c8db; color:#0a1628; }
+.custom-radio {
+  width:20px; height:20px; border:2px solid rgba(0,200,220,.5); border-radius:50%;
+  flex-shrink:0; display:flex; align-items:center; justify-content:center;
+  transition:all .2s; margin-top:1px;
+}
+.custom-radio::after { content:''; width:10px; height:10px; border-radius:50%; background:transparent; transition:all .2s; }
+.check-label.selected .custom-radio { border-color:#00c8db; }
+.check-label.selected .custom-radio::after { background:#00c8db; }
+input[type="checkbox"], input[type="radio"] { width:17px; height:17px; cursor:pointer; flex-shrink:0; accent-color:#00c8db; margin-top:1px; }
+.check-info { font-size:12px; color:#aaa; margin-top:2px; }
+.category-header {
+  font-size:12px; font-weight:700; color:#00c8db; text-transform:uppercase; letter-spacing:1px;
+  padding:10px 0 6px; border-bottom:1px solid rgba(0,200,220,.2); margin-bottom:8px; margin-top:16px;
+}
+.category-header:first-of-type { margin-top:0; }
+.drug-indent { padding-left:8px; }
+/* ===== SEARCH ===== */
+.search-wrap { position:relative; margin-bottom:16px; }
+.search-wrap input { padding-left:36px; }
+.search-icon { position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#666; font-size:15px; pointer-events:none; }
+/* ===== TOGGLE ===== */
+.toggle-row { display:flex; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.15); border-radius:10px; padding:4px; margin-bottom:16px; gap:4px; }
+.toggle-btn { flex:1; padding:9px; font-size:13px; font-weight:600; border:none; border-radius:7px; background:transparent; color:#aaa; cursor:pointer; transition:all .3s; text-align:center; }
+.toggle-btn.active { background:linear-gradient(135deg,#00c8db,#0088aa); color:#0a1628; }
+/* ===== BADGES ===== */
+.badge { display:inline-block; font-size:11px; font-weight:800; padding:4px 10px; border-radius:6px; letter-spacing:.8px; text-transform:uppercase; margin-bottom:10px; }
+.badge-hold { background:rgba(220,60,60,.3); border:1px solid rgba(220,60,60,.6); color:#ff9999; }
+.badge-continue { background:rgba(40,180,100,.3); border:1px solid rgba(40,180,100,.6); color:#80ffb0; }
+.badge-modify { background:rgba(220,160,30,.3); border:1px solid rgba(220,160,30,.6); color:#ffd080; }
+.badge-consider { background:rgba(0,180,220,.3); border:1px solid rgba(0,180,220,.6); color:#80e8ff; }
+.badge-consult { background:rgba(180,80,220,.3); border:1px solid rgba(180,80,220,.6); color:#d080ff; }
+/* ===== RESULT CARDS ===== */
+.result-card {
+  border:1px solid rgba(255,255,255,.12); border-radius:14px; margin-bottom:16px;
+  overflow:hidden; animation:fadeInUp .5s ease-out both;
+}
+.result-card-header {
+  background:linear-gradient(135deg,rgba(0,200,220,.12),rgba(100,80,200,.08));
+  border-bottom:1px solid rgba(255,255,255,.1); padding:16px 18px;
+}
+.result-card-header h3 { font-size:15px; font-weight:700; margin-bottom:4px; }
+.result-card-header .drug-list { font-size:12px; color:#aaa; }
+.result-card-body { padding:16px 18px; }
+.result-section { margin-bottom:14px; }
+.result-section:last-child { margin-bottom:0; }
+.result-section-label { font-size:10px; font-weight:700; color:#00c8db; text-transform:uppercase; letter-spacing:1px; margin-bottom:5px; }
+.result-section-text { font-size:13.5px; line-height:1.7; color:#d4d4d4; }
+.evidence-strip {
+  background:rgba(0,200,220,.06); border-left:3px solid #00c8db; border:1px solid rgba(0,200,220,.18);
+  border-left:3px solid #00c8db; border-radius:8px; padding:12px 14px; margin-top:12px;
+  font-size:12px; line-height:1.6; color:#bbb;
+}
+.evidence-strip strong { color:#00c8db; }
+/* ===== FLAGS ===== */
+.flag { border-radius:8px; padding:10px 12px; margin-bottom:8px; font-size:12.5px; line-height:1.6; }
+.flag-warn { background:rgba(220,160,30,.12); border:1px solid rgba(220,160,30,.35); color:#ffd080; }
+.flag-info { background:rgba(0,160,220,.1); border:1px solid rgba(0,160,220,.3); color:#80d8ff; }
+.flag-alert { background:rgba(220,60,60,.12); border:1px solid rgba(220,60,60,.35); color:#ff9999; }
+/* ===== DISCLAIMER ===== */
+.disclaimer {
+  background:rgba(220,100,100,.1); border:1px solid rgba(220,100,100,.25);
+  border-radius:12px; padding:14px 16px; margin-bottom:18px; font-size:12px; line-height:1.6; color:#d4d4d4;
+}
+.disclaimer strong { color:#ff9999; }
+/* ===== OUTPUT TABS ===== */
+.tab-bar { display:flex; gap:8px; margin-bottom:16px; }
+.tab { flex:1; padding:11px; font-size:13px; font-weight:600; border:1px solid rgba(255,255,255,.2); border-radius:10px; background:rgba(255,255,255,.05); color:#aaa; cursor:pointer; text-align:center; transition:all .3s; }
+.tab.active { background:linear-gradient(135deg,rgba(0,200,220,.2),rgba(100,80,200,.15)); border-color:#00c8db; color:#f5f5f5; }
+.tab-content { display:none; }
+.tab-content.active { display:block; }
+/* ===== PATIENT SHEET ===== */
+.patient-sheet-header {
+  background:linear-gradient(135deg,rgba(0,200,220,.15),rgba(100,80,200,.1));
+  border:1px solid rgba(0,200,220,.3); border-radius:14px; padding:20px; margin-bottom:16px; text-align:center;
+}
+.patient-sheet-header h2 { font-family:'Playfair Display',serif; font-size:20px; margin-bottom:8px; }
+.patient-meta { font-size:13px; color:#ccc; line-height:1.8; }
+.patient-drug-card { border:1px solid rgba(255,255,255,.15); border-radius:12px; padding:16px; margin-bottom:14px; }
+.patient-drug-name { font-size:15px; font-weight:700; margin-bottom:12px; color:#00d4e8; }
+.patient-section { margin-bottom:12px; }
+.patient-section-label { font-size:11px; font-weight:700; color:#00c8db; text-transform:uppercase; letter-spacing:.8px; margin-bottom:5px; }
+.patient-section-text { font-size:14px; line-height:1.75; color:#e0e0e0; }
+.patient-dietary { background:rgba(0,200,220,.08); border:1px solid rgba(0,200,220,.25); border-radius:8px; padding:12px; margin-top:10px; }
+.patient-dietary-label { font-size:11px; font-weight:700; color:#00c8db; text-transform:uppercase; letter-spacing:.8px; margin-bottom:4px; }
+.patient-footer { border:1px solid rgba(255,255,255,.1); border-radius:12px; padding:16px; margin-top:8px; font-size:12px; color:#aaa; line-height:1.7; }
+/* ===== DOSE INPUT ===== */
+.dose-group { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+.dose-group label { font-size:13px; color:#ccc; flex:1; }
+.dose-group input { width:80px; flex:none; }
+.dose-group .units { font-size:12px; color:#888; flex:none; }
+/* ===== MISC ===== */
+.helper-text { font-size:12px; color:#888; line-height:1.5; margin-bottom:14px; font-style:italic; }
+.divider { border:none; border-top:1px solid rgba(255,255,255,.08); margin:16px 0; }
+.selected-count { font-size:12px; color:#00c8db; margin-bottom:12px; font-weight:600; }
+.no-meds-msg { font-size:13px; color:#888; text-align:center; padding:20px; }
+/* ===== PRINT STYLES ===== */
+@media print {
+  body { background:#fff !important; color:#111 !important; }
+  body::before { display:none; }
+  .container { max-width:100%; padding:0; }
+  .no-print { display:none !important; }
+  .print-only { display:block !important; }
+  .patient-sheet-header, .patient-drug-card, .patient-footer { border-color:#ccc !important; background:#f9f9f9 !important; }
+  .patient-drug-name { color:#005588 !important; }
+  .patient-section-label { color:#005588 !important; }
+  .patient-section-text { color:#111 !important; }
+  .patient-meta { color:#333 !important; }
+  .patient-dietary { background:#eef9ff !important; border-color:#99d0e8 !important; }
+  .patient-dietary-label { color:#005588 !important; }
+  .patient-footer { color:#555 !important; border-color:#ccc !important; background:#f9f9f9 !important; }
+  .tab-bar, .btn-row, button { display:none !important; }
+  .tab-content { display:block !important; }
+  #clinician-tab { display:none !important; }
+  #patient-tab { display:block !important; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div id="app"></div>
+</div>
+<script>
+// ================================================================
+// DRUG DATABASE
+// ================================================================
+const DRUG_DB = {
+  sglt2i: {
+    label: 'SGLT2 Inhibitors',
+    icon: '🔵',
+    drugs: [
+      { id: 'canagliflozin', name: 'Canagliflozin', brand: 'Invokana', holdDays: 3 },
+      { id: 'dapagliflozin', name: 'Dapagliflozin', brand: 'Farxiga', holdDays: 3 },
+      { id: 'empagliflozin', name: 'Empagliflozin', brand: 'Jardiance', holdDays: 3 },
+      { id: 'ertugliflozin', name: 'Ertugliflozin', brand: 'Steglatro', holdDays: 4 },
+      { id: 'cana-met', name: 'Canagliflozin/Metformin', brand: 'Invokamet', holdDays: 3, combo: ['sglt2i','metformin'], sglt2iId: 'canagliflozin' },
+      { id: 'dapa-met', name: 'Dapagliflozin/Metformin', brand: 'Xigduo XR', holdDays: 3, combo: ['sglt2i','metformin'], sglt2iId: 'dapagliflozin' },
+      { id: 'empa-met', name: 'Empagliflozin/Metformin', brand: 'Synjardy', holdDays: 3, combo: ['sglt2i','metformin'], sglt2iId: 'empagliflozin' },
+      { id: 'dapa-saxa', name: 'Dapagliflozin/Saxagliptin', brand: 'Qtern', holdDays: 3, combo: ['sglt2i','dpp4i'], sglt2iId: 'dapagliflozin' },
+      { id: 'empa-lina', name: 'Empagliflozin/Linagliptin', brand: 'Glyxambi', holdDays: 3, combo: ['sglt2i','dpp4i'], sglt2iId: 'empagliflozin' },
+    ]
+  },
+  glp1: {
+    label: 'GLP-1 Receptor Agonists',
+    icon: '💉',
+    drugs: [
+      { id: 'liraglutide', name: 'Liraglutide', brand: 'Victoza / Saxenda', frequency: 'daily' },
+      { id: 'exenatide-bid', name: 'Exenatide (twice daily)', brand: 'Byetta', frequency: 'daily' },
+      { id: 'oral-sema', name: 'Oral Semaglutide', brand: 'Rybelsus', frequency: 'daily' },
+      { id: 'sema-sc', name: 'Semaglutide SC', brand: 'Ozempic / Wegovy', frequency: 'weekly' },
+      { id: 'dulaglutide', name: 'Dulaglutide', brand: 'Trulicity', frequency: 'weekly' },
+      { id: 'exenatide-er', name: 'Exenatide ER', brand: 'Bydureon BCise', frequency: 'weekly' },
+    ]
+  },
+  tirzepatide: {
+    label: 'GIP/GLP-1 Dual Agonist',
+    icon: '💉',
+    drugs: [
+      { id: 'tirzepatide', name: 'Tirzepatide', brand: 'Mounjaro / Zepbound', frequency: 'weekly' },
+    ]
+  },
+  dpp4i: {
+    label: 'DPP-4 Inhibitors',
+    icon: '🟡',
+    drugs: [
+      { id: 'sitagliptin', name: 'Sitagliptin', brand: 'Januvia' },
+      { id: 'saxagliptin', name: 'Saxagliptin', brand: 'Onglyza' },
+      { id: 'linagliptin', name: 'Linagliptin', brand: 'Tradjenta' },
+      { id: 'alogliptin', name: 'Alogliptin', brand: 'Nesina' },
+      { id: 'sita-met', name: 'Sitagliptin/Metformin', brand: 'Janumet', combo: ['dpp4i','metformin'] },
+      { id: 'saxa-met', name: 'Saxagliptin/Metformin', brand: 'Kombiglyze XR', combo: ['dpp4i','metformin'] },
+      { id: 'alo-met', name: 'Alogliptin/Metformin', brand: 'Kazano', combo: ['dpp4i','metformin'] },
+      { id: 'lina-met', name: 'Linagliptin/Metformin', brand: 'Jentadueto', combo: ['dpp4i','metformin'] },
+    ]
+  },
+  metformin: {
+    label: 'Metformin',
+    icon: '🟤',
+    drugs: [
+      { id: 'metformin-ir', name: 'Metformin IR', brand: 'Glucophage' },
+      { id: 'metformin-er', name: 'Metformin ER', brand: 'Glucophage XR / Glumetza / Fortamet' },
+    ]
+  },
+  sulfonylurea: {
+    label: 'Sulfonylureas',
+    icon: '⚠️',
+    drugs: [
+      { id: 'glyburide', name: 'Glyburide', brand: 'Diabeta / Glynase', holdTiming: 'night-before' },
+      { id: 'glimepiride', name: 'Glimepiride', brand: 'Amaryl', holdTiming: 'night-before' },
+      { id: 'glipizide-er', name: 'Glipizide ER', brand: 'Glucotrol XL', holdTiming: 'night-before' },
+      { id: 'glipizide-ir', name: 'Glipizide IR', brand: 'Glucotrol', holdTiming: 'morning-of' },
+    ]
+  },
+  meglitinide: {
+    label: 'Meglitinides',
+    icon: '🟠',
+    drugs: [
+      { id: 'repaglinide', name: 'Repaglinide', brand: 'Prandin' },
+      { id: 'nateglinide', name: 'Nateglinide', brand: 'Starlix' },
+    ]
+  },
+  tzd: {
+    label: 'Thiazolidinediones (TZDs)',
+    icon: '🟣',
+    drugs: [
+      { id: 'pioglitazone', name: 'Pioglitazone', brand: 'Actos' },
+      { id: 'rosiglitazone', name: 'Rosiglitazone', brand: 'Avandia' },
+      { id: 'pio-met', name: 'Pioglitazone/Metformin', brand: 'Actoplus Met', combo: ['tzd','metformin'] },
+      { id: 'pio-alo', name: 'Pioglitazone/Alogliptin', brand: 'Oseni', combo: ['tzd','dpp4i'] },
+    ]
+  },
+  agi: {
+    label: 'Alpha-Glucosidase Inhibitors',
+    icon: '🟢',
+    drugs: [
+      { id: 'acarbose', name: 'Acarbose', brand: 'Precose' },
+      { id: 'miglitol', name: 'Miglitol', brand: 'Glyset' },
+    ]
+  },
+  basalInsulin: {
+    label: 'Insulin — Basal (Long-Acting)',
+    icon: '💊',
+    drugs: [
+      { id: 'glargine-u100', name: 'Glargine U-100', brand: 'Lantus / Basaglar / Semglee / Rezvoglar', needsDosingTime: true },
+      { id: 'glargine-u300', name: 'Glargine U-300', brand: 'Toujeo', needsDosingTime: true, concentrated: true, concentratedNote: 'Extended duration >36h — morning of dose reductions persist longer than standard glargine.' },
+      { id: 'detemir', name: 'Detemir', brand: 'Levemir', needsFrequency: true },
+      { id: 'degludec-u100', name: 'Degludec U-100', brand: 'Tresiba', needsDosingTime: true },
+      { id: 'degludec-u200', name: 'Degludec U-200', brand: 'Tresiba FlexTouch', needsDosingTime: true, concentrated: true, concentratedNote: 'Same units as U-100 degludec; effective duration ~42h.' },
+      { id: 'nph', name: 'NPH Insulin', brand: 'Humulin N / Novolin N', isNPH: true, needsFrequency: true },
+    ]
+  },
+  bolusInsulin: {
+    label: 'Insulin — Bolus/Prandial (Rapid-Acting)',
+    icon: '💊',
+    drugs: [
+      { id: 'lispro', name: 'Lispro U-100', brand: 'Humalog / Admelog / Lyumjev' },
+      { id: 'lispro-u200', name: 'Lispro U-200', brand: 'Humalog KwikPen U-200' },
+      { id: 'aspart', name: 'Aspart', brand: 'NovoLog / Fiasp' },
+      { id: 'glulisine', name: 'Glulisine', brand: 'Apidra' },
+      { id: 'regular', name: 'Regular U-100', brand: 'Humulin R / Novolin R' },
+      { id: 'afrezza', name: 'Inhaled Insulin', brand: 'Afrezza', isInhaled: true },
+    ]
+  },
+  premixedInsulin: {
+    label: 'Insulin — Premixed',
+    icon: '💊',
+    drugs: [
+      { id: 'mix-7030-nph', name: 'NPH/Regular 70/30', brand: 'Humulin 70/30 / Novolin 70/30' },
+      { id: 'mix-7525', name: 'Lispro protamine/lispro 75/25', brand: 'Humalog Mix 75/25' },
+      { id: 'mix-5050', name: 'Lispro protamine/lispro 50/50', brand: 'Humalog Mix 50/50' },
+      { id: 'mix-7030-asp', name: 'Aspart protamine/aspart 70/30', brand: 'NovoLog Mix 70/30' },
+    ]
+  },
+  insulinU500: {
+    label: 'Insulin — U-500 (Concentrated)',
+    icon: '⛔',
+    drugs: [
+      { id: 'regular-u500', name: 'Regular U-500', brand: 'Humulin R U-500', requiresConsult: true },
+    ]
+  },
+  pump: {
+    label: 'Insulin Pump (CSII)',
+    icon: '⚙️',
+    drugs: [
+      { id: 'csii', name: 'Insulin Pump', brand: 'CSII — Continuous Subcutaneous Insulin Infusion' },
+    ]
+  },
+};
+// ================================================================
+// HELPERS
+// ================================================================
+function round(n) { return Math.round(n); }
+function doseRange(base, minReductPct, maxReductPct) {
+  if (!base || isNaN(base) || base <= 0) return null;
+  const hi = round(base * (1 - minReductPct / 100));
+  const lo = round(base * (1 - maxReductPct / 100));
+  if (hi === lo) return `${lo} units`;
+  return `${lo}–${hi} units`;
+}
+function dosePct(base, reductPct) {
+  if (!base || isNaN(base) || base <= 0) return null;
+  return `${round(base * (1 - reductPct / 100))} units`;
+}
+function pctOrUnits(base, lo, hi, pctLo, pctHi) {
+  // Returns formatted string: "X–Y units (reduced from Z units)" or "reduce by X–Y%"
+  const r = doseRange(base, pctLo, pctHi);
+  if (r) return `${r} <span style="color:#999">(reduced from your usual ${base} units)</span>`;
+  return `reduce by ${pctLo}–${pctHi}% from your usual dose`;
+}
+function halfDose(base) {
+  if (!base || isNaN(base) || base <= 0) return null;
+  return `${round(base * 0.5)} units`;
+}
+function drugDisplayName(drug) {
+  return `${drug.name} (${drug.brand})`;
+}
+function getDrugById(id) {
+  for (const cls of Object.values(DRUG_DB)) {
+    const found = cls.drugs.find(d => d.id === id);
+    if (found) return found;
+  }
+  return null;
+}
+function getSelectedDrugsByClass(selected, classKey) {
+  return DRUG_DB[classKey].drugs.filter(d => selected.has(d.id));
+}
+function hasMedClass(selected, classKey) {
+  return DRUG_DB[classKey].drugs.some(d => selected.has(d.id));
+}
+function hasAnyInsulin(selected) {
+  return ['basalInsulin','bolusInsulin','premixedInsulin','insulinU500','pump']
+    .some(k => hasMedClass(selected, k));
+}
+function hasAnyGLP1(selected) {
+  return hasMedClass(selected, 'glp1') || hasMedClass(selected, 'tirzepatide');
+}
+function hasAnySGLT2i(selected) {
+  return hasMedClass(selected, 'sglt2i');
+}
+function hasMetformin(selected) {
+  // direct metformin or combo containing metformin
+  if (hasMedClass(selected, 'metformin')) return true;
+  for (const cls of ['sglt2i','dpp4i','tzd']) {
+    if (DRUG_DB[cls].drugs.some(d => selected.has(d.id) && d.combo && d.combo.includes('metformin'))) return true;
+  }
+  return false;
+}
+function needsDetails(selected) {
+  return hasAnySGLT2i(selected) || hasAnyGLP1(selected) || hasMetformin(selected) || hasAnyInsulin(selected);
+}
+// ================================================================
+// ALGORITHM FUNCTIONS
+// ================================================================
+function getSGLT2iResults(ctx, details, selected) {
+  const drugs = getSelectedDrugsByClass(selected, 'sglt2i');
+  if (!drugs.length) return null;
+  const mode = details.sglt2iMode || 'FDA';
+  const sType = ctx.surgeryType;
+  const dmType = ctx.dmType;
+  const hasHF = ctx.hasHF;
+  const hasCKD = ctx.hasCKD;
+  const a1c = details.a1cOver8; // true, false, null
+  const flags = [];
+  let badge = 'HOLD';
+  let badgeType = 'hold';
+  let holdText = [];
+  let continueText = '';
+  let monitoring = '';
+  let resumption = '';
+  let comboFlag = null;
+  let nightBefore = null;
+  let morningOf = '';
+  let patientNightBefore = null;
+  let patientMorning = '';
+  // Determine recommendation per drug
+  let decisions = drugs.map(drug => {
+    const hd = drug.holdDays || 3;
+    let rec = 'hold'; // 'hold', 'continue', 'consider', 'hold-bariatric'
+    let holdDays = hd;
+    if (mode === 'FDA') {
+      if (sType === 'minor' || sType === 'colonoscopy') {
+        rec = 'continue';
+      } else if (sType === 'bariatric') {
+        rec = 'hold-bariatric';
+      } else {
+        rec = 'hold';
+      }
+    } else { // SPAQI
+      if (sType === 'bariatric') {
+        rec = 'hold-bariatric';
+      } else if (dmType === 'noDM') {
+        rec = 'continue';
+      } else if (hasHF || hasCKD) {
+        rec = 'continue';
+      } else { // T2DM, no HF/CKD
+        if (sType === 'minor' || sType === 'colonoscopy') {
+          rec = 'continue';
+        } else if (sType === 'majorNoncardiac') {
+          if (a1c === true) rec = 'hold';
+          else if (a1c === false) rec = 'consider';
+          else { rec = 'hold'; flags.push({ type: 'warn', text: 'HbA1c not entered — conservative HOLD applied. Enter HbA1c to enable SPAQI risk stratification.' }); }
+        } else { // cardiac
+          rec = 'hold';
+        }
+      }
+    }
+    return { drug, rec, holdDays };
+  });
+  // Check for combo conflicts
+  drugs.forEach(drug => {
+    if (drug.combo) {
+      const d = decisions.find(x => x.drug.id === drug.id);
+      if (d && d.rec === 'continue') {
+        // SGLT2i continues but combo pill also has metformin/DPP4i which would hold
+        comboFlag = `⚠️ COMBINATION PRODUCT: ${drug.name} (${drug.brand}) contains both ${drug.name} and ${drug.combo.filter(c => c !== 'sglt2i').join(' and ')}. Although the SGLT2 inhibitor component would normally continue in this scenario, the other component(s) should be held on the day of surgery. Since these cannot be separated, HOLD the entire ${drug.brand} pill on the morning of surgery. Discuss with the prescribing physician — they may wish to prescribe the components separately for the perioperative period.`;
+        d.rec = 'combo-continue-hold';
+      }
+    }
+  });
+  // Determine overall badge
+  const allContinue = decisions.every(d => d.rec === 'continue');
+  const allHold = decisions.every(d => d.rec === 'hold' || d.rec === 'hold-bariatric' || d.rec === 'combo-continue-hold');
+  const hasConsider = decisions.some(d => d.rec === 'consider');
+  if (allContinue) {
+    badge = 'CONTINUE'; badgeType = 'continue';
+  } else if (hasConsider && !decisions.some(d => d.rec === 'hold')) {
+    badge = 'CONSIDER CONTINUING'; badgeType = 'consider';
+  } else {
+    badge = 'HOLD'; badgeType = 'hold';
+  }
+  // Generate instruction text
+  decisions.forEach(({ drug, rec, holdDays }) => {
+    const dName = `${drug.name} (${drug.brand})`;
+    if (rec === 'hold') {
+      nightBefore = nightBefore || '';
+      nightBefore += `HOLD ${dName}: stop taking ${holdDays} days before surgery (i.e., your last dose should be ${holdDays} days before your surgery date). `;
+      patientNightBefore = (patientNightBefore || '') + `STOP taking ${dName} ${holdDays} days before your surgery date. Do not take it again until your doctor tells you it is safe to restart. `;
+    } else if (rec === 'hold-bariatric') {
+      nightBefore = nightBefore || '';
+      nightBefore += `HOLD ${dName}: stop at the start of your bariatric preoperative diet (typically 2–4 weeks before surgery, as instructed by your bariatric team). `;
+      patientNightBefore = (patientNightBefore || '') + `STOP taking ${dName} when you begin your preoperative diet as instructed by your bariatric surgical team. `;
+    } else if (rec === 'continue') {
+      continueText += `CONTINUE ${dName} on your usual schedule. `;
+      patientMorning += `Continue taking ${dName} as usual. No changes are needed. `;
+    } else if (rec === 'consider') {
+      badge = 'CONSIDER CONTINUING'; badgeType = 'consider';
+      continueText += `CONSIDER CONTINUING ${dName}: HbA1c ≤8% indicates lower eDKA risk — continuation is reasonable with close monitoring. Discuss with surgical and anesthesia team. `;
+      flags.push({ type: 'info', text: `SPAQI mode: HbA1c ≤8% — eDKA risk is lower. Continuation of ${drug.name} is a supported option for major noncardiac surgery. Enhanced monitoring required if continuing.` });
+      patientMorning += `Regarding ${dName}: your doctor will advise you whether to take this medication before surgery. Please confirm with your surgical team. `;
+    } else if (rec === 'combo-continue-hold') {
+      nightBefore = nightBefore || '';
+      nightBefore += `HOLD ${dName} (combination product): although the SGLT2i component would continue in this scenario, HOLD the entire pill on the day of surgery since the components cannot be separated. See clinician note. `;
+      patientNightBefore = (patientNightBefore || '') + `STOP taking ${dName} on the morning of surgery. `;
+    }
+  });
+  morningOf = badge === 'HOLD' || badge === 'CONSIDER CONTINUING'
+    ? 'Do NOT take on the morning of surgery.'
+    : 'Continue as usual. No dose on morning of surgery is required only if above hold instructions completed.';
+  patientMorning = patientMorning || (badge === 'HOLD' ? 'Do not take this medication on the morning of surgery.' : 'Continue as usual.');
+  // Monitoring
+  if (badge === 'CONTINUE' || badge === 'CONSIDER CONTINUING') {
+    monitoring = `eDKA monitoring required: Check blood ketones every 6 hours for 24 hours postoperatively. Alert threshold: blood ketones >0.6 mmol/L → notify physician immediately. Note: eDKA may present with normal or near-normal blood glucose. Ensure IV access with glucose-containing fluids available if surgery >3 hours. Target intraoperative glucose 140–180 mg/dL.`;
+    if (sType === 'cardiac') monitoring += ' MANDATORY: Check anion gap, serum ketones, and arterial pH postoperatively. Twice-daily labs for first 48h. IV dextrose 5% + insulin infusion protocol.';
+  } else {
+    monitoring = `Educate patient on eDKA symptoms: nausea, vomiting, abdominal pain, shortness of breath, fatigue. Normal blood glucose does NOT exclude eDKA. If patient is undergoing cardiac surgery or had a shortened hold, check blood ketones every 6 hours for 24 hours postoperatively (threshold >0.6 mmol/L).`;
+  }
+  // Resumption
+  resumption = 'Restart when: (1) patient tolerating oral intake; (2) no active ketosis; (3) no perioperative AKI, active infection, or hemodynamic instability.';
+  if (hasHF || hasCKD) resumption += ' For HF or CKD indication: may restart in hospital setting when tolerating oral intake per ADA 2026.';
+  if (sType === 'bariatric') resumption = 'Bariatric surgery: individualized — consult prescribing physician. Typically hold until tolerating regular diet long-term. Confirm with bariatric surgeon.';
+  resumption += ' Verify with surgeon before restarting.';
+  const drugNames = drugs.map(d => `${d.name} (${d.brand})`);
+  const evidenceNote = mode === 'FDA'
+    ? 'Source: ADA Standards of Care 2026; AHA/ACC Perioperative Guideline 2024; SPAQI BJA 2026.'
+    : 'Source: SPAQI Multidisciplinary Consensus (Oprea et al., BJA 2026); 2026 HbA1c-stratified DKA meta-analysis (Diabetes Obes Metab).';
+  if (mode === 'SPAQI' && (hasHF || hasCKD) && badge === 'CONTINUE') {
+    flags.push({ type: 'info', text: `SPAQI mode: Cardiorenal benefits of SGLT2i continuation (31% AKI reduction, MACE reduction) outweigh eDKA risk for patients with HF or CKD. Enhanced monitoring required.` });
+  }
+  return {
+    id: 'sglt2i',
+    drugClass: 'SGLT2 Inhibitors',
+    drugNames,
+    badge,
+    badgeType,
+    clinician: { nightBefore, morningOf, monitoring, resumption, evidence: evidenceNote },
+    patient: { nightBefore: patientNightBefore, morningOf: patientMorning, dietary: null },
+    flags,
+    comboFlag,
+  };
+}
+function getGLP1Results(ctx, details, selected) {
+  const glp1Drugs = getSelectedDrugsByClass(selected, 'glp1');
+  const tDrugs = getSelectedDrugsByClass(selected, 'tirzepatide');
+  const allDrugs = [...glp1Drugs, ...tDrugs];
+  if (!allDrugs.length) return null;
+  const giSymptoms = details.giSymptoms;
+  const arrivalTime = ctx.arrivalTime || '';
+  const flags = [];
+  let badge = 'CONTINUE';
+  let badgeType = 'continue';
+  if (giSymptoms === true) {
+    badge = 'CONSIDER HOLDING';
+    badgeType = 'consider';
+    flags.push({ type: 'warn', text: 'GI symptoms present (nausea, vomiting, dyspepsia, bloating, or constipation). Consider holding medication and notify anesthesia team. Risk of delayed gastric emptying may be elevated. Consider RSI if GA planned. Point-of-care gastric ultrasound may be useful on procedure day if concern persists.' });
+  }
+  if (giSymptoms === null) {
+    flags.push({ type: 'warn', text: 'GI symptom screen not completed. Continue per ABSMC protocol with dietary modification. Screen patient for GI symptoms at preoperative visit.' });
+  }
+  const dietary24h = arrivalTime
+    ? `Start a clear liquid diet 24 hours before your planned arrival time. If your planned arrival time is ${arrivalTime}, begin clear liquids at that same time the day before. Please verify your exact arrival time with your surgeon's office.`
+    : 'Start a clear liquid diet 24 hours before your planned arrival time for surgery. Please verify your exact arrival time with your surgeon\'s office.';
+  const dietaryClinician = `Universal dietary modification required for all GLP-1 RA and tirzepatide patients. Clear liquid diet starting 24 hours before planned arrival time (arrival is typically ~2 hours before surgery; effective window ≈26 hours before surgery start). Continue standard NPO instructions (no solid food after midnight).${arrivalTime ? ` Patient's planned arrival: ${arrivalTime}.` : ''}`;
+  const morningOf = giSymptoms === true
+    ? 'CONSIDER HOLDING per GI symptom screen (see flags). Notify anesthesia team. Continue dietary modification regardless of medication decision.'
+    : 'Continue medication on usual schedule. No dose adjustment required. Clear liquid diet restriction in effect.';
+  const patientMorning = giSymptoms === true
+    ? 'Your doctor may advise you to hold this medication. Please check with your surgical team. Continue the clear liquid diet as instructed.'
+    : 'Continue taking this medication as usual on your regular schedule.';
+  const drugNames = allDrugs.map(d => `${d.name} (${d.brand})`);
+  const resumption = 'Resume when tolerating oral intake postoperatively. No specific postoperative hold period required. If postoperative GI symptoms develop, hold until resolved.';
+  const evidence = 'Source: AGA/ASA/ASMBS/ISCPO/SAGES Multisociety Clinical Practice Guidance, October 2024. ASA Affirmation of Value, May 2024. ADA Standards of Care 2026. ADS/ANZCA/GESA/NACOS 2025 guidelines. Note: ABSMC protocol (continue + 24h liquid diet) is consistent with 2024 multisociety guidance.';
+  return {
+    id: 'glp1',
+    drugClass: 'GLP-1 RA / GIP-GLP-1 Dual Agonist',
+    drugNames,
+    badge,
+    badgeType,
+    clinician: { nightBefore: null, morningOf, monitoring: null, resumption, evidence, dietary: dietaryClinician },
+    patient: { nightBefore: null, morningOf: patientMorning, dietary: dietary24h },
+    flags,
+    comboFlag: null,
+  };
+}
+function getDPP4iResults(ctx, details, selected) {
+  const drugs = getSelectedDrugsByClass(selected, 'dpp4i');
+  // also check combo dpp4i in other classes
+  const comboDPP4i = [...DRUG_DB.sglt2i.drugs, ...DRUG_DB.tzd.drugs]
+    .filter(d => selected.has(d.id) && d.combo && d.combo.includes('dpp4i'));
+  const allDrugs = [...drugs, ...comboDPP4i];
+  if (!allDrugs.length) return null;
+  const sType = ctx.surgeryType;
+  const timing = ctx.surgeryTiming;
+  const flags = [];
+  let badge, badgeType, nightBefore, morningOf, patientNightBefore, patientMorning;
+  const isMinor = sType === 'minor';
+  if (isMinor) {
+    badge = 'CONTINUE'; badgeType = 'continue';
+    morningOf = 'Continue at usual dose. DPP-4 inhibitors carry minimal hypoglycemia risk and continuation is supported for minor procedures.';
+    patientMorning = 'Take this medication as usual.';
+  } else if (timing === 'PM') {
+    badge = 'HOLD MORNING OF SURGERY'; badgeType = 'hold';
+    morningOf = 'HOLD morning of surgery. If patient is eating a light breakfast (per surgeon\'s NPO instructions), may take with breakfast for PM surgery — but default is HOLD.';
+    patientMorning = 'Do NOT take this medication on the morning of surgery.';
+    flags.push({ type: 'info', text: 'PM surgery: If patient is eating a light breakfast per their surgeon\'s instructions, DPP-4 inhibitor may be taken with breakfast given very low hypoglycemia risk. Clinical judgment applies.' });
+  } else {
+    badge = 'HOLD MORNING OF SURGERY'; badgeType = 'hold';
+    morningOf = 'HOLD morning of surgery. Do not administer. Note: AHA/ACC 2024 and SAMBA 2024 consider continuation reasonable given low hypoglycemia risk; ABSMC default is HOLD per ADA 2026.';
+    patientMorning = 'Do NOT take this medication on the morning of surgery.';
+  }
+  const drugNames = allDrugs.map(d => `${d.name} (${d.brand})`);
+  const evidence = 'Source: ADA Standards of Care 2026 (hold). AHA/ACC 2024 and SAMBA Updated Consensus 2024 note continuation reasonable given low hypoglycemia risk. ABSMC default: hold.';
+  const resumption = 'Resume when tolerating oral intake postoperatively. No monitoring required.';
+  return {
+    id: 'dpp4i',
+    drugClass: 'DPP-4 Inhibitors',
+    drugNames,
+    badge,
+    badgeType,
+    clinician: { nightBefore: null, morningOf, monitoring: null, resumption, evidence },
+    patient: { nightBefore: null, morningOf: patientMorning, dietary: null },
+    flags,
+    comboFlag: null,
+  };
+}
+function getMetforminResults(ctx, details, selected) {
+  // Direct metformin
+  const directMet = DRUG_DB.metformin.drugs.filter(d => selected.has(d.id));
+  // Combo metformin
+  const comboMet = [...DRUG_DB.sglt2i.drugs, ...DRUG_DB.dpp4i.drugs, ...DRUG_DB.tzd.drugs]
+    .filter(d => selected.has(d.id) && d.combo && d.combo.includes('metformin'));
+  if (!directMet.length && !comboMet.length) return null;
+  // If all metformin comes via combo products handled in other class results, skip standalone
+  if (!directMet.length) return null; // combo metformin is handled within combo drug card
+  const flags = [];
+  const eGFR = parseFloat(details.eGFR);
+  const contrast = details.contrastWithin48h;
+  let badge, badgeType, morningOf, patientMorning;
+  if (!details.eGFR || isNaN(eGFR)) {
+    flags.push({ type: 'warn', text: 'eGFR not entered. Conservative HOLD applied. Enter eGFR to enable risk-stratified recommendation.' });
+    badge = 'HOLD'; badgeType = 'hold';
+    morningOf = 'HOLD morning of surgery (eGFR not available — conservative default applied).';
+    patientMorning = 'Do NOT take this medication on the morning of surgery.';
+  } else if (eGFR < 45) {
+    badge = 'HOLD'; badgeType = 'hold';
+    flags.push({ type: 'alert', text: `eGFR ${eGFR} mL/min/1.73m² is below 45. Metformin is contraindicated at this renal function level (FDA labeling). HOLD and reassess before restarting.` });
+    morningOf = `HOLD — eGFR ${eGFR} mL/min/1.73m². Metformin contraindicated at this renal function level.`;
+    patientMorning = 'Do NOT take this medication on the morning of surgery. Your kidney function requires that this medication be held.';
+  } else {
+    if (contrast === true) {
+      badge = 'HOLD'; badgeType = 'hold';
+      flags.push({ type: 'alert', text: 'Iodinated contrast within 48h of surgery — HOLD metformin regardless of eGFR. Risk of contrast-induced nephropathy and subsequent metformin-associated lactic acidosis.' });
+      morningOf = `HOLD — iodinated contrast within 48h. Hold even with eGFR ${eGFR}.`;
+      patientMorning = 'Do NOT take this medication. You are receiving contrast dye within 48 hours of surgery.';
+    } else {
+      badge = 'HOLD MORNING OF SURGERY'; badgeType = 'hold';
+      morningOf = `HOLD morning of surgery (eGFR ${eGFR} mL/min/1.73m² — above threshold, but ABSMC default is hold on day of surgery per ADA 2026). Note: AHA/ACC 2024 Class 2a states continuation is reasonable for normal renal function. Clinician may use judgment.`;
+      patientMorning = 'Do NOT take this medication on the morning of surgery.';
+      if (contrast === null) {
+        flags.push({ type: 'warn', text: 'Contrast exposure status not confirmed. If patient is receiving iodinated contrast within 48h of surgery, hold metformin regardless of eGFR.' });
+      }
+    }
+  }
+  const drugNames = directMet.map(d => `${d.name} (${d.brand})`);
+  const evidence = `Source: ADA Standards of Care 2026 (hold on day of surgery). AHA/ACC 2024 — Class 2a: continuation reasonable with normal renal function. Winchester et al., JAMA 2026 — lactic acidosis risk not well-supported by evidence. FDA label: contraindicated eGFR <45.`;
+  const resumption = 'Hold 48 hours postoperatively if any concern about renal function or hemodynamic instability. If contrast used: hold 48h post-contrast, reassess eGFR before restarting. Resume when oral intake established and renal function stable. Verify with surgeon.';
+  return {
+    id: 'metformin',
+    drugClass: 'Metformin',
+    drugNames,
+    badge,
+    badgeType,
+    clinician: { nightBefore: null, morningOf, monitoring: null, resumption, evidence },
+    patient: { nightBefore: null, morningOf: patientMorning, dietary: null },
+    flags,
+    comboFlag: null,
+  };
+}
+function getSulfonylureResults(ctx, details, selected) {
+  const drugs = getSelectedDrugsByClass(selected, 'sulfonylurea');
+  if (!drugs.length) return null;
+  const timing = ctx.surgeryTiming;
+  const flags = [];
+  const nightBeforeAgents = drugs.filter(d => d.holdTiming === 'night-before');
+  const morningAgents = drugs.filter(d => d.holdTiming === 'morning-of');
+  let nightBeforeText = null;
+  let morningText = '';
+  let patientNight = null;
+  let patientMorning = '';
+  if (nightBeforeAgents.length) {
+    const names = nightBeforeAgents.map(d => `${d.name} (${d.brand})`).join('; ');
+    nightBeforeText = `HOLD the EVENING DOSE the night before surgery: ${names}. These long-acting agents have extended duration and holding the evening dose prevents nocturnal or early morning hypoglycemia.`;
+    patientNight = `SKIP your evening dose the night before surgery: ${names}. Do not take it that night.`;
+  }
+  if (morningAgents.length) {
+    const names = morningAgents.map(d => `${d.name} (${d.brand})`).join('; ');
+    morningText += `HOLD morning of surgery: ${names}. `;
+    patientMorning += `Do NOT take ${names} on the morning of surgery. `;
+  }
+  if (nightBeforeAgents.length) {
+    morningText += 'Do not take any evening-hold agents on the morning of surgery either.';
+    patientMorning += 'Do not take any of your evening-held diabetes pills on the morning of surgery.';
+  }
+  if (timing === 'PM' && morningAgents.length) {
+    flags.push({ type: 'warn', text: `PM surgery: ${morningAgents.map(d=>d.name).join(', ')} (short-acting sulfonylurea) — hold on morning of surgery regardless of breakfast. Risk of hypoglycemia if taken while eating less than usual.` });
+  }
+  const drugNames = drugs.map(d => `${d.name} (${d.brand})`);
+  const evidence = 'Source: ADA Standards of Care 2026. SAMBA Updated Consensus 2024. Sulfonylureas carry the highest perioperative hypoglycemia risk among oral antidiabetic agents.';
+  const resumption = 'Resume when tolerating regular meals postoperatively and blood glucose is stable. Not appropriate during hospitalization with variable oral intake. Verify with surgeon.';
+  const monitoring = 'Monitor for hypoglycemia perioperatively. Blood glucose checks on admission and per institutional protocol.';
+  return {
+    id: 'sulfonylurea',
+    drugClass: 'Sulfonylureas',
+    drugNames,
+    badge: 'HOLD',
+    badgeType: 'hold',
+    clinician: { nightBefore: nightBeforeText, morningOf: morningText, monitoring, resumption, evidence },
+    patient: { nightBefore: patientNight, morningOf: patientMorning, dietary: null },
+    flags,
+    comboFlag: null,
+  };
+}
+function getMeglitinideResults(ctx, details, selected) {
+  const drugs = getSelectedDrugsByClass(selected, 'meglitinide');
+  if (!drugs.length) return null;
+  const timing = ctx.surgeryTiming;
+  const drugNames = drugs.map(d => `${d.name} (${d.brand})`);
+  const flags = [];
+  let morningOf, patientMorning;
+  if (timing === 'PM') {
+    morningOf = 'PM surgery: If patient is eating a full breakfast per surgeon\'s NPO instructions, may take usual morning dose with breakfast. HOLD if eating only a light meal or if NPO. Default: HOLD.';
+    patientMorning = 'Do NOT take this medication on the morning of surgery unless your surgeon has specifically told you that you may eat a full breakfast.';
+    flags.push({ type: 'info', text: 'PM surgery: Meglitinides may be taken with a full breakfast given their short half-life (~1h). HOLD if NPO or light breakfast only.' });
+  } else {
+    morningOf = 'HOLD morning of surgery. Patient is NPO — no meal with which to pair dose.';
+    patientMorning = 'Do NOT take this medication on the morning of surgery.';
+  }
+  const evidence = 'Source: ADA Standards of Care 2026. SAMBA Updated Consensus 2024. Short half-life (~1h) means lower hypoglycemia risk than sulfonylureas, but hold while NPO.';
+  const resumption = 'Resume with first full meal postoperatively. No monitoring required for resumption.';
+  return {
+    id: 'meglitinide',
+    drugClass: 'Meglitinides',
+    drugNames,
+    badge: 'HOLD MORNING OF SURGERY',
+    badgeType: 'hold',
+    clinician: { nightBefore: null, morningOf, monitoring: null, resumption, evidence },
+    patient: { nightBefore: null, morningOf: patientMorning, dietary: null },
+    flags,
+    comboFlag: null,
+  };
+}
+function getTZDResults(ctx, details, selected) {
+  const drugs = DRUG_DB.tzd.drugs.filter(d => selected.has(d.id));
+  if (!drugs.length) return null;
+  const hasHF = ctx.hasHF;
+  const flags = [];
+  const drugNames = drugs.map(d => `${d.name} (${d.brand})`);
+  const morningOf = 'HOLD morning of surgery (ABSMC default per ADA 2026). Note: Slow onset/offset — holding one day has minimal glycemic impact. SAMBA 2024, CPOC, and AAGBI guidelines consider continuation reasonable given low hypoglycemia risk and slow offset. ABSMC default: hold.';
+  const patientMorning = 'Do NOT take this medication on the morning of surgery.';
+  if (hasHF) {
+    flags.push({ type: 'alert', text: 'Heart failure present: Thiazolidinediones cause fluid retention and may worsen heart failure. Monitor closely postoperatively. Consult cardiology or endocrinology before restarting. Do not resume if new or worsening edema or fluid overload develops.' });
+  }
+  const evidence = 'Source: ADA Standards of Care 2026. SAMBA 2024. CCJM guideline comparison (2025). Fluid retention risk — caution in HF per prescribing information.';
+  const resumption = 'Resume when tolerating oral intake. Monitor for fluid retention, edema, and worsening HF symptoms. Verify with surgeon.' + (hasHF ? ' Formal cardiology/endocrinology review recommended before restarting in HF patients.' : '');
+  return {
+    id: 'tzd',
+    drugClass: 'Thiazolidinediones (TZDs)',
+    drugNames,
+    badge: 'HOLD MORNING OF SURGERY',
+    badgeType: 'hold',
+    clinician: { nightBefore: null, morningOf, monitoring: null, resumption, evidence },
+    patient: { nightBefore: null, morningOf: patientMorning, dietary: null },
+    flags,
+    comboFlag: null,
+  };
+}
+function getAGIResults(ctx, details, selected) {
+  const drugs = getSelectedDrugsByClass(selected, 'agi');
+  if (!drugs.length) return null;
+  const timing = ctx.surgeryTiming;
+  const drugNames = drugs.map(d => `${d.name} (${d.brand})`);
+  const flags = [];
+  let morningOf, patientMorning;
+  if (timing === 'PM') {
+    morningOf = 'PM surgery: May take with breakfast if patient is eating a carbohydrate-containing breakfast per surgeon\'s instructions. HOLD if NPO or eating protein-only. Default: HOLD.';
+    patientMorning = 'Take this medication with breakfast ONLY if your surgeon has told you that you may eat breakfast AND if your breakfast contains carbohydrates (bread, cereal, fruit, etc.). Otherwise, do NOT take it.';
+  } else {
+    morningOf = 'HOLD — medication requires dietary carbohydrates to work and is functionally ineffective while NPO.';
+    patientMorning = 'Do NOT take this medication on the morning of surgery.';
+  }
+  flags.push({ type: 'info', text: 'IMPORTANT: If patient takes an alpha-glucosidase inhibitor AND another agent that can cause hypoglycemia (e.g., insulin, sulfonylurea), treat hypoglycemia with GLUCOSE TABLETS or IV dextrose — NOT sucrose or complex carbohydrates, which are less effective due to this drug\'s mechanism.' });
+  const evidence = 'Source: ADA Standards of Care 2026. Mechanism requires dietary carbohydrate — irrelevant during NPO.';
+  const resumption = 'Resume with first carbohydrate-containing meal postoperatively.';
+  return {
+    id: 'agi',
+    drugClass: 'Alpha-Glucosidase Inhibitors',
+    drugNames,
+    badge: 'HOLD MORNING OF SURGERY',
+    badgeType: 'hold',
+    clinician: { nightBefore: null, morningOf, monitoring: null, resumption, evidence },
+    patient: { nightBefore: null, morningOf: patientMorning, dietary: null },
+    flags,
+    comboFlag: null,
+  };
+}
+function getBasalInsulinResults(ctx, details, selected) {
+  const drugs = getSelectedDrugsByClass(selected, 'basalInsulin');
+  if (!drugs.length) return null;
+  const dmType = ctx.dmType;
+  const timing = ctx.surgeryTiming;
+  const flags = [];
+  const results = [];
+  if (!dmType) {
+    flags.push({ type: 'warn', text: 'Diabetes type not entered — T1DM-conservative (smaller) dose reductions applied. Verify diabetes type with patient.' });
+  }
+  const isT1 = dmType === 'T1DM' || !dmType;
+  const minReduct = isT1 ? 10 : 20; // min % reduction
+  const maxReduct = isT1 ? 20 : 25; // max % reduction
+  drugs.forEach(drug => {
+    const dd = details.insulinDetails[drug.id] || {};
+    const dosingTime = dd.dosingTime || (drug.needsDosingTime ? null : 'evening');
+    const freq = dd.frequency || (drug.needsFrequency ? null : 'once');
+    const eveningDose = parseFloat(dd.eveningDose);
+    const morningDose = parseFloat(dd.morningDose);
+    let nightBefore = '';
+    let morningOf = '';
+    let patientNight = '';
+    let patientMorning = '';
+    const drugFlags = [...flags];
+    if (drug.concentrated) {
+      drugFlags.push({ type: 'info', text: drug.concentratedNote });
+    }
+    if (drug.isNPH) {
+      // NPH — 50% reduction
+      if (freq === 'once') {
+        const dt = dosingTime || 'evening';
+        const doseStr = isNaN(eveningDose) ? 'reduce by 50%' : `${dosePct(eveningDose, 50)} units (50% of your usual ${eveningDose} units)`;
+        nightBefore = `REDUCE ${drug.name} (${drug.brand}) by 50% the night before surgery: ${doseStr}. NPH has a peak effect that can cause hypoglycemia while fasting.`;
+        morningOf = timing === 'PM'
+          ? `REDUCE morning dose by 50%: ${isNaN(morningDose) ? 'half your usual morning dose' : `${dosePct(morningDose, 50)} units`}. Check blood glucose before administering.`
+          : `Do NOT take a separate morning NPH dose for AM surgery (unless on twice-daily regimen).`;
+        patientNight = `Take HALF of your usual ${drug.brand} dose tonight: ${isNaN(eveningDose) ? 'half your usual dose' : doseStr}.`;
+        patientMorning = timing === 'PM' ? `Take HALF your usual morning ${drug.brand}: ${isNaN(morningDose) ? 'half your usual morning dose' : `${dosePct(morningDose, 50)} units`}.` : 'No separate morning NPH dose needed.';
+      } else {
+        // NPH twice daily
+        const evStr = isNaN(eveningDose) ? 'reduce by 50%' : `${dosePct(eveningDose, 50)} units (half of your usual ${eveningDose} units)`;
+        const amStr = isNaN(morningDose) ? 'reduce by 50%' : `${dosePct(morningDose, 50)} units (half of your usual ${morningDose} units)`;
+        nightBefore = `REDUCE evening ${drug.name} (${drug.brand}) by 50%: ${evStr}.`;
+        morningOf = `REDUCE morning ${drug.name} (${drug.brand}) by 50%: ${amStr}. Check blood glucose on admission.`;
+        patientNight = `Take HALF of your usual evening ${drug.brand}: ${evStr}.`;
+        patientMorning = `Take HALF of your usual morning ${drug.brand}: ${amStr}.`;
+      }
+    } else if (drug.needsFrequency && freq === 'twice') {
+      // Detemir twice daily
+      const evStr = doseRange(eveningDose, minReduct, maxReduct);
+      const amStr = doseRange(morningDose, minReduct, maxReduct);
+      const evLabel = evStr ? `${evStr} (reduced from ${eveningDose} units)` : `reduce by ${minReduct}–${maxReduct}%`;
+      const amLabel = amStr ? `${amStr} (reduced from ${morningDose} units)` : `reduce by ${minReduct}–${maxReduct}%`;
+      nightBefore = `REDUCE evening ${drug.name} (${drug.brand}) by ${minReduct}–${maxReduct}%: ${evLabel}.`;
+      morningOf = `REDUCE morning ${drug.name} (${drug.brand}) by ${minReduct}–${maxReduct}%: ${amLabel}. Check blood glucose on admission.`;
+      patientNight = `Tonight, take a REDUCED dose of ${drug.brand}: ${evLabel}.`;
+      patientMorning = `This morning, take a REDUCED dose of ${drug.brand}: ${amLabel}.`;
+    } else {
+      // Once-daily basal (evening or morning dosing)
+      const dt = dosingTime || 'evening';
+      const dose = dt === 'morning' ? morningDose : eveningDose;
+      const doseLabel = doseRange(dose, minReduct, maxReduct);
+      const doseText = doseLabel ? `${doseLabel} (reduced from your usual ${dose} units)` : `reduce by ${minReduct}–${maxReduct}% from your usual dose`;
+      if (dt === 'evening' || !dt) {
+        nightBefore = `REDUCE ${drug.name} (${drug.brand}) by ${minReduct}–${maxReduct}%: Take ${doseText} tonight at your usual time. Check blood glucose on the morning of surgery.`;
+        morningOf = 'No morning basal dose needed (once-daily evening dosing). Check blood glucose on admission.';
+        patientNight = `Tonight, take a REDUCED dose of ${drug.brand}: ${doseText}.`;
+        patientMorning = 'No morning insulin dose needed for your long-acting insulin. Check your blood sugar when you arrive.';
+      } else {
+        // Morning dosing
+        nightBefore = null;
+        morningOf = `REDUCE ${drug.name} (${drug.brand}) by ${minReduct}–${maxReduct}%: Take ${doseText} this morning at your usual time before leaving for the hospital. Check blood glucose on admission.`;
+        patientNight = null;
+        patientMorning = `Take a REDUCED dose of ${drug.brand} this morning: ${doseText}. Take it at your usual time before leaving for the hospital.`;
+      }
+    }
+    if (!dd.dosingTime && drug.needsDosingTime) {
+      drugFlags.push({ type: 'info', text: `Dosing time not entered for ${drug.name}. Assuming evening dosing. Verify with patient.` });
+    }
+    if (!dd.frequency && drug.needsFrequency) {
+      drugFlags.push({ type: 'info', text: `Frequency not entered for ${drug.name}. Assuming once daily. Verify with patient.` });
+    }
+    results.push({
+      id: `basal-${drug.id}`,
+      drugClass: 'Basal Insulin',
+      drugNames: [`${drug.name} (${drug.brand})`],
+      badge: 'MODIFY DOSE',
+      badgeType: 'modify',
+      clinician: {
+        nightBefore,
+        morningOf,
+        monitoring: `Check blood glucose on admission. Target perioperative glucose 100–180 mg/dL. Do not hold ALL basal insulin in T1DM — dose reduction required but some basal must be maintained.`,
+        resumption: 'Resume usual dose when tolerating oral intake and blood glucose is stable. Verify with prescriber.',
+        evidence: `Source: ADA Standards of Care 2026. UpToDate (December 2025). ${isT1 ? 'T1DM: 10–20% reduction.' : 'T2DM: 20–25% reduction.'} Target perioperative glucose 100–180 mg/dL.`
+      },
+      patient: { nightBefore: patientNight, morningOf: patientMorning, dietary: null },
+      flags: drugFlags,
+      comboFlag: null,
+    });
+  });
+  return results;
+}
+function getBolusInsulinResults(ctx, details, selected) {
+  const drugs = getSelectedDrugsByClass(selected, 'bolusInsulin');
+  if (!drugs.length) return null;
+  const timing = ctx.surgeryTiming;
+  const results = [];
+  drugs.forEach(drug => {
+    const dd = details.insulinDetails[drug.id] || {};
+    const bkfst = parseFloat(dd.breakfastDose);
+    const lunch = parseFloat(dd.lunchDose);
+    const dinner = parseFloat(dd.dinnerDose);
+    const flags = [];
+    const isInhaled = drug.isInhaled;
+    let morningOf, patientMorning, nightBefore = null, patientNight = null;
+    if (timing === 'PM') {
+      // Patient may eat breakfast
+      const bkfstText = !isNaN(bkfst) ? `${bkfst} units (your usual breakfast dose)` : 'your usual breakfast dose';
+      morningOf = `HOLD all lunch and dinner doses while NPO. If patient is eating a full breakfast per surgeon's instructions: MAY TAKE usual breakfast dose (${bkfstText}) with breakfast. HOLD all further prandial doses once NPO.`;
+      patientMorning = !isNaN(bkfst)
+        ? `If you are eating a full breakfast (as told by your surgeon): take your usual breakfast dose of ${drug.brand} (${bkfst} units). Do NOT take any further doses of ${drug.brand} after breakfast, as you will not be eating again before surgery.`
+        : `If you are eating a full breakfast (as told by your surgeon): take your usual breakfast dose of ${drug.brand}. Do NOT take any further doses after breakfast.`;
+      flags.push({ type: 'info', text: `PM surgery: Breakfast-time bolus may be given if patient eating a full meal. Hold all subsequent prandial doses once NPO.` });
+    } else {
+      morningOf = `HOLD morning of surgery. ${drug.name} is a mealtime insulin — do NOT take while NPO. Administering without eating creates high risk of dangerous hypoglycemia.`;
+      patientMorning = `Do NOT take ${drug.brand} (${drug.name}) on the morning of surgery. This is your mealtime insulin and is not safe to take when you are not eating.`;
+    }
+    if (!isNaN(dinner)) {
+      nightBefore = `HOLD evening dinner dose the night before surgery if patient is stopping eating at midnight. If patient eats dinner as usual, take usual dinner dose (${dinner} units) with dinner, then no further doses.`;
+      patientNight = `You may take your usual dinner dose of ${drug.brand} (${dinner} units) WITH dinner. After dinner, do not take any more of this insulin.`;
+    }
+    if (isInhaled) {
+      flags.push({ type: 'info', text: 'Inhaled insulin (Afrezza) is ultra-rapid acting. Treat the same as prandial insulin — hold while NPO.' });
+    }
+    results.push({
+      id: `bolus-${drug.id}`,
+      drugClass: isInhaled ? 'Inhaled Insulin (Rapid-Acting)' : 'Bolus/Prandial Insulin',
+      drugNames: [`${drug.name} (${drug.brand})`],
+      badge: 'HOLD WHILE NPO',
+      badgeType: 'hold',
+      clinician: {
+        nightBefore,
+        morningOf,
+        monitoring: 'Do not administer prandial insulin without food. If blood glucose is >180 mg/dL while NPO, use a correctional insulin protocol per anesthesia/hospitalist team — do not use the patient\'s prandial doses.',
+        resumption: 'Resume with first regular meal postoperatively. Dose as usual per meal size.',
+        evidence: 'Source: ADA Standards of Care 2026. Universal rule: hold all prandial/bolus insulin while NPO. No exceptions.'
+      },
+      patient: { nightBefore: patientNight, morningOf: patientMorning, dietary: null },
+      flags,
+      comboFlag: null,
+    });
+  });
+  return results;
+}
+function getPremixedInsulinResults(ctx, details, selected) {
+  const drugs = getSelectedDrugsByClass(selected, 'premixedInsulin');
+  if (!drugs.length) return null;
+  const dmType = ctx.dmType;
+  const timing = ctx.surgeryTiming;
+  const isT1 = dmType === 'T1DM' || !dmType;
+  const results = [];
+  const baseFlags = [];
+  if (!dmType) {
+    baseFlags.push({ type: 'warn', text: 'Diabetes type not entered — T1DM-conservative dose reductions applied.' });
+  }
+  drugs.forEach(drug => {
+    const dd = details.insulinDetails[drug.id] || {};
+    const evDose = parseFloat(dd.eveningDose);
+    const amDose = parseFloat(dd.morningDose);
+    const flags = [...baseFlags];
+    const minReduct = isT1 ? 10 : 20;
+    const maxReduct = isT1 ? 20 : 25;
+    // Night before: reduce by 20-25% (T2) or 10-20% (T1)
+    const nightEvStr = doseRange(evDose, minReduct, maxReduct);
+    const nightEvLabel = nightEvStr ? `${nightEvStr} (reduced from your usual ${evDose} units)` : `reduce by ${minReduct}–${maxReduct}%`;
+    // Morning of surgery: reduce by 50%, hold if BG <120
+    const amHalfStr = !isNaN(amDose) ? `${dosePct(amDose, 50)} units (50% of usual ${amDose} units)` : '50% of your usual morning dose';
+    const nightBefore = `REDUCE evening ${drug.name} (${drug.brand}) by ${minReduct}–${maxReduct}%: ${nightEvLabel}.`;
+    let morningOf, patientMorning;
+    if (timing === 'PM') {
+      morningOf = `PM surgery: If patient eating full breakfast per surgeon's instructions, may take usual morning dose. If eating only a light breakfast or NPO, REDUCE morning dose by 50%: ${amHalfStr}. HOLD entirely if morning blood glucose <120 mg/dL — check BG before administering.`;
+      patientMorning = `IMPORTANT: Check your blood sugar before taking any insulin. If your blood sugar is below 120 mg/dL, do NOT take any morning insulin — call your surgical team. If eating a full breakfast, take your usual morning dose. If eating lightly or not at all: take only HALF your usual morning dose (${!isNaN(amDose) ? `${dosePct(amDose, 50)} units` : 'half your usual amount'}).`;
+    } else {
+      morningOf = `REDUCE morning dose by 50%: ${amHalfStr}. HOLD entirely if morning blood glucose <120 mg/dL. Check blood glucose before administering.`;
+      patientMorning = `Check your blood sugar first. If below 120 mg/dL, do NOT take any insulin this morning and call your surgical team. If above 120 mg/dL, take HALF your usual morning dose of ${drug.brand}: ${!isNaN(amDose) ? `${dosePct(amDose, 50)} units` : 'half your usual morning amount'}.`;
+    }
+    flags.push({ type: 'info', text: `Premixed insulin (${drug.brand}) contains both short-acting and intermediate-acting components. The short-acting component creates hypoglycemia risk while NPO — hence the 50% morning reduction. When in doubt, err toward holding entirely and managing with correctional insulin as needed.` });
+    results.push({
+      id: `premixed-${drug.id}`,
+      drugClass: 'Premixed Insulin',
+      drugNames: [`${drug.name} (${drug.brand})`],
+      badge: 'MODIFY DOSE',
+      badgeType: 'modify',
+      clinician: {
+        nightBefore,
+        morningOf,
+        monitoring: 'Check blood glucose before morning dose. Target 100–180 mg/dL perioperatively. Hold entirely if BG <120 mg/dL.',
+        resumption: 'Resume usual premixed regimen when tolerating regular meals. Verify with prescriber.',
+        evidence: `Source: ADA Standards of Care 2026. UpToDate (December 2025). JBDS Insulin Table. Evening: reduce ${minReduct}–${maxReduct}%. Morning: reduce 50%; hold if BG <120 mg/dL.`
+      },
+      patient: { nightBefore: `REDUCE your evening ${drug.brand}: ${nightEvLabel}.`, morningOf: patientMorning, dietary: null },
+      flags,
+      comboFlag: null,
+    });
+  });
+  return results;
+}
+function getPumpResult(ctx, details, selected) {
+  if (!hasMedClass(selected, 'pump')) return null;
+  const dmType = ctx.dmType;
+  const timing = ctx.surgeryTiming;
+  const flags = [];
+  if (dmType === 'T1DM') {
+    flags.push({ type: 'alert', text: 'T1DM on insulin pump: NEVER suspend pump for extended periods without an alternative insulin source. If pump is suspended >1 hour during surgery, the anesthesia team must have an IV insulin infusion protocol in place.' });
+  }
+  flags.push({ type: 'info', text: 'Patient and family/caregiver must be instructed on how to suspend and resume the pump. If pump is suspended intraoperatively at anesthesiologist\'s request, IV insulin infusion will be managed by the surgical/anesthesia team. Pump should be resumed postoperatively when patient is alert and able to manage the device.' });
+  const nightBefore = 'Continue pump at current programmed basal rate. No bolus doses unless eating (usual meal rules apply). Check blood glucose at bedtime.';
+  const morningOf = timing === 'PM'
+    ? 'Continue pump at current basal rate. May bolus normally with breakfast (if eating). Once NPO: continue basal rate only — HOLD further bolus doses until eating postoperatively. Anesthesiologist may request pump suspension — patient/team must know how to suspend.'
+    : 'Continue pump at current basal rate. HOLD all bolus doses while NPO. Check blood glucose on arrival. Anesthesiologist may request pump suspension intraoperatively.';
+  const patientNight = 'Continue using your insulin pump as usual overnight. Check your blood sugar before bed.';
+  const patientMorning = timing === 'PM'
+    ? 'Continue wearing your pump. If you are eating breakfast as instructed, you may bolus for your meal as usual. After breakfast and while you are waiting for surgery, do NOT take any more bolus doses.'
+    : 'Continue wearing your pump. Do NOT take any bolus doses this morning — you are not eating before surgery. Your pump will continue delivering your background (basal) insulin. Your anesthesiologist may ask you to pause your pump during surgery — make sure you know how to do this.';
+  return {
+    id: 'pump',
+    drugClass: 'Insulin Pump (CSII)',
+    drugNames: ['Insulin Pump — Continuous Subcutaneous Insulin Infusion'],
+    badge: 'CONTINUE BASAL',
+    badgeType: 'continue',
+    clinician: {
+      nightBefore,
+      morningOf,
+      monitoring: 'Check blood glucose on admission and per institutional protocol. Target 100–180 mg/dL perioperatively. Ensure anesthesia team aware of CSII and has plan for intraoperative management.',
+      resumption: 'Resume pump bolus dosing when patient is alert, able to manage device, and tolerating oral intake. Resume usual settings.',
+      evidence: 'Source: ADA Standards of Care 2026. Continue pump at current basal rate; hold bolus while NPO. Anesthesiologist has discretion to suspend.'
+    },
+    patient: { nightBefore: patientNight, morningOf: patientMorning, dietary: null },
+    flags,
+    comboFlag: null,
+  };
+}
+function getU500Result(selected) {
+  if (!hasMedClass(selected, 'insulinU500')) return null;
+  return {
+    id: 'u500',
+    drugClass: 'Insulin — U-500 (Concentrated)',
+    drugNames: ['Regular U-500 (Humulin R U-500)'],
+    badge: '⚠️ CONSULT REQUIRED',
+    badgeType: 'consult',
+    clinician: {
+      nightBefore: null,
+      morningOf: 'ENDOCRINOLOGY CONSULTATION REQUIRED before surgery. U-500 Regular insulin has a unique PK profile — longer onset and duration than standard regular insulin, behaving more like an intermediate-acting agent. Standard dose-reduction protocols do NOT apply. Do not modify this medication without endocrinology guidance.',
+      monitoring: 'Do not apply standard insulin hold/reduction rules. Management requires endocrinology input.',
+      resumption: 'Per endocrinology guidance.',
+      evidence: 'U-500 Regular is used in severe insulin resistance with very high doses. PK profile is distinct from standard regular insulin. Perioperative management is highly individualized.'
+    },
+    patient: {
+      nightBefore: null,
+      morningOf: 'IMPORTANT: Do not change your U-500 insulin dose without specific instructions from your endocrinologist or prescribing doctor. This insulin requires special management around surgery. Your surgical team will contact your diabetes doctor.',
+      dietary: null,
+    },
+    flags: [{ type: 'alert', text: '⛔ U-500 Regular insulin requires endocrinology consultation before elective surgery. Standard perioperative insulin protocols do not apply. Contact prescribing provider.' }],
+    comboFlag: null,
+  };
+}
+function getAllResults(ctx, details, selected) {
+  const results = [];
+  const addResult = (r) => { if (r) { Array.isArray(r) ? results.push(...r) : results.push(r); } };
+  addResult(getSGLT2iResults(ctx, details, selected));
+  addResult(getGLP1Results(ctx, details, selected));
+  addResult(getDPP4iResults(ctx, details, selected));
+  addResult(getMetforminResults(ctx, details, selected));
+  addResult(getSulfonylureResults(ctx, details, selected));
+  addResult(getMeglitinideResults(ctx, details, selected));
+  addResult(getTZDResults(ctx, details, selected));
+  addResult(getAGIResults(ctx, details, selected));
+  addResult(getBasalInsulinResults(ctx, details, selected));
+  addResult(getBolusInsulinResults(ctx, details, selected));
+  addResult(getPremixedInsulinResults(ctx, details, selected));
+  addResult(getPumpResult(ctx, details, selected));
+  addResult(getU500Result(selected));
+  return results;
+}
+// ================================================================
+// APP CLASS
+// ================================================================
+class PerioperativeDMApp {
+  constructor() {
+    this.step = 'intro';
+    this.outputTab = 'clinician';
+    this.searchQuery = '';
+    this.state = {
+      patient: { firstName: '', lastName: '', dob: '', arrivalTime: '' },
+      context: { dmType: null, surgeryType: null, surgeryTiming: null, hasHF: null, hasCKD: null, arrivalTime: '' },
+      selected: new Set(),
+      details: {
+        sglt2iMode: 'FDA',
+        a1cOver8: null,
+        eGFR: '',
+        contrastWithin48h: null,
+        giSymptoms: null,
+        insulinDetails: {},
+      },
+    };
+    this.render();
+  }
+  setState(step) { this.step = step; this.render(); }
+  setOutputTab(tab) { this.outputTab = tab; this.render(); }
+  updatePatient(key, val) { this.state.patient[key] = val; }
+  updateContext(key, val) { this.state.context[key] = val; this.render(); }
+  updateDetails(key, val) { this.state.details[key] = val; this.render(); }
+  updateInsulinDetail(drugId, key, val) {
+    if (!this.state.details.insulinDetails[drugId]) this.state.details.insulinDetails[drugId] = {};
+    this.state.details.insulinDetails[drugId][key] = val;
+    this.render();
+  }
+  toggleDrug(drugId) {
+    if (this.state.selected.has(drugId)) this.state.selected.delete(drugId);
+    else this.state.selected.add(drugId);
+    this.render();
+  }
+  goBack() {
+    const steps = ['intro','patient','context','medications','details','output'];
+    const idx = steps.indexOf(this.step);
+    if (idx > 0) {
+      let prev = steps[idx - 1];
+      if (prev === 'details' && !needsDetails(this.state.selected)) prev = 'medications';
+      this.setState(prev);
+    }
+  }
+  renderHeader(title, sub, step) {
+    return `
+      <div class="header-banner">
+        <div class="clinic-label">ABSMC Preoperative Clinic · Sutter Health</div>
+        ${step ? `<div class="step-indicator">${step}</div>` : ''}
+        <h1>${title}</h1>
+        ${sub ? `<p>${sub}</p>` : ''}
+      </div>`;
+  }
+  renderBackBtn() {
+    return `<button class="btn-back" onclick="window.app.goBack()">← Back</button>`;
+  }
+  renderIntro() {
+    return `
+      ${this.renderHeader('💊 Perioperative Diabetes Medication Management Tool', 'Evidence-based perioperative instructions for all diabetes medications')}
+      <div class="card">
+        <div class="disclaimer">
+          <strong>⚠️ Clinical Disclaimer:</strong> This tool is a decision-support aid for qualified healthcare professionals only. It does not replace clinical judgment, institutional protocols, or direct patient assessment. All recommendations should be reviewed by the treating clinical team. Users assume full responsibility for clinical decisions made.
+        </div>
+        <p class="helper-text">Generates perioperative hold/continue/modify instructions for SGLT2 inhibitors, GLP-1 receptor agonists, DPP-4 inhibitors, metformin, sulfonylureas, thiazolidinediones, meglitinides, alpha-glucosidase inhibitors, and all insulin types including pumps.</p>
+        <button class="btn-primary" onclick="window.app.setState('patient')">Begin Assessment →</button>
+      </div>`;
+  }
+  renderPatient() {
+    const p = this.state.patient;
+    return `
+      ${this.renderHeader('Patient Information', 'Printed on patient instruction sheet', 'Step 1 of 5')}
+      <div class="card">
+        <div class="field-group">
+          <label class="field-label">First Name</label>
+          <input type="text" value="${p.firstName}" placeholder="First name" oninput="window.app.updatePatient('firstName', this.value)">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Last Name</label>
+          <input type="text" value="${p.lastName}" placeholder="Last name" oninput="window.app.updatePatient('lastName', this.value)">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Date of Birth</label>
+          <input type="text" value="${p.dob}" placeholder="e.g., 01/15/1955" oninput="window.app.updatePatient('dob', this.value)">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Planned Arrival Time <span style="font-size:11px;color:#888;font-weight:400;text-transform:none;">(optional — used in patient instructions)</span></label>
+          <input type="text" value="${p.arrivalTime}" placeholder="e.g., 7:30 AM on Monday June 16, 2026" oninput="window.app.updatePatient('arrivalTime', this.value)">
+        </div>
+        <button class="btn-primary" onclick="window.app.savePatientAndContinue()">Next: Clinical Context →</button>
+      </div>`;
+  }
+  savePatientAndContinue() {
+    this.state.context.arrivalTime = this.state.patient.arrivalTime;
+    this.setState('context');
+  }
+  renderContext() {
+    const ctx = this.state.context;
+    const btn = (label, key, val, currentVal, subtitle='') => {
+      const active = currentVal === val;
+      return `<div class="check-label ${active ? 'selected' : ''}" onclick="window.app.updateContext('${key}','${val}')">
+        <span class="custom-radio"></span>
+        <div><div>${label}</div>${subtitle ? `<div class="check-info">${subtitle}</div>` : ''}</div>
+      </div>`;
+    };
+    const yesno = (key, currentVal) => `
+      <div class="btn-row">
+        <div class="check-label ${currentVal===true?'selected':''}" onclick="window.app.updateContext('${key}',true)">
+          <span class="custom-radio"></span> Yes
+        </div>
+        <div class="check-label ${currentVal===false?'selected':''}" onclick="window.app.updateContext('${key}',false)">
+          <span class="custom-radio"></span> No
+        </div>
+      </div>`;
+    return `
+      ${this.renderHeader('Clinical Context', 'Applies to all selected medications', 'Step 2 of 5')}
+      ${this.renderBackBtn()}
+      <div class="card">
+        <div class="question">Diabetes Type</div>
+        ${btn('Type 1 Diabetes (T1DM)', 'dmType', 'T1DM', ctx.dmType, 'No endogenous insulin — stricter dose reductions')}
+        ${btn('Type 2 Diabetes (T2DM)', 'dmType', 'T2DM', ctx.dmType, 'Retains some endogenous insulin')}
+        ${btn('No diabetes (on medication for HF or obesity)', 'dmType', 'noDM', ctx.dmType, 'SGLT2i for heart failure/CKD; GLP-1 for obesity')}
+      </div>
+      <div class="card">
+        <div class="question">Surgery Type</div>
+        ${btn('Minor procedure / office procedure', 'surgeryType', 'minor', ctx.surgeryType)}
+        ${btn('Colonoscopy / endoscopy', 'surgeryType', 'colonoscopy', ctx.surgeryType)}
+        ${btn('Major noncardiac surgery', 'surgeryType', 'majorNoncardiac', ctx.surgeryType)}
+        ${btn('Cardiac surgery', 'surgeryType', 'cardiac', ctx.surgeryType)}
+        ${btn('Bariatric surgery', 'surgeryType', 'bariatric', ctx.surgeryType, 'Preoperative ketogenic diet — special SGLT2i logic')}
+      </div>
+      <div class="card">
+        <div class="question">Surgery Timing</div>
+        ${btn('AM surgery', 'surgeryTiming', 'AM', ctx.surgeryTiming, 'NPO from midnight — standard')}
+        ${btn('PM surgery', 'surgeryTiming', 'PM', ctx.surgeryTiming, 'Patient may eat a light breakfast per surgeon instructions')}
+      </div>
+      <div class="card">
+        <div class="question">Heart Failure (any stage)?</div>
+        ${yesno('hasHF', ctx.hasHF)}
+      </div>
+      <div class="card">
+        <div class="question">Chronic Kidney Disease (CKD)?</div>
+        ${yesno('hasCKD', ctx.hasCKD)}
+      </div>
+      <button class="btn-primary" onclick="window.app.validateContextAndContinue()">Next: Select Medications →</button>`;
+  }
+  validateContextAndContinue() {
+    const ctx = this.state.context;
+    if (!ctx.dmType || !ctx.surgeryType || !ctx.surgeryTiming || ctx.hasHF === null || ctx.hasCKD === null) {
+      alert('Please complete all clinical context fields before continuing.');
+      return;
+    }
+    this.setState('medications');
+  }
+  renderMedications() {
+    const selected = this.state.selected;
+    const q = this.searchQuery.toLowerCase();
+    const filterDrugs = (drugs) => q
+      ? drugs.filter(d => d.name.toLowerCase().includes(q) || d.brand.toLowerCase().includes(q))
+      : drugs;
+    const drugItem = (drug) => {
+      const isSelected = selected.has(drug.id);
+      return `<div class="check-label drug-indent ${isSelected ? 'selected' : ''}" onclick="window.app.toggleDrug('${drug.id}')">
+        <span class="custom-check">${isSelected ? '✓' : ''}</span>
+        <div>
+          <div>${drug.name}</div>
+          <div class="check-info">${drug.brand}</div>
+        </div>
+      </div>`;
+    };
+    const section = (classKey) => {
+      const cls = DRUG_DB[classKey];
+      const drugs = filterDrugs(cls.drugs);
+      if (!drugs.length) return '';
+      return `<div class="category-header">${cls.icon} ${cls.label}</div>${drugs.map(drugItem).join('')}`;
+    };
+    const allSections = Object.keys(DRUG_DB).map(section).join('');
+    if (!allSections.trim()) {
+      return `${this.renderHeader('Select Medications','','Step 3 of 5')}${this.renderBackBtn()}
+      <div class="card"><p class="no-meds-msg">No medications match "${this.searchQuery}".</p></div>`;
+    }
+    return `
+      ${this.renderHeader('Select Medications', 'Choose all diabetes medications this patient takes', 'Step 3 of 5')}
+      ${this.renderBackBtn()}
+      <div class="card">
+        <div class="search-wrap">
+          <span class="search-icon">🔍</span>
+          <input type="text" placeholder="Search medications..." value="${this.searchQuery}" oninput="window.app.searchQuery=this.value;window.app.render()">
+        </div>
+        ${selected.size > 0 ? `<div class="selected-count">✓ ${selected.size} medication${selected.size > 1 ? 's' : ''} selected</div>` : ''}
+        ${allSections}
+      </div>
+      ${selected.size > 0 ? `<button class="btn-primary" onclick="window.app.goToDetails()">Next: Medication Details →</button>` : ''}`;
+  }
+  goToDetails() {
+    if (this.state.selected.size === 0) { alert('Please select at least one medication.'); return; }
+    if (needsDetails(this.state.selected)) this.setState('details');
+    else this.setState('output');
+  }
+  renderDetails() {
+    const sel = this.state.selected;
+    const details = this.state.details;
+    const ctx = this.state.context;
+    let html = '';
+    // SGLT2i mode
+    if (hasAnySGLT2i(sel)) {
+      html += `
+        <div class="card">
+          <div class="question">SGLT2 Inhibitor Hold Protocol</div>
+          <p class="helper-text">Select which protocol to apply for all selected SGLT2 inhibitors.</p>
+          <div class="toggle-row">
+            <button class="toggle-btn ${details.sglt2iMode === 'FDA' ? 'active' : ''}" onclick="window.app.updateDetails('sglt2iMode','FDA')">FDA/ADA Default</button>
+            <button class="toggle-btn ${details.sglt2iMode === 'SPAQI' ? 'active' : ''}" onclick="window.app.updateDetails('sglt2iMode','SPAQI')">SPAQI Risk-Stratified</button>
+          </div>
+          <div class="evidence-strip">
+            ${details.sglt2iMode === 'FDA'
+              ? '<strong>FDA/ADA Default:</strong> Hold canagliflozin, dapagliflozin, empagliflozin ≥3 days; ertugliflozin ≥4 days before elective surgery. Continue for minor procedures and colonoscopy.'
+              : '<strong>SPAQI (2026):</strong> Risk-stratified approach based on diabetes status, HF/CKD presence, HbA1c, and surgery type. Patients with HF or CKD may continue for cardiorenal protection.'}
+          </div>
+          ${details.sglt2iMode === 'SPAQI' ? `
+            <hr class="divider">
+            <div class="question" style="font-size:14px;">HbA1c >8%? <span style="font-size:12px;font-weight:400;color:#aaa">(Used for major noncardiac surgery risk stratification)</span></div>
+            <div class="btn-row">
+              <div class="check-label ${details.a1cOver8===true?'selected':''}" onclick="window.app.updateDetails('a1cOver8',true)">
+                <span class="custom-radio"></span> Yes (>8%)
+              </div>
+              <div class="check-label ${details.a1cOver8===false?'selected':''}" onclick="window.app.updateDetails('a1cOver8',false)">
+                <span class="custom-radio"></span> No (≤8%)
+              </div>
+              <div class="check-label ${details.a1cOver8===null?'selected':''}" onclick="window.app.updateDetails('a1cOver8',null)">
+                <span class="custom-radio"></span> Not available
+              </div>
+            </div>` : ''}
+        </div>`;
+    }
+    // GLP-1 / Tirzepatide
+    if (hasAnyGLP1(sel)) {
+      const giDrugs = [...DRUG_DB.glp1.drugs, ...DRUG_DB.tirzepatide.drugs].filter(d => sel.has(d.id)).map(d => d.brand).join(', ');
+      html += `
+        <div class="card">
+          <div class="question">GLP-1 RA / Tirzepatide — GI Symptom Screen</div>
+          <p class="helper-text">Selected: ${giDrugs}</p>
+          <div class="question" style="font-size:14px;">Does the patient currently have GI symptoms (nausea, vomiting, dyspepsia, bloating, or constipation) thought to be related to this medication?</div>
+          <div class="btn-row">
+            <div class="check-label ${details.giSymptoms===true?'selected':''}" onclick="window.app.updateDetails('giSymptoms',true)">
+              <span class="custom-radio"></span> Yes
+            </div>
+            <div class="check-label ${details.giSymptoms===false?'selected':''}" onclick="window.app.updateDetails('giSymptoms',false)">
+              <span class="custom-radio"></span> No
+            </div>
+          </div>
+          <div class="evidence-strip">
+            <strong>ABSMC Protocol:</strong> Continue GLP-1 RA unless GI symptoms present. Universal clear liquid diet 24 hours before planned arrival time for all GLP-1 RA and tirzepatide patients. Per 2024 multisociety guidance (AGA/ASA/ASMBS).
+          </div>
+        </div>`;
+    }
+    // Metformin — eGFR + contrast
+    if (hasMetformin(sel)) {
+      html += `
+        <div class="card">
+          <div class="question">Metformin — Renal Function</div>
+          <div class="field-group">
+            <label class="field-label">Most Recent eGFR (mL/min/1.73m²)</label>
+            <input type="number" value="${details.eGFR}" placeholder="e.g., 72" oninput="window.app.updateDetails('eGFR',this.value)" min="0" max="150">
+          </div>
+          <div class="question" style="font-size:14px;margin-top:8px;">Iodinated IV contrast within 48 hours of surgery?</div>
+          <div class="btn-row">
+            <div class="check-label ${details.contrastWithin48h===true?'selected':''}" onclick="window.app.updateDetails('contrastWithin48h',true)">
+              <span class="custom-radio"></span> Yes
+            </div>
+            <div class="check-label ${details.contrastWithin48h===false?'selected':''}" onclick="window.app.updateDetails('contrastWithin48h',false)">
+              <span class="custom-radio"></span> No
+            </div>
+          </div>
+        </div>`;
+    }
+    // Basal insulins
+    const basalDrugs = getSelectedDrugsByClass(sel, 'basalInsulin');
+    basalDrugs.forEach(drug => {
+      const dd = details.insulinDetails[drug.id] || {};
+      html += `
+        <div class="card">
+          <div class="question" style="font-size:15px;">${drug.name} <span style="color:#888;font-size:13px;">(${drug.brand})</span></div>
+          ${drug.concentrated ? `<div class="flag flag-info" style="margin-bottom:12px;">${drug.concentratedNote}</div>` : ''}
+          ${drug.needsFrequency ? `
+            <div class="section-label">Dosing Frequency</div>
+            <div class="btn-row">
+              <div class="check-label ${dd.frequency==='once'?'selected':''}" onclick="window.app.updateInsulinDetail('${drug.id}','frequency','once')">
+                <span class="custom-radio"></span> Once daily
+              </div>
+              <div class="check-label ${dd.frequency==='twice'?'selected':''}" onclick="window.app.updateInsulinDetail('${drug.id}','frequency','twice')">
+                <span class="custom-radio"></span> Twice daily
+              </div>
+            </div>` : ''}
+          ${drug.needsDosingTime ? `
+            <div class="section-label">When does patient take this insulin?</div>
+            <div class="btn-row">
+              <div class="check-label ${dd.dosingTime==='evening'?'selected':''}" onclick="window.app.updateInsulinDetail('${drug.id}','dosingTime','evening')">
+                <span class="custom-radio"></span> Evening / bedtime
+              </div>
+              <div class="check-label ${dd.dosingTime==='morning'?'selected':''}" onclick="window.app.updateInsulinDetail('${drug.id}','dosingTime','morning')">
+                <span class="custom-radio"></span> Morning
+              </div>
+            </div>` : ''}
+          ${(dd.frequency !== 'twice' && !drug.isNPH) || drug.needsDosingTime ? `
+            <div class="section-label">Current ${drug.isNPH ? 'Dose' : (dd.dosingTime === 'morning' ? 'Morning Dose' : 'Evening Dose')}</div>
+            <div class="dose-group">
+              <label>${dd.dosingTime === 'morning' ? 'Morning dose' : 'Evening/bedtime dose'}</label>
+              <input type="number" value="${dd.eveningDose || ''}" placeholder="units" min="0" oninput="window.app.updateInsulinDetail('${drug.id}','eveningDose',this.value)">
+              <span class="units">units</span>
+            </div>` : ''}
+          ${(dd.frequency === 'twice' || (drug.isNPH && !drug.needsFrequency)) ? `
+            <div class="section-label">Evening / Bedtime Dose</div>
+            <div class="dose-group">
+              <label>Evening dose</label>
+              <input type="number" value="${dd.eveningDose || ''}" placeholder="units" min="0" oninput="window.app.updateInsulinDetail('${drug.id}','eveningDose',this.value)">
+              <span class="units">units</span>
+            </div>
+            <div class="section-label">Morning Dose</div>
+            <div class="dose-group">
+              <label>Morning dose</label>
+              <input type="number" value="${dd.morningDose || ''}" placeholder="units" min="0" oninput="window.app.updateInsulinDetail('${drug.id}','morningDose',this.value)">
+              <span class="units">units</span>
+            </div>` : ''}
+        </div>`;
+    });
+    // Bolus insulins
+    const bolusDrugs = getSelectedDrugsByClass(sel, 'bolusInsulin');
+    bolusDrugs.forEach(drug => {
+      const dd = details.insulinDetails[drug.id] || {};
+      html += `
+        <div class="card">
+          <div class="question" style="font-size:15px;">${drug.name} <span style="color:#888;font-size:13px;">(${drug.brand})</span></div>
+          <p class="helper-text">Prandial insulin — will be held while NPO. Enter current doses for patient instructions.</p>
+          <div class="section-label">Breakfast Dose (units)</div>
+          <div class="dose-group">
+            <label>Breakfast</label>
+            <input type="number" value="${dd.breakfastDose || ''}" placeholder="units" min="0" oninput="window.app.updateInsulinDetail('${drug.id}','breakfastDose',this.value)">
+            <span class="units">units</span>
+          </div>
+          <div class="section-label">Lunch Dose (units)</div>
+          <div class="dose-group">
+            <label>Lunch</label>
+            <input type="number" value="${dd.lunchDose || ''}" placeholder="units" min="0" oninput="window.app.updateInsulinDetail('${drug.id}','lunchDose',this.value)">
+            <span class="units">units</span>
+          </div>
+          <div class="section-label">Dinner Dose (units)</div>
+          <div class="dose-group">
+            <label>Dinner</label>
+            <input type="number" value="${dd.dinnerDose || ''}" placeholder="units" min="0" oninput="window.app.updateInsulinDetail('${drug.id}','dinnerDose',this.value)">
+            <span class="units">units</span>
+          </div>
+        </div>`;
+    });
+    // Premixed insulins
+    const premixDrugs = getSelectedDrugsByClass(sel, 'premixedInsulin');
+    premixDrugs.forEach(drug => {
+      const dd = details.insulinDetails[drug.id] || {};
+      html += `
+        <div class="card">
+          <div class="question" style="font-size:15px;">${drug.name} <span style="color:#888;font-size:13px;">(${drug.brand})</span></div>
+          <div class="section-label">Evening / Bedtime Dose</div>
+          <div class="dose-group">
+            <label>Evening dose</label>
+            <input type="number" value="${dd.eveningDose || ''}" placeholder="units" min="0" oninput="window.app.updateInsulinDetail('${drug.id}','eveningDose',this.value)">
+            <span class="units">units</span>
+          </div>
+          <div class="section-label">Morning Dose</div>
+          <div class="dose-group">
+            <label>Morning dose</label>
+            <input type="number" value="${dd.morningDose || ''}" placeholder="units" min="0" oninput="window.app.updateInsulinDetail('${drug.id}','morningDose',this.value)">
+            <span class="units">units</span>
+          </div>
+        </div>`;
+    });
+    return `
+      ${this.renderHeader('Medication Details', 'Required for personalized instructions', 'Step 4 of 5')}
+      ${this.renderBackBtn()}
+      ${html}
+      <button class="btn-primary" onclick="window.app.setState('output')">Generate Instructions →</button>`;
+  }
+  renderOutput() {
+    const results = getAllResults(this.state.context, this.state.details, this.state.selected);
+    const p = this.state.patient;
+    const patientName = [p.firstName, p.lastName].filter(Boolean).join(' ') || 'Patient';
+    return `
+      ${this.renderHeader('💊 Perioperative Medication Instructions', patientName + (p.dob ? ` · DOB: ${p.dob}` : ''), 'Step 5 of 5 — Results')}
+      <div class="no-print">
+        ${this.renderBackBtn()}
+        <div class="tab-bar">
+          <div class="tab ${this.outputTab==='clinician'?'active':''}" onclick="window.app.setOutputTab('clinician')">🩺 Clinician Summary</div>
+          <div class="tab ${this.outputTab==='patient'?'active':''}" onclick="window.app.setOutputTab('patient')">📄 Patient Sheet</div>
+        </div>
+      </div>
+      <div id="clinician-tab" class="tab-content ${this.outputTab==='clinician'?'active':''} no-print">
+        ${results.map(r => this.renderClinicianCard(r)).join('')}
+        <div class="card" style="font-size:12px;color:#888;line-height:1.7;">
+          <div style="font-weight:700;color:#00c8db;margin-bottom:8px;">📋 ABSMC PREOPERATIVE GLYCEMIC GOALS</div>
+          <div>• Perioperative blood glucose target: <strong style="color:#f5f5f5;">100–180 mg/dL</strong></div>
+          <div>• Stricter targets are NOT recommended — increase hypoglycemia without improving outcomes (ADA 2026)</div>
+          <div>• HbA1c alone is NOT a reason to postpone elective surgery (ADA 2026)</div>
+          <div>• CGM may be used as adjunct but NOT sole monitoring modality intraoperatively</div>
+          <div style="margin-top:8px;font-style:italic;">ADA Standards of Care 2026 · ABSMC Preoperative Clinic · Sutter Health</div>
+        </div>
+        <div class="btn-row no-print" style="margin-top:8px;">
+          <button class="btn-primary" onclick="window.app.startOver()">New Assessment</button>
+        </div>
+      </div>
+      <div id="patient-tab" class="tab-content ${this.outputTab==='patient'?'active':''}">
+        ${this.renderPatientSheet(results)}
+        <div class="btn-row no-print" style="margin-top:12px;">
+          <button class="btn-primary" onclick="window.app.printSheet()">🖨️ Print</button>
+          <button class="btn-primary" onclick="window.app.savePDF()">📄 Save as PDF</button>
+        </div>
+        <div class="btn-row no-print" style="margin-top:8px;">
+          <button onclick="window.app.startOver()">New Assessment</button>
+        </div>
+      </div>`;
+  }
+  renderClinicianCard(r) {
+    const badgeHtml = `<span class="badge badge-${r.badgeType}">${r.badge}</span>`;
+    const sectionHtml = (label, text, icon='') => text
+      ? `<div class="result-section">
+          <div class="result-section-label">${icon} ${label}</div>
+          <div class="result-section-text">${text}</div>
+         </div>` : '';
+    const flagsHtml = r.flags.map(f => `<div class="flag flag-${f.type}">${f.text}</div>`).join('');
+    const comboHtml = r.comboFlag ? `<div class="flag flag-warn">${r.comboFlag}</div>` : '';
+    return `
+      <div class="result-card">
+        <div class="result-card-header">
+          ${badgeHtml}
+          <h3>${r.drugClass}</h3>
+          <div class="drug-list">${r.drugNames.join(' · ')}</div>
+        </div>
+        <div class="result-card-body">
+          ${comboHtml}
+          ${flagsHtml}
+          ${sectionHtml('Night Before Surgery', r.clinician.nightBefore, '🌙')}
+          ${sectionHtml('Morning of Surgery', r.clinician.morningOf, '🌅')}
+          ${sectionHtml('Dietary Instructions', r.clinician.dietary, '🥤')}
+          ${sectionHtml('Monitoring', r.clinician.monitoring, '🔬')}
+          ${sectionHtml('Resumption', r.clinician.resumption, '🔄')}
+          ${r.clinician.evidence ? `<div class="evidence-strip"><strong>📚 Evidence:</strong> ${r.clinician.evidence}</div>` : ''}
+        </div>
+      </div>`;
+  }
+  renderPatientSheet(results) {
+    const p = this.state.patient;
+    const patientName = [p.firstName, p.lastName].filter(Boolean).join(' ') || '[Patient Name]';
+    const ctx = this.state.context;
+    const header = `
+      <div class="patient-sheet-header">
+        <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:#00c8db;margin-bottom:8px;">ALTA BATES SUMMIT MEDICAL CENTER · SUTTER HEALTH<br>PREOPERATIVE CLINIC · MEDICATION INSTRUCTIONS</div>
+        <h2>Surgery Preparation Instructions</h2>
+        <div class="patient-meta">
+          ${patientName}${p.dob ? ` · DOB: ${p.dob}` : ''}${p.arrivalTime ? ` · Arrival: ${p.arrivalTime}` : ''}<br>
+          ${ctx.surgeryTiming === 'AM' ? 'AM Surgery' : 'PM Surgery'} · ${ctx.surgeryType ? ctx.surgeryType.replace('majorNoncardiac','Major Noncardiac Surgery').replace('minor','Minor Procedure').replace('colonoscopy','Colonoscopy').replace('cardiac','Cardiac Surgery').replace('bariatric','Bariatric Surgery') : ''}
+        </div>
+      </div>`;
+    const cards = results.map(r => {
+      const sec = (label, text, extra='') => text
+        ? `<div class="patient-section">
+            <div class="patient-section-label">${label}</div>
+            <div class="patient-section-text">${text}</div>
+            ${extra}
+           </div>` : '';
+      const dietaryHtml = r.patient.dietary
+        ? `<div class="patient-dietary">
+            <div class="patient-dietary-label">🥤 Important Dietary Instruction</div>
+            <div class="patient-section-text">${r.patient.dietary}</div>
+           </div>` : '';
+      return `
+        <div class="patient-drug-card">
+          <div class="patient-drug-name">${r.drugClass}: ${r.drugNames.join(', ')}</div>
+          ${sec('The Night Before Surgery', r.patient.nightBefore)}
+          ${sec('The Morning of Surgery', r.patient.morningOf)}
+          ${dietaryHtml}
+        </div>`;
+    }).join('');
+    const footer = `
+      <div class="patient-footer">
+        <div style="margin-bottom:6px;"><strong>Questions?</strong> Call the ABSMC Preoperative Clinic: <strong>(510) 869-8865</strong></div>
+        <div style="margin-bottom:6px;">These instructions apply to your <strong>diabetes medications only</strong>. Continue all other medications as instructed by your surgeon.</div>
+        <div style="margin-bottom:6px;"><strong>Important:</strong> These recommendations were generated based on information available at your preoperative visit. Please verify your arrival time with your surgeon's office, as surgery times can change. Resuming any medications after surgery requires your surgeon's approval.</div>
+        <div style="font-size:11px;color:#888;margin-top:8px;">Alta Bates Summit Medical Center Preoperative Clinic · Sutter Health · Generated ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
+      </div>`;
+    return header + cards + footer;
+  }
+  printSheet() {
+    this.outputTab = 'patient';
+    this.render();
+    setTimeout(() => window.print(), 100);
+  }
+  savePDF() {
+    this.outputTab = 'patient';
+    this.render();
+    setTimeout(() => {
+      alert('In the print dialog that opens, select "Save as PDF" as your destination (or "Print to PDF" on some devices).');
+      window.print();
+    }, 100);
+  }
+  startOver() {
+    this.step = 'intro';
+    this.outputTab = 'clinician';
+    this.searchQuery = '';
+    this.state = {
+      patient: { firstName: '', lastName: '', dob: '', arrivalTime: '' },
+      context: { dmType: null, surgeryType: null, surgeryTiming: null, hasHF: null, hasCKD: null, arrivalTime: '' },
+      selected: new Set(),
+      details: { sglt2iMode: 'FDA', a1cOver8: null, eGFR: '', contrastWithin48h: null, giSymptoms: null, insulinDetails: {} },
+    };
+    this.render();
+  }
+  render() {
+    let html = '';
+    if (this.step === 'intro') html = this.renderIntro();
+    else if (this.step === 'patient') html = this.renderPatient();
+    else if (this.step === 'context') html = this.renderContext();
+    else if (this.step === 'medications') html = this.renderMedications();
+    else if (this.step === 'details') html = this.renderDetails();
+    else if (this.step === 'output') html = this.renderOutput();
+    document.getElementById('app').innerHTML = html;
+  }
+}
+window.app = new PerioperativeDMApp();
+</script>
+</body>
+</html>
