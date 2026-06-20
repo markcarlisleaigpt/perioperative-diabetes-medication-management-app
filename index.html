@@ -446,22 +446,21 @@ function needsDetails(selected) {
 const GUIDELINE_LINKS = [
   ['AGA/ASA/ASMBS/ISCPO/SAGES Multisociety Clinical Practice Guidance', 'https://pmc.ncbi.nlm.nih.gov/articles/PMC11666732/'],
   ['ASA Affirmation of Value', 'https://www.asahq.org/about-asa/newsroom/news-releases/2023/06/american-society-of-anesthesiologists-consensus-based-guidance-on-preoperative'],
-  ['ADA Standards of Care 2026', 'https://professional.diabetes.org/standards-of-care'],
-  ['ADA Standards of Care', 'https://professional.diabetes.org/standards-of-care'],
+  ['ADA Standards of Care 2026', 'https://diabetesjournals.org/care/article/49/Supplement_1/S339/163925/16-Diabetes-Care-in-the-Hospital-Standards-of-Care'],
+  ['ADA Standards of Care', 'https://diabetesjournals.org/care/article/49/Supplement_1/S339/163925/16-Diabetes-Care-in-the-Hospital-Standards-of-Care'],
   ['AHA/ACC Perioperative Guideline 2024', 'https://www.ahajournals.org/doi/10.1161/CIR.0000000000001285'],
   ['AHA/ACC 2024', 'https://www.ahajournals.org/doi/10.1161/CIR.0000000000001285'],
   ['AHA/ACC', 'https://www.ahajournals.org/doi/10.1161/CIR.0000000000001285'],
-  ['SPAQI Multidisciplinary Consensus', 'https://www.spaqi.org/'],
-  ['SPAQI BJA 2026', 'https://www.spaqi.org/'],
-  ['SPAQI', 'https://www.spaqi.org/'],
-  ['SAMBA Updated Consensus 2024', 'https://www.sambahq.org/'],
-  ['SAMBA 2024', 'https://www.sambahq.org/'],
-  ['SAMBA', 'https://www.sambahq.org/'],
+  ['SPAQI Multidisciplinary Consensus', 'https://www.bjanaesthesia.org/article/S0007-0912(26)00144-3/abstract'],
+  ['SPAQI BJA 2026', 'https://www.bjanaesthesia.org/article/S0007-0912(26)00144-3/abstract'],
+  ['SPAQI', 'https://www.bjanaesthesia.org/article/S0007-0912(26)00144-3/abstract'],
+  ['SAMBA Updated Consensus 2024', 'https://journals.lww.com/anesthesia-analgesia/fulltext/2024/09000/society_for_ambulatory_anesthesia_updated.3.aspx'],
+  ['SAMBA 2024', 'https://journals.lww.com/anesthesia-analgesia/fulltext/2024/09000/society_for_ambulatory_anesthesia_updated.3.aspx'],
+  ['SAMBA', 'https://journals.lww.com/anesthesia-analgesia/fulltext/2024/09000/society_for_ambulatory_anesthesia_updated.3.aspx'],
   ['JBDS Insulin Table', 'https://abcd.care/resource/current/jbds-03-management-adults-diabetes-undergoing-surgery-and-elective-procedures'],
   ['JBDS', 'https://abcd.care/resource/current/jbds-03-management-adults-diabetes-undergoing-surgery-and-elective-procedures'],
-  ['UpToDate', 'https://www.uptodate.com'],
-  ['FDA labeling', 'https://www.fda.gov/drugs'],
-  ['FDA label', 'https://www.fda.gov/drugs'],
+  ['FDA labeling', 'https://dailymed.nlm.nih.gov/dailymed/lookup.cfm?setid=59a485b1-8299-5d02-e053-2a91aa0a42e3'],
+  ['FDA label', 'https://dailymed.nlm.nih.gov/dailymed/lookup.cfm?setid=59a485b1-8299-5d02-e053-2a91aa0a42e3'],
 ];
 function escapeRegExp(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 const GUIDELINE_REGEX = new RegExp(GUIDELINE_LINKS.map(g => escapeRegExp(g[0])).join('|'), 'g');
@@ -1297,9 +1296,9 @@ class PerioperativeDMApp {
       <div class="card">
         <div class="question">Surgery Type</div>
         ${btn('Minor procedure / office procedure', 'surgeryType', 'minor', ctx.surgeryType, 'e.g., cataract surgery, skin lesion or biopsy, dental extraction, joint/epidural injection, port placement, simple hand or foot procedure. Usually local or MAC anesthesia, brief, same-day discharge.')}
-        ${btn('Colonoscopy / endoscopy', 'surgeryType', 'colonoscopy', ctx.surgeryType, 'Outpatient GI procedure involving bowel prep and a clear-liquid diet beforehand.')}
+        ${btn('Colonoscopy / endoscopy', 'surgeryType', 'colonoscopy', ctx.surgeryType)}
         ${btn('Major noncardiac surgery', 'surgeryType', 'majorNoncardiac', ctx.surgeryType, 'e.g., joint replacement, hysterectomy, bowel resection, major abdominal/pelvic, spine, or vascular surgery. Usually general anesthesia, longer fasting, often an overnight or multi-day stay.')}
-        ${btn('Cardiac surgery', 'surgeryType', 'cardiac', ctx.surgeryType, 'e.g., coronary bypass (CABG), heart valve repair or replacement. Open-heart surgery.')}
+        ${btn('Cardiac surgery', 'surgeryType', 'cardiac', ctx.surgeryType)}
         ${btn('Bariatric surgery', 'surgeryType', 'bariatric', ctx.surgeryType, 'Preoperative ketogenic diet — special SGLT2i logic')}
       </div>
       <div class="card">
