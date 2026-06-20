@@ -158,6 +158,9 @@ input[type="checkbox"], input[type="radio"] { width:17px; height:17px; cursor:po
   font-size:12px; line-height:1.6; color:#bbb;
 }
 .evidence-strip strong { color:#00c8db; }
+.evidence-link { color:#00d4e8; text-decoration:underline; text-underline-offset:2px; font-weight:600; }
+.evidence-link:hover { color:#5ce8ff; }
+@media print { .evidence-link { color:#005588 !important; } }
 /* ===== FLAGS ===== */
 .flag { border-radius:8px; padding:10px 12px; margin-bottom:8px; font-size:12.5px; line-height:1.6; }
 .flag-warn { background:rgba(220,160,30,.12); border:1px solid rgba(220,160,30,.35); color:#ffd080; }
@@ -433,6 +436,43 @@ function hasMetformin(selected) {
 }
 function needsDetails(selected) {
   return hasAnySGLT2i(selected) || hasAnyGLP1(selected) || hasMetformin(selected) || hasAnyInsulin(selected);
+}
+// ================================================================
+// GUIDELINE CITATION LINKS
+// Maps recognized guideline names in evidence text to their source pages.
+// Order matters: longer/more-specific phrases must come before shorter ones
+// so the regex matches the fullest phrase at each position.
+// ================================================================
+const GUIDELINE_LINKS = [
+  ['AGA/ASA/ASMBS/ISCPO/SAGES Multisociety Clinical Practice Guidance', 'https://pmc.ncbi.nlm.nih.gov/articles/PMC11666732/'],
+  ['ASA Affirmation of Value', 'https://www.asahq.org/about-asa/newsroom/news-releases/2023/06/american-society-of-anesthesiologists-consensus-based-guidance-on-preoperative'],
+  ['ADA Standards of Care 2026', 'https://professional.diabetes.org/standards-of-care'],
+  ['ADA Standards of Care', 'https://professional.diabetes.org/standards-of-care'],
+  ['AHA/ACC Perioperative Guideline 2024', 'https://www.ahajournals.org/doi/10.1161/CIR.0000000000001285'],
+  ['AHA/ACC 2024', 'https://www.ahajournals.org/doi/10.1161/CIR.0000000000001285'],
+  ['AHA/ACC', 'https://www.ahajournals.org/doi/10.1161/CIR.0000000000001285'],
+  ['SPAQI Multidisciplinary Consensus', 'https://www.spaqi.org/'],
+  ['SPAQI BJA 2026', 'https://www.spaqi.org/'],
+  ['SPAQI', 'https://www.spaqi.org/'],
+  ['SAMBA Updated Consensus 2024', 'https://www.sambahq.org/'],
+  ['SAMBA 2024', 'https://www.sambahq.org/'],
+  ['SAMBA', 'https://www.sambahq.org/'],
+  ['JBDS Insulin Table', 'https://abcd.care/resource/current/jbds-03-management-adults-diabetes-undergoing-surgery-and-elective-procedures'],
+  ['JBDS', 'https://abcd.care/resource/current/jbds-03-management-adults-diabetes-undergoing-surgery-and-elective-procedures'],
+  ['UpToDate', 'https://www.uptodate.com'],
+  ['FDA labeling', 'https://www.fda.gov/drugs'],
+  ['FDA label', 'https://www.fda.gov/drugs'],
+];
+function escapeRegExp(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+const GUIDELINE_REGEX = new RegExp(GUIDELINE_LINKS.map(g => escapeRegExp(g[0])).join('|'), 'g');
+const GUIDELINE_URL_MAP = GUIDELINE_LINKS.reduce((m, g) => { m[g[0]] = g[1]; return m; }, {});
+function linkifyGuidelines(text) {
+  if (!text) return text;
+  return text.replace(GUIDELINE_REGEX, (match) => {
+    const url = GUIDELINE_URL_MAP[match];
+    if (!url) return match;
+    return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="evidence-link">${match}</a>`;
+  });
 }
 // ================================================================
 // ALGORITHM FUNCTIONS
@@ -1150,10 +1190,17 @@ class PerioperativeDMApp {
   updatePatient(key, val) { this.state.patient[key] = val; }
   updateContext(key, val) { this.state.context[key] = val; this.render(); }
   updateDetails(key, val) { this.state.details[key] = val; this.render(); }
+  // No-render variants: used by free-text/number inputs so typing does not rebuild
+  // the DOM mid-keystroke (which previously dropped focus and forced a re-tap per digit).
+  updateDetailsNoRender(key, val) { this.state.details[key] = val; }
   updateInsulinDetail(drugId, key, val) {
     if (!this.state.details.insulinDetails[drugId]) this.state.details.insulinDetails[drugId] = {};
     this.state.details.insulinDetails[drugId][key] = val;
     this.render();
+  }
+  updateInsulinDetailNoRender(drugId, key, val) {
+    if (!this.state.details.insulinDetails[drugId]) this.state.details.insulinDetails[drugId] = {};
+    this.state.details.insulinDetails[drugId][key] = val;
   }
   toggleDrug(drugId) {
     if (this.state.selected.has(drugId)) this.state.selected.delete(drugId);
@@ -1249,10 +1296,10 @@ class PerioperativeDMApp {
       </div>
       <div class="card">
         <div class="question">Surgery Type</div>
-        ${btn('Minor procedure / office procedure', 'surgeryType', 'minor', ctx.surgeryType)}
-        ${btn('Colonoscopy / endoscopy', 'surgeryType', 'colonoscopy', ctx.surgeryType)}
-        ${btn('Major noncardiac surgery', 'surgeryType', 'majorNoncardiac', ctx.surgeryType)}
-        ${btn('Cardiac surgery', 'surgeryType', 'cardiac', ctx.surgeryType)}
+        ${btn('Minor procedure / office procedure', 'surgeryType', 'minor', ctx.surgeryType, 'e.g., cataract surgery, skin lesion or biopsy, dental extraction, joint/epidural injection, port placement, simple hand or foot procedure. Usually local or MAC anesthesia, brief, same-day discharge.')}
+        ${btn('Colonoscopy / endoscopy', 'surgeryType', 'colonoscopy', ctx.surgeryType, 'Outpatient GI procedure involving bowel prep and a clear-liquid diet beforehand.')}
+        ${btn('Major noncardiac surgery', 'surgeryType', 'majorNoncardiac', ctx.surgeryType, 'e.g., joint replacement, hysterectomy, bowel resection, major abdominal/pelvic, spine, or vascular surgery. Usually general anesthesia, longer fasting, often an overnight or multi-day stay.')}
+        ${btn('Cardiac surgery', 'surgeryType', 'cardiac', ctx.surgeryType, 'e.g., coronary bypass (CABG), heart valve repair or replacement. Open-heart surgery.')}
         ${btn('Bariatric surgery', 'surgeryType', 'bariatric', ctx.surgeryType, 'Preoperative ketogenic diet — special SGLT2i logic')}
       </div>
       <div class="card">
@@ -1387,7 +1434,7 @@ class PerioperativeDMApp {
           <div class="question">Metformin — Renal Function</div>
           <div class="field-group">
             <label class="field-label">Most Recent eGFR (mL/min/1.73m²)</label>
-            <input type="number" value="${details.eGFR}" placeholder="e.g., 72" oninput="window.app.updateDetails('eGFR',this.value)" min="0" max="150">
+            <input type="number" value="${details.eGFR}" placeholder="e.g., 72" oninput="window.app.updateDetailsNoRender('eGFR',this.value)" min="0" max="150">
           </div>
           <div class="question" style="font-size:14px;margin-top:8px;">Iodinated IV contrast within 48 hours of surgery?</div>
           <div class="btn-row">
@@ -1432,20 +1479,20 @@ class PerioperativeDMApp {
             <div class="section-label">Current ${drug.isNPH ? 'Dose' : (dd.dosingTime === 'morning' ? 'Morning Dose' : 'Evening Dose')}</div>
             <div class="dose-group">
               <label>${dd.dosingTime === 'morning' ? 'Morning dose' : 'Evening/bedtime dose'}</label>
-              <input type="number" value="${dd.eveningDose || ''}" placeholder="units" min="0" oninput="window.app.updateInsulinDetail('${drug.id}','eveningDose',this.value)">
+              <input type="number" value="${dd.eveningDose || ''}" placeholder="units" min="0" oninput="window.app.updateInsulinDetailNoRender('${drug.id}','eveningDose',this.value)">
               <span class="units">units</span>
             </div>` : ''}
           ${(dd.frequency === 'twice' || (drug.isNPH && !drug.needsFrequency)) ? `
             <div class="section-label">Evening / Bedtime Dose</div>
             <div class="dose-group">
               <label>Evening dose</label>
-              <input type="number" value="${dd.eveningDose || ''}" placeholder="units" min="0" oninput="window.app.updateInsulinDetail('${drug.id}','eveningDose',this.value)">
+              <input type="number" value="${dd.eveningDose || ''}" placeholder="units" min="0" oninput="window.app.updateInsulinDetailNoRender('${drug.id}','eveningDose',this.value)">
               <span class="units">units</span>
             </div>
             <div class="section-label">Morning Dose</div>
             <div class="dose-group">
               <label>Morning dose</label>
-              <input type="number" value="${dd.morningDose || ''}" placeholder="units" min="0" oninput="window.app.updateInsulinDetail('${drug.id}','morningDose',this.value)">
+              <input type="number" value="${dd.morningDose || ''}" placeholder="units" min="0" oninput="window.app.updateInsulinDetailNoRender('${drug.id}','morningDose',this.value)">
               <span class="units">units</span>
             </div>` : ''}
         </div>`;
@@ -1461,19 +1508,19 @@ class PerioperativeDMApp {
           <div class="section-label">Breakfast Dose (units)</div>
           <div class="dose-group">
             <label>Breakfast</label>
-            <input type="number" value="${dd.breakfastDose || ''}" placeholder="units" min="0" oninput="window.app.updateInsulinDetail('${drug.id}','breakfastDose',this.value)">
+            <input type="number" value="${dd.breakfastDose || ''}" placeholder="units" min="0" oninput="window.app.updateInsulinDetailNoRender('${drug.id}','breakfastDose',this.value)">
             <span class="units">units</span>
           </div>
           <div class="section-label">Lunch Dose (units)</div>
           <div class="dose-group">
             <label>Lunch</label>
-            <input type="number" value="${dd.lunchDose || ''}" placeholder="units" min="0" oninput="window.app.updateInsulinDetail('${drug.id}','lunchDose',this.value)">
+            <input type="number" value="${dd.lunchDose || ''}" placeholder="units" min="0" oninput="window.app.updateInsulinDetailNoRender('${drug.id}','lunchDose',this.value)">
             <span class="units">units</span>
           </div>
           <div class="section-label">Dinner Dose (units)</div>
           <div class="dose-group">
             <label>Dinner</label>
-            <input type="number" value="${dd.dinnerDose || ''}" placeholder="units" min="0" oninput="window.app.updateInsulinDetail('${drug.id}','dinnerDose',this.value)">
+            <input type="number" value="${dd.dinnerDose || ''}" placeholder="units" min="0" oninput="window.app.updateInsulinDetailNoRender('${drug.id}','dinnerDose',this.value)">
             <span class="units">units</span>
           </div>
         </div>`;
@@ -1488,13 +1535,13 @@ class PerioperativeDMApp {
           <div class="section-label">Evening / Bedtime Dose</div>
           <div class="dose-group">
             <label>Evening dose</label>
-            <input type="number" value="${dd.eveningDose || ''}" placeholder="units" min="0" oninput="window.app.updateInsulinDetail('${drug.id}','eveningDose',this.value)">
+            <input type="number" value="${dd.eveningDose || ''}" placeholder="units" min="0" oninput="window.app.updateInsulinDetailNoRender('${drug.id}','eveningDose',this.value)">
             <span class="units">units</span>
           </div>
           <div class="section-label">Morning Dose</div>
           <div class="dose-group">
             <label>Morning dose</label>
-            <input type="number" value="${dd.morningDose || ''}" placeholder="units" min="0" oninput="window.app.updateInsulinDetail('${drug.id}','morningDose',this.value)">
+            <input type="number" value="${dd.morningDose || ''}" placeholder="units" min="0" oninput="window.app.updateInsulinDetailNoRender('${drug.id}','morningDose',this.value)">
             <span class="units">units</span>
           </div>
         </div>`;
@@ -1567,7 +1614,7 @@ class PerioperativeDMApp {
           ${sectionHtml('Dietary Instructions', r.clinician.dietary, '🥤')}
           ${sectionHtml('Monitoring', r.clinician.monitoring, '🔬')}
           ${sectionHtml('Resumption', r.clinician.resumption, '🔄')}
-          ${r.clinician.evidence ? `<div class="evidence-strip"><strong>📚 Evidence:</strong> ${r.clinician.evidence}</div>` : ''}
+          ${r.clinician.evidence ? `<div class="evidence-strip"><strong>📚 Evidence:</strong> ${linkifyGuidelines(r.clinician.evidence)}</div>` : ''}
         </div>
       </div>`;
   }
