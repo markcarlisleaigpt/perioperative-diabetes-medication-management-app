@@ -459,6 +459,11 @@ const GUIDELINE_LINKS = [
   ['SAMBA', 'https://journals.lww.com/anesthesia-analgesia/fulltext/2024/09000/society_for_ambulatory_anesthesia_updated.3.aspx'],
   ['JBDS Insulin Table', 'https://abcd.care/resource/current/jbds-03-management-adults-diabetes-undergoing-surgery-and-elective-procedures'],
   ['JBDS', 'https://abcd.care/resource/current/jbds-03-management-adults-diabetes-undergoing-surgery-and-elective-procedures'],
+  ['CCJM guideline comparison', 'https://www.ccjm.org/content/92/7/429'],
+  ['ADS/ANZCA/GESA/NACOS 2025 guidelines', 'https://journals.sagepub.com/doi/10.1177/0310057X251355288'],
+  ['Demma et al., J Clin Anesth 2017', 'https://doi.org/10.1016/j.jclinane.2016.10.003'],
+  ['Perioperative metformin review 2025', 'https://pmc.ncbi.nlm.nih.gov/articles/PMC12933390/'],
+  ['HbA1c-stratified DKA meta-analysis', 'https://dom-pubs.onlinelibrary.wiley.com/doi/10.1111/dom.16635'],
   ['FDA labeling', 'https://dailymed.nlm.nih.gov/dailymed/lookup.cfm?setid=59a485b1-8299-5d02-e053-2a91aa0a42e3'],
   ['FDA label', 'https://dailymed.nlm.nih.gov/dailymed/lookup.cfm?setid=59a485b1-8299-5d02-e053-2a91aa0a42e3'],
 ];
@@ -597,7 +602,7 @@ function getSGLT2iResults(ctx, details, selected) {
   const drugNames = drugs.map(d => `${d.name} (${d.brand})`);
   const evidenceNote = mode === 'FDA'
     ? 'Source: ADA Standards of Care 2026; AHA/ACC Perioperative Guideline 2024; SPAQI BJA 2026.'
-    : 'Source: SPAQI Multidisciplinary Consensus (Oprea et al., BJA 2026); 2026 HbA1c-stratified DKA meta-analysis (Diabetes Obes Metab).';
+    : 'Source: SPAQI Multidisciplinary Consensus (Oprea et al., BJA 2026); 2025 HbA1c-stratified DKA meta-analysis (Lee et al., Diabetes Obes Metab).';
   if (mode === 'SPAQI' && (hasHF || hasCKD) && badge === 'CONTINUE') {
     flags.push({ type: 'info', text: `SPAQI mode: Cardiorenal benefits of SGLT2i continuation (31% AKI reduction, MACE reduction) outweigh eDKA risk for patients with HF or CKD. Enhanced monitoring required.` });
   }
@@ -715,11 +720,16 @@ function getMetforminResults(ctx, details, selected) {
     badge = 'HOLD'; badgeType = 'hold';
     morningOf = 'HOLD morning of surgery (eGFR not available — conservative default applied).';
     patientMorning = 'Do NOT take this medication on the morning of surgery.';
+  } else if (eGFR < 30) {
+    badge = 'HOLD'; badgeType = 'hold';
+    flags.push({ type: 'alert', text: `eGFR ${eGFR} mL/min/1.73m² is below 30. Metformin is contraindicated at this renal function level per FDA labeling. HOLD and reassess before restarting.` });
+    morningOf = `HOLD — eGFR ${eGFR} mL/min/1.73m². Metformin is contraindicated below eGFR 30 (FDA labeling).`;
+    patientMorning = 'Do NOT take this medication on the morning of surgery. Your kidney function requires that this medication be held.';
   } else if (eGFR < 45) {
     badge = 'HOLD'; badgeType = 'hold';
-    flags.push({ type: 'alert', text: `eGFR ${eGFR} mL/min/1.73m² is below 45. Metformin is contraindicated at this renal function level (FDA labeling). HOLD and reassess before restarting.` });
-    morningOf = `HOLD — eGFR ${eGFR} mL/min/1.73m². Metformin contraindicated at this renal function level.`;
-    patientMorning = 'Do NOT take this medication on the morning of surgery. Your kidney function requires that this medication be held.';
+    flags.push({ type: 'warn', text: `eGFR ${eGFR} mL/min/1.73m² is between 30 and 45. Per FDA labeling, metformin should not be initiated in this range, and for patients already taking it the benefit/risk of continuing should be assessed. Hold perioperatively and reassess renal function before restarting.` });
+    morningOf = `HOLD morning of surgery — eGFR ${eGFR} mL/min/1.73m². FDA: do not initiate at eGFR 30–45; for ongoing use assess benefit/risk. Hold and reassess before restarting.`;
+    patientMorning = 'Do NOT take this medication on the morning of surgery. Your kidney function is reduced, so it should be held and reviewed before restarting.';
   } else {
     if (contrast === true) {
       badge = 'HOLD'; badgeType = 'hold';
@@ -736,7 +746,7 @@ function getMetforminResults(ctx, details, selected) {
     }
   }
   const drugNames = directMet.map(d => `${d.name} (${d.brand})`);
-  const evidence = `Source: ADA Standards of Care 2026 (hold on day of surgery). AHA/ACC 2024 — Class 2a: continuation reasonable with normal renal function. Winchester et al., JAMA 2026 — lactic acidosis risk not well-supported by evidence. FDA label: contraindicated eGFR <45.`;
+  const evidence = `Source: ADA Standards of Care 2026 (hold on day of surgery). AHA/ACC 2024 — Class 2a: continuation reasonable with normal renal function. Perioperative metformin review 2025 — lactic acidosis risk not well-supported by evidence. FDA labeling: contraindicated below eGFR 30; do not initiate at eGFR 30–45.`;
   const resumption = 'Hold 48 hours postoperatively if any concern about renal function or hemodynamic instability. If contrast used: hold 48h post-contrast, reassess eGFR before restarting. Resume when oral intake established and renal function stable. Verify with surgeon.';
   return {
     id: 'metformin',
@@ -970,7 +980,7 @@ function getBasalInsulinResults(ctx, details, selected) {
         morningOf,
         monitoring: `Check blood glucose on admission. Target perioperative glucose 100–180 mg/dL. Do not hold ALL basal insulin in T1DM — dose reduction required but some basal must be maintained.`,
         resumption: 'Resume usual dose when tolerating oral intake and blood glucose is stable. Verify with prescriber.',
-        evidence: `Source: ADA Standards of Care 2026. UpToDate (December 2025). ${isT1 ? 'T1DM: 10–20% reduction.' : 'T2DM: 20–25% reduction.'} Target perioperative glucose 100–180 mg/dL.`
+        evidence: `Source: ADA Standards of Care 2026. Demma et al., J Clin Anesth 2017. ${isT1 ? 'T1DM: 10–20% reduction.' : 'T2DM: 20–25% reduction.'} Target perioperative glucose 100–180 mg/dL.`
       },
       patient: { nightBefore: patientNight, morningOf: patientMorning, dietary: null },
       flags: drugFlags,
@@ -1075,7 +1085,7 @@ function getPremixedInsulinResults(ctx, details, selected) {
         morningOf,
         monitoring: 'Check blood glucose before morning dose. Target 100–180 mg/dL perioperatively. Hold entirely if BG <120 mg/dL.',
         resumption: 'Resume usual premixed regimen when tolerating regular meals. Verify with prescriber.',
-        evidence: `Source: ADA Standards of Care 2026. UpToDate (December 2025). JBDS Insulin Table. Evening: reduce ${minReduct}–${maxReduct}%. Morning: reduce 50%; hold if BG <120 mg/dL.`
+        evidence: `Source: ADA Standards of Care 2026. Demma et al., J Clin Anesth 2017. JBDS Insulin Table. Evening: reduce ${minReduct}–${maxReduct}%. Morning: reduce 50%; hold if BG <120 mg/dL.`
       },
       patient: { nightBefore: `REDUCE your evening ${drug.brand}: ${nightEvLabel}.`, morningOf: patientMorning, dietary: null },
       flags,
@@ -1299,7 +1309,7 @@ class PerioperativeDMApp {
         ${btn('Colonoscopy / endoscopy', 'surgeryType', 'colonoscopy', ctx.surgeryType)}
         ${btn('Major noncardiac surgery', 'surgeryType', 'majorNoncardiac', ctx.surgeryType, 'e.g., joint replacement, hysterectomy, bowel resection, major abdominal/pelvic, spine, or vascular surgery. Usually general anesthesia, longer fasting, often an overnight or multi-day stay.')}
         ${btn('Cardiac surgery', 'surgeryType', 'cardiac', ctx.surgeryType)}
-        ${btn('Bariatric surgery', 'surgeryType', 'bariatric', ctx.surgeryType, 'Preoperative ketogenic diet — special SGLT2i logic')}
+        ${btn('Bariatric surgery', 'surgeryType', 'bariatric', ctx.surgeryType)}
       </div>
       <div class="card">
         <div class="question">Surgery Timing</div>
