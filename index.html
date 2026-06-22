@@ -330,11 +330,11 @@ const DRUG_DB = {
     label: 'Insulin — Basal (Long-Acting)',
     icon: '💊',
     drugs: [
-      { id: 'glargine-u100', name: 'Glargine U-100', brand: 'Lantus / Basaglar / Semglee / Rezvoglar', needsDosingTime: true },
-      { id: 'glargine-u300', name: 'Glargine U-300', brand: 'Toujeo', needsDosingTime: true, concentrated: true, concentratedNote: 'Extended duration >36h — morning of dose reductions persist longer than standard glargine.' },
+      { id: 'glargine-u100', name: 'Glargine U-100', brand: 'Lantus / Basaglar / Semglee / Rezvoglar', needsDosingTime: true, needsFrequency: true },
+      { id: 'glargine-u300', name: 'Glargine U-300', brand: 'Toujeo', needsDosingTime: true, needsFrequency: true, concentrated: true, concentratedNote: 'Extended duration >36h — morning of dose reductions persist longer than standard glargine.' },
       { id: 'detemir', name: 'Detemir', brand: 'Levemir', needsFrequency: true },
-      { id: 'degludec-u100', name: 'Degludec U-100', brand: 'Tresiba', needsDosingTime: true },
-      { id: 'degludec-u200', name: 'Degludec U-200', brand: 'Tresiba FlexTouch', needsDosingTime: true, concentrated: true, concentratedNote: 'Same units as U-100 degludec; effective duration ~42h.' },
+      { id: 'degludec-u100', name: 'Degludec U-100', brand: 'Tresiba', needsDosingTime: true, needsFrequency: true },
+      { id: 'degludec-u200', name: 'Degludec U-200', brand: 'Tresiba FlexTouch', needsDosingTime: true, needsFrequency: true, concentrated: true, concentratedNote: 'Same units as U-100 degludec; effective duration ~42h.' },
       { id: 'nph', name: 'NPH Insulin', brand: 'Humulin N / Novolin N', isNPH: true, needsFrequency: true },
     ]
   },
@@ -515,23 +515,23 @@ function getSGLT2iResults(ctx, details, selected) {
       } else {
         rec = 'hold';
       }
-    } else { // SPAQI
-      if (sType === 'bariatric') {
-        rec = 'hold-bariatric';
-      } else if (dmType === 'noDM') {
+    } else { // SPAQI — risk-stratified, "hold by default" transform.
+      // Continued WITHOUT monitoring only for minor/endoscopy (any patient) and
+      // major noncardiac in a non-diabetic without anticipated prolonged fasting.
+      // Everything else holds; where the chart attaches eDKA monitoring to
+      // continuation, the app holds by default and surfaces a "may continue
+      // with monitoring" note.
+      if (dmType === 'T1DM') {
+        rec = 'hold'; // off-label, high eDKA risk — hold for all surgery types
+      } else if (sType === 'minor' || sType === 'colonoscopy') {
         rec = 'continue';
-      } else if (hasHF || hasCKD) {
-        rec = 'continue';
-      } else { // T2DM, no HF/CKD
-        if (sType === 'minor' || sType === 'colonoscopy') {
-          rec = 'continue';
-        } else if (sType === 'majorNoncardiac') {
-          if (a1c === true) rec = 'hold';
-          else if (a1c === false) rec = 'consider';
-          else { rec = 'hold'; flags.push({ type: 'warn', text: 'HbA1c not entered — conservative HOLD applied. Enter HbA1c to enable SPAQI risk stratification.' }); }
-        } else { // cardiac
-          rec = 'hold';
-        }
+      } else if (sType === 'bariatric') {
+        // T2DM: stop at start of very-low-carb diet; non-DM: stop 3–4 days before.
+        rec = (dmType === 'T2DM') ? 'hold-bariatric' : 'hold';
+      } else if (dmType === 'noDM' && sType === 'majorNoncardiac') {
+        rec = (details.prolongedFasting === true) ? 'hold' : 'continue';
+      } else {
+        rec = 'hold'; // T2DM major noncardiac/cardiac, noDM cardiac
       }
     }
     return { drug, rec, holdDays };
@@ -557,6 +557,31 @@ function getSGLT2iResults(ctx, details, selected) {
     badge = 'CONSIDER CONTINUING'; badgeType = 'consider';
   } else {
     badge = 'HOLD'; badgeType = 'hold';
+  }
+  // Scenario-level continuation note (SPAQI only). Surfaces "may continue with
+  // monitoring" exactly where the SPAQI chart permits continuation, per spec.
+  if (mode === 'SPAQI') {
+    let note = null;
+    if (dmType === 'T1DM') {
+      note = 'Type 1 diabetes: SGLT2 inhibitors are off-label and carry a markedly higher euglycemic-DKA risk, so they are held for all surgery types. Never rely on glucose alone. If continued for a specific indication, eDKA monitoring is mandatory.';
+    } else if (sType === 'minor' || sType === 'colonoscopy') {
+      if (dmType === 'T2DM' && a1c === true) {
+        note = 'HbA1c >8%: consider eDKA testing if the patient is symptomatic, or with prolonged NPO (>12 h), very-low carbohydrate intake (<50 g/day), or prior insulin use/DKA.';
+      }
+    } else if (sType === 'bariatric') {
+      note = null; // hold; no continuation permitted
+    } else if (dmType === 'noDM' && sType === 'majorNoncardiac') {
+      if (details.prolongedFasting === true) {
+        note = 'Held because prolonged postoperative fasting is anticipated. In a patient without diabetes and no anticipated prolonged fasting, SGLT2i may be continued without routine monitoring.';
+      }
+    } else if (sType === 'cardiac') {
+      note = (dmType === 'T2DM')
+        ? 'May be continued if HF or CKD (cardiorenal benefit). For cardiac surgery, eDKA monitoring is recommended irrespective of hold or continue. Held by default as the more practical option.'
+        : 'May be continued. For cardiac surgery, eDKA monitoring is recommended irrespective of hold or continue. Held by default as the more practical option.';
+    } else if (dmType === 'T2DM' && sType === 'majorNoncardiac') {
+      note = 'May be continued — especially with HF or CKD (cardiorenal benefit) — with eDKA monitoring if surgery exceeds 3 hours. Held by default as the more practical option.';
+    }
+    if (note) flags.push({ type: 'info', text: note });
   }
   // Generate instruction text
   decisions.forEach(({ drug, rec, holdDays }) => {
@@ -588,7 +613,19 @@ function getSGLT2iResults(ctx, details, selected) {
     : 'Continue as usual. No dose on morning of surgery is required only if above hold instructions completed.';
   patientMorning = patientMorning || (badge === 'HOLD' ? 'Do not take this medication on the morning of surgery.' : 'Continue as usual.');
   // Monitoring
-  if (badge === 'CONTINUE' || badge === 'CONSIDER CONTINUING') {
+  if (mode === 'SPAQI') {
+    // Hold-by-default: no routine monitoring when held or continued for a
+    // low-risk case; describe the eDKA monitoring that applies IF the drug is
+    // continued in the cardiac and T2DM-major scenarios.
+    monitoring = `No routine eDKA monitoring is required when the drug is held, or continued in a low-risk case (minor/endoscopy, or major noncardiac in a non-diabetic without prolonged fasting); test blood ketones (beta-hydroxybutyrate) only if symptomatic. eDKA can occur with normal or near-normal glucose — educate the patient on symptoms: nausea, vomiting, abdominal pain, shortness of breath, fatigue.`;
+    if (sType === 'cardiac') {
+      monitoring += ' For cardiac surgery, eDKA monitoring is recommended irrespective of hold or continue: check serum ketones, anion gap, and venous/arterial pH (a normal anion gap excludes eDKA). Monitor on the day of surgery and postoperatively until normal oral intake. Consider prophylactic D5 50–100 mL/h plus insulin; target glucose 140–180 mg/dL.';
+    } else if (dmType === 'T2DM' && sType === 'majorNoncardiac') {
+      monitoring += (details.surgeryOver3h === true)
+        ? ' This surgery is anticipated to exceed 3 hours: if the drug is continued, monitor for eDKA — check serum ketones, anion gap, and pH, and continue postoperatively until normal oral intake; target glucose 140–180 mg/dL.'
+        : ' If the drug is continued and surgery exceeds 3 hours, monitor for eDKA — check serum ketones, anion gap, and pH; target glucose 140–180 mg/dL.';
+    }
+  } else if (badge === 'CONTINUE' || badge === 'CONSIDER CONTINUING') {
     monitoring = `eDKA monitoring required: Check blood ketones every 6 hours for 24 hours postoperatively. Alert threshold: blood ketones >0.6 mmol/L → notify physician immediately. Note: eDKA may present with normal or near-normal blood glucose. Ensure IV access with glucose-containing fluids available if surgery >3 hours. Target intraoperative glucose 140–180 mg/dL.`;
     if (sType === 'cardiac') monitoring += ' MANDATORY: Check anion gap, serum ketones, and arterial pH postoperatively. Twice-daily labs for first 48h. IV dextrose 5% + insulin infusion protocol.';
   } else {
@@ -603,9 +640,6 @@ function getSGLT2iResults(ctx, details, selected) {
   const evidenceNote = mode === 'FDA'
     ? 'Source: ADA Standards of Care 2026; AHA/ACC Perioperative Guideline 2024; SPAQI BJA 2026.'
     : 'Source: SPAQI Multidisciplinary Consensus (Oprea et al., BJA 2026); 2025 HbA1c-stratified DKA meta-analysis (Lee et al., Diabetes Obes Metab).';
-  if (mode === 'SPAQI' && (hasHF || hasCKD) && badge === 'CONTINUE') {
-    flags.push({ type: 'info', text: `SPAQI mode: Cardiorenal benefits of SGLT2i continuation (31% AKI reduction, MACE reduction) outweigh eDKA risk for patients with HF or CKD. Enhanced monitoring required.` });
-  }
   return {
     id: 'sglt2i',
     drugClass: 'SGLT2 Inhibitors',
@@ -898,8 +932,12 @@ function getBasalInsulinResults(ctx, details, selected) {
     flags.push({ type: 'warn', text: 'Diabetes type not entered — T1DM-conservative (smaller) dose reductions applied. Verify diabetes type with patient.' });
   }
   const isT1 = dmType === 'T1DM' || !dmType;
-  const minReduct = isT1 ? 10 : 20; // min % reduction
+  // ADA 2026: basal analogs to 75–80% of dose. T1D default is the conservative
+  // end (20% reduction → 80%, never more); T2D 20–25%. NPH handled separately at 50%.
+  const minReduct = 20; // min % reduction
   const maxReduct = isT1 ? 20 : 25; // max % reduction
+  // Collapse "20–20%" to "20%" when the range has no spread (T1D).
+  const reductPct = minReduct === maxReduct ? `${minReduct}%` : `${minReduct}–${maxReduct}%`;
   drugs.forEach(drug => {
     const dd = details.insulinDetails[drug.id] || {};
     const dosingTime = dd.dosingTime || (drug.needsDosingTime ? null : 'evening');
@@ -918,17 +956,17 @@ function getBasalInsulinResults(ctx, details, selected) {
       // NPH — 50% reduction
       if (freq === 'once') {
         const dt = dosingTime || 'evening';
-        const doseStr = isNaN(eveningDose) ? 'reduce by 50%' : `${dosePct(eveningDose, 50)} units (50% of your usual ${eveningDose} units)`;
+        const doseStr = isNaN(eveningDose) ? 'reduce by 50%' : `${dosePct(eveningDose, 50)} (50% of your usual ${eveningDose} units)`;
         nightBefore = `REDUCE ${drug.name} (${drug.brand}) by 50% the night before surgery: ${doseStr}. NPH has a peak effect that can cause hypoglycemia while fasting.`;
         morningOf = timing === 'PM'
-          ? `REDUCE morning dose by 50%: ${isNaN(morningDose) ? 'half your usual morning dose' : `${dosePct(morningDose, 50)} units`}. Check blood glucose before administering.`
+          ? `REDUCE morning dose by 50%: ${isNaN(morningDose) ? 'half your usual morning dose' : `${dosePct(morningDose, 50)}`}. Check blood glucose before administering.`
           : `Do NOT take a separate morning NPH dose for AM surgery (unless on twice-daily regimen).`;
         patientNight = `Take HALF of your usual ${drug.brand} dose tonight: ${isNaN(eveningDose) ? 'half your usual dose' : doseStr}.`;
-        patientMorning = timing === 'PM' ? `Take HALF your usual morning ${drug.brand}: ${isNaN(morningDose) ? 'half your usual morning dose' : `${dosePct(morningDose, 50)} units`}.` : 'No separate morning NPH dose needed.';
+        patientMorning = timing === 'PM' ? `Take HALF your usual morning ${drug.brand}: ${isNaN(morningDose) ? 'half your usual morning dose' : `${dosePct(morningDose, 50)}`}.` : 'No separate morning NPH dose needed.';
       } else {
         // NPH twice daily
-        const evStr = isNaN(eveningDose) ? 'reduce by 50%' : `${dosePct(eveningDose, 50)} units (half of your usual ${eveningDose} units)`;
-        const amStr = isNaN(morningDose) ? 'reduce by 50%' : `${dosePct(morningDose, 50)} units (half of your usual ${morningDose} units)`;
+        const evStr = isNaN(eveningDose) ? 'reduce by 50%' : `${dosePct(eveningDose, 50)} (half of your usual ${eveningDose} units)`;
+        const amStr = isNaN(morningDose) ? 'reduce by 50%' : `${dosePct(morningDose, 50)} (half of your usual ${morningDose} units)`;
         nightBefore = `REDUCE evening ${drug.name} (${drug.brand}) by 50%: ${evStr}.`;
         morningOf = `REDUCE morning ${drug.name} (${drug.brand}) by 50%: ${amStr}. Check blood glucose on admission.`;
         patientNight = `Take HALF of your usual evening ${drug.brand}: ${evStr}.`;
@@ -938,27 +976,30 @@ function getBasalInsulinResults(ctx, details, selected) {
       // Detemir twice daily
       const evStr = doseRange(eveningDose, minReduct, maxReduct);
       const amStr = doseRange(morningDose, minReduct, maxReduct);
-      const evLabel = evStr ? `${evStr} (reduced from ${eveningDose} units)` : `reduce by ${minReduct}–${maxReduct}%`;
-      const amLabel = amStr ? `${amStr} (reduced from ${morningDose} units)` : `reduce by ${minReduct}–${maxReduct}%`;
-      nightBefore = `REDUCE evening ${drug.name} (${drug.brand}) by ${minReduct}–${maxReduct}%: ${evLabel}.`;
-      morningOf = `REDUCE morning ${drug.name} (${drug.brand}) by ${minReduct}–${maxReduct}%: ${amLabel}. Check blood glucose on admission.`;
+      const evLabel = evStr ? `${evStr} (reduced from ${eveningDose} units)` : `reduce by ${reductPct}`;
+      const amLabel = amStr ? `${amStr} (reduced from ${morningDose} units)` : `reduce by ${reductPct}`;
+      nightBefore = `REDUCE evening ${drug.name} (${drug.brand}) by ${reductPct}: ${evLabel}.`;
+      morningOf = `REDUCE morning ${drug.name} (${drug.brand}) by ${reductPct}: ${amLabel}. Check blood glucose on admission.`;
       patientNight = `Tonight, take a REDUCED dose of ${drug.brand}: ${evLabel}.`;
       patientMorning = `This morning, take a REDUCED dose of ${drug.brand}: ${amLabel}.`;
     } else {
       // Once-daily basal (evening or morning dosing)
       const dt = dosingTime || 'evening';
-      const dose = dt === 'morning' ? morningDose : eveningDose;
+      // A once-daily basal has a single dose; the UI stores it in eveningDose
+      // whether the patient takes it in the morning or evening. dt only changes
+      // the timing wording below, not which dose field to read.
+      const dose = eveningDose;
       const doseLabel = doseRange(dose, minReduct, maxReduct);
-      const doseText = doseLabel ? `${doseLabel} (reduced from your usual ${dose} units)` : `reduce by ${minReduct}–${maxReduct}% from your usual dose`;
+      const doseText = doseLabel ? `${doseLabel} (reduced from your usual ${dose} units)` : `reduce by ${reductPct} from your usual dose`;
       if (dt === 'evening' || !dt) {
-        nightBefore = `REDUCE ${drug.name} (${drug.brand}) by ${minReduct}–${maxReduct}%: Take ${doseText} tonight at your usual time. Check blood glucose on the morning of surgery.`;
+        nightBefore = `REDUCE ${drug.name} (${drug.brand}) by ${reductPct}: Take ${doseText} tonight at your usual time. Check blood glucose on the morning of surgery.`;
         morningOf = 'No morning basal dose needed (once-daily evening dosing). Check blood glucose on admission.';
         patientNight = `Tonight, take a REDUCED dose of ${drug.brand}: ${doseText}.`;
         patientMorning = 'No morning insulin dose needed for your long-acting insulin. Check your blood sugar when you arrive.';
       } else {
         // Morning dosing
         nightBefore = null;
-        morningOf = `REDUCE ${drug.name} (${drug.brand}) by ${minReduct}–${maxReduct}%: Take ${doseText} this morning at your usual time before leaving for the hospital. Check blood glucose on admission.`;
+        morningOf = `REDUCE ${drug.name} (${drug.brand}) by ${reductPct}: Take ${doseText} this morning at your usual time before leaving for the hospital. Check blood glucose on admission.`;
         patientNight = null;
         patientMorning = `Take a REDUCED dose of ${drug.brand} this morning: ${doseText}. Take it at your usual time before leaving for the hospital.`;
       }
@@ -968,6 +1009,9 @@ function getBasalInsulinResults(ctx, details, selected) {
     }
     if (!dd.frequency && drug.needsFrequency) {
       drugFlags.push({ type: 'info', text: `Frequency not entered for ${drug.name}. Assuming once daily. Verify with patient.` });
+    }
+    if (dmType === 'T1DM' && !drug.isNPH) {
+      drugFlags.push({ type: 'info', text: 'Type 1 diabetes: 20% is the conservative default — never reduce a basal analog by more than 20% in T1DM. Some patients need their full, unreduced dose; never hold basal entirely (DKA risk). Individualize.' });
     }
     results.push({
       id: `basal-${drug.id}`,
@@ -980,7 +1024,7 @@ function getBasalInsulinResults(ctx, details, selected) {
         morningOf,
         monitoring: `Check blood glucose on admission. Target perioperative glucose 100–180 mg/dL. Do not hold ALL basal insulin in T1DM — dose reduction required but some basal must be maintained.`,
         resumption: 'Resume usual dose when tolerating oral intake and blood glucose is stable. Verify with prescriber.',
-        evidence: `Source: ADA Standards of Care 2026. Demma et al., J Clin Anesth 2017. ${isT1 ? 'T1DM: 10–20% reduction.' : 'T2DM: 20–25% reduction.'} Target perioperative glucose 100–180 mg/dL.`
+        evidence: `Source: ADA Standards of Care 2026 — long-acting basal analogs given at 75–80% of the usual dose perioperatively, NPH reduced to 50%; the same percentage applies to each injection in twice-daily regimens. ${drug.isNPH ? 'NPH: reduce each dose to 50% (pronounced peak raises fasting hypoglycemia risk).' : (isT1 ? 'T1DM: reduce 20% (to 80%) as the conservative default — never more; some need their full unreduced dose.' : 'T2DM: reduce 20–25% (to 75–80%).')} Target perioperative glucose 100–180 mg/dL.`
       },
       patient: { nightBefore: patientNight, morningOf: patientMorning, dietary: null },
       flags: drugFlags,
@@ -1186,6 +1230,8 @@ class PerioperativeDMApp {
       details: {
         sglt2iMode: 'FDA',
         a1cOver8: null,
+        prolongedFasting: null,
+        surgeryOver3h: null,
         eGFR: '',
         contrastWithin48h: null,
         giSymptoms: null,
@@ -1195,6 +1241,20 @@ class PerioperativeDMApp {
     this.render();
   }
   setState(step) { this.step = step; this.render(); }
+  generateInstructions() {
+    // NPH dosing frequency must be chosen before generating (peak-related dosing differs).
+    const basal = getSelectedDrugsByClass(this.state.selected, 'basalInsulin');
+    for (const drug of basal) {
+      if (drug.isNPH) {
+        const f = (this.state.details.insulinDetails[drug.id] || {}).frequency;
+        if (f !== 'once' && f !== 'twice') {
+          alert(`Select a dosing frequency for ${drug.name} before continuing.`);
+          return;
+        }
+      }
+    }
+    this.setState('output');
+  }
   setOutputTab(tab) { this.outputTab = tab; this.render(); }
   updatePatient(key, val) { this.state.patient[key] = val; }
   updateContext(key, val) { this.state.context[key] = val; this.render(); }
@@ -1397,11 +1457,11 @@ class PerioperativeDMApp {
           <div class="evidence-strip">
             ${details.sglt2iMode === 'FDA'
               ? '<strong>FDA/ADA Default:</strong> Hold canagliflozin, dapagliflozin, empagliflozin ≥3 days; ertugliflozin ≥4 days before elective surgery. Continue for minor procedures and colonoscopy.'
-              : '<strong>SPAQI (2026):</strong> Risk-stratified approach based on diabetes status, HF/CKD presence, HbA1c, and surgery type. Patients with HF or CKD may continue for cardiorenal protection.'}
+              : '<strong>SPAQI (2026) — risk-stratified, hold by default:</strong> Continued without monitoring only for minor procedures/endoscopy (any patient) and major noncardiac surgery in a non-diabetic without anticipated prolonged fasting. All other cases hold; where the chart attaches eDKA monitoring to continuation, the app holds by default and notes the drug may be continued safely if monitoring is performed. Type 1 diabetes always holds (off-label, high eDKA risk).'}
           </div>
           ${details.sglt2iMode === 'SPAQI' ? `
             <hr class="divider">
-            <div class="question" style="font-size:14px;">HbA1c >8%? <span style="font-size:12px;font-weight:400;color:#aaa">(Used for major noncardiac surgery risk stratification)</span></div>
+            <div class="question" style="font-size:14px;">HbA1c >8%? <span style="font-size:12px;font-weight:400;color:#aaa">(Used for the minor-surgery eDKA testing footnote)</span></div>
             <div class="btn-row">
               <div class="check-label ${details.a1cOver8===true?'selected':''}" onclick="window.app.updateDetails('a1cOver8',true)">
                 <span class="custom-radio"></span> Yes (>8%)
@@ -1411,6 +1471,26 @@ class PerioperativeDMApp {
               </div>
               <div class="check-label ${details.a1cOver8===null?'selected':''}" onclick="window.app.updateDetails('a1cOver8',null)">
                 <span class="custom-radio"></span> Not available
+              </div>
+            </div>
+            <hr class="divider">
+            <div class="question" style="font-size:14px;">Prolonged postoperative fasting anticipated? <span style="font-size:12px;font-weight:400;color:#aaa">(NPO/poor intake well beyond the day of surgery)</span></div>
+            <div class="btn-row">
+              <div class="check-label ${details.prolongedFasting===true?'selected':''}" onclick="window.app.updateDetails('prolongedFasting',true)">
+                <span class="custom-radio"></span> Yes
+              </div>
+              <div class="check-label ${details.prolongedFasting===false?'selected':''}" onclick="window.app.updateDetails('prolongedFasting',false)">
+                <span class="custom-radio"></span> No
+              </div>
+            </div>
+            <hr class="divider">
+            <div class="question" style="font-size:14px;">Anticipated surgery length >3 hours? <span style="font-size:12px;font-weight:400;color:#aaa">(Flags intraoperative eDKA monitoring if continued)</span></div>
+            <div class="btn-row">
+              <div class="check-label ${details.surgeryOver3h===true?'selected':''}" onclick="window.app.updateDetails('surgeryOver3h',true)">
+                <span class="custom-radio"></span> Yes
+              </div>
+              <div class="check-label ${details.surgeryOver3h===false?'selected':''}" onclick="window.app.updateDetails('surgeryOver3h',false)">
+                <span class="custom-radio"></span> No
               </div>
             </div>` : ''}
         </div>`;
@@ -1474,7 +1554,7 @@ class PerioperativeDMApp {
                 <span class="custom-radio"></span> Twice daily
               </div>
             </div>` : ''}
-          ${drug.needsDosingTime ? `
+          ${drug.needsDosingTime && dd.frequency !== 'twice' ? `
             <div class="section-label">When does patient take this insulin?</div>
             <div class="btn-row">
               <div class="check-label ${dd.dosingTime==='evening'?'selected':''}" onclick="window.app.updateInsulinDetail('${drug.id}','dosingTime','evening')">
@@ -1484,14 +1564,7 @@ class PerioperativeDMApp {
                 <span class="custom-radio"></span> Morning
               </div>
             </div>` : ''}
-          ${(dd.frequency !== 'twice' && !drug.isNPH) || drug.needsDosingTime ? `
-            <div class="section-label">Current ${drug.isNPH ? 'Dose' : (dd.dosingTime === 'morning' ? 'Morning Dose' : 'Evening Dose')}</div>
-            <div class="dose-group">
-              <label>${dd.dosingTime === 'morning' ? 'Morning dose' : 'Evening/bedtime dose'}</label>
-              <input type="number" value="${dd.eveningDose || ''}" placeholder="units" min="0" oninput="window.app.updateInsulinDetailNoRender('${drug.id}','eveningDose',this.value)">
-              <span class="units">units</span>
-            </div>` : ''}
-          ${(dd.frequency === 'twice' || (drug.isNPH && !drug.needsFrequency)) ? `
+          ${dd.frequency === 'twice' ? `
             <div class="section-label">Evening / Bedtime Dose</div>
             <div class="dose-group">
               <label>Evening dose</label>
@@ -1503,7 +1576,13 @@ class PerioperativeDMApp {
               <label>Morning dose</label>
               <input type="number" value="${dd.morningDose || ''}" placeholder="units" min="0" oninput="window.app.updateInsulinDetailNoRender('${drug.id}','morningDose',this.value)">
               <span class="units">units</span>
-            </div>` : ''}
+            </div>` : `
+            <div class="section-label">Current ${drug.isNPH ? 'Dose' : (dd.dosingTime === 'morning' ? 'Morning Dose' : 'Evening Dose')}</div>
+            <div class="dose-group">
+              <label>${dd.dosingTime === 'morning' ? 'Morning dose' : 'Evening/bedtime dose'}</label>
+              <input type="number" value="${dd.eveningDose || ''}" placeholder="units" min="0" oninput="window.app.updateInsulinDetailNoRender('${drug.id}','eveningDose',this.value)">
+              <span class="units">units</span>
+            </div>`}
         </div>`;
     });
     // Bolus insulins
@@ -1559,7 +1638,7 @@ class PerioperativeDMApp {
       ${this.renderHeader('Medication Details', 'Required for personalized instructions', 'Step 4 of 5')}
       ${this.renderBackBtn()}
       ${html}
-      <button class="btn-primary" onclick="window.app.setState('output')">Generate Instructions →</button>`;
+      <button class="btn-primary" onclick="window.app.generateInstructions()">Generate Instructions →</button>`;
   }
   renderOutput() {
     const results = getAllResults(this.state.context, this.state.details, this.state.selected);
@@ -1690,7 +1769,7 @@ class PerioperativeDMApp {
       patient: { firstName: '', lastName: '', dob: '', arrivalTime: '' },
       context: { dmType: null, surgeryType: null, surgeryTiming: null, hasHF: null, hasCKD: null, arrivalTime: '' },
       selected: new Set(),
-      details: { sglt2iMode: 'FDA', a1cOver8: null, eGFR: '', contrastWithin48h: null, giSymptoms: null, insulinDetails: {} },
+      details: { sglt2iMode: 'FDA', a1cOver8: null, prolongedFasting: null, surgeryOver3h: null, eGFR: '', contrastWithin48h: null, giSymptoms: null, insulinDetails: {} },
     };
     this.render();
   }
