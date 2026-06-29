@@ -671,9 +671,9 @@ function getGLP1Results(ctx, details, selected) {
     flags.push({ type: 'warn', text: 'GI symptom screen not completed. Continue per ABSMC protocol with dietary modification. Screen patient for GI symptoms at preoperative visit.' });
   }
   const dietary24h = arrivalTime
-    ? `Start a clear liquid diet 24 hours before your planned arrival time. If your planned arrival time is ${arrivalTime}, begin clear liquids at that same time the day before. Please verify your exact arrival time with your surgeon's office.`
-    : 'Start a clear liquid diet 24 hours before your planned arrival time for surgery. Please verify your exact arrival time with your surgeon\'s office.';
-  const dietaryClinician = `Universal dietary modification required for all GLP-1 RA and tirzepatide patients. Clear liquid diet starting 24 hours before planned arrival time (arrival is typically ~2 hours before surgery; effective window ≈26 hours before surgery start). Continue standard NPO instructions (no solid food after midnight).${arrivalTime ? ` Patient's planned arrival: ${arrivalTime}.` : ''}`;
+    ? `Start a clear liquid diet 24 hours before your planned arrival time. If your planned arrival time is ${arrivalTime}, begin clear liquids at that same time the day before. Then have NOTHING to eat or drink (including water) after midnight the night before your surgery. Please verify your exact arrival time with your surgeon's office.`
+    : 'Start a clear liquid diet 24 hours before your planned arrival time for surgery. Then have NOTHING to eat or drink (including water) after midnight the night before your surgery. Please verify your exact arrival time with your surgeon\'s office.';
+  const dietaryClinician = `Universal dietary modification required for all GLP-1 RA and tirzepatide patients. Clear liquid diet starting 24 hours before planned arrival time (arrival is typically ~2 hours before surgery; effective window ≈26 hours before surgery start), then strict NPO after midnight — nothing to eat or drink.${arrivalTime ? ` Patient's planned arrival: ${arrivalTime}.` : ''}`;
   const morningOf = giSymptoms === true
     ? 'CONSIDER HOLDING per GI symptom screen (see flags). Notify anesthesia team. Continue dietary modification regardless of medication decision.'
     : 'Continue medication on usual schedule. No dose adjustment required. Clear liquid diet restriction in effect.';
