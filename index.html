@@ -6,7 +6,7 @@
 <title>Perioperative Diabetes Medication Management Tool</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
 html { color-scheme: light dark; scroll-behavior: smooth; }
@@ -38,7 +38,7 @@ body::before {
   background:radial-gradient(circle, rgba(0,200,220,.1) 0%, transparent 70%); pointer-events:none;
 }
 .clinic-label { font-size:11px; font-weight:700; color:#00c8db; margin-bottom:8px; text-transform:uppercase; letter-spacing:1.2px; }
-.header-banner h1 { font-family:'Playfair Display',serif; font-size:26px; font-weight:700; margin-bottom:8px; letter-spacing:-.5px; line-height:1.2; }
+.header-banner h1 { font-family:'Inter',sans-serif; font-size:26px; font-weight:600; margin-bottom:8px; letter-spacing:-.5px; line-height:1.2; }
 .header-banner p { font-size:13px; opacity:.8; font-weight:300; letter-spacing:.3px; }
 .step-indicator { font-size:11px; color:#00c8db; margin-bottom:6px; font-weight:600; text-transform:uppercase; letter-spacing:1px; }
 /* ===== CARDS ===== */
@@ -53,7 +53,7 @@ body::before {
   content:''; position:absolute; top:0; left:0; right:0; height:1px;
   background:linear-gradient(90deg, transparent, rgba(255,255,255,.2), transparent);
 }
-.question { font-size:16px; font-weight:600; margin-bottom:16px; font-family:'Playfair Display',serif; }
+.question { font-size:16px; font-weight:600; margin-bottom:16px; font-family:'Inter',sans-serif; }
 .section-label { font-size:11px; font-weight:700; color:#00c8db; margin-bottom:6px; text-transform:uppercase; letter-spacing:1.2px; margin-top:16px; }
 .section-label:first-of-type { margin-top:0; }
 .section-text { font-size:13.5px; line-height:1.7; color:#d4d4d4; font-weight:300; margin-bottom:12px; }
@@ -150,7 +150,7 @@ input[type="checkbox"], input[type="radio"] { width:17px; height:17px; cursor:po
 .result-card-body { padding:16px 18px; }
 .result-section { margin-bottom:14px; }
 .result-section:last-child { margin-bottom:0; }
-.result-section-label { font-size:10px; font-weight:700; color:#00c8db; text-transform:uppercase; letter-spacing:1px; margin-bottom:5px; }
+.result-section-label { font-size:10px; font-weight:600; color:#00c8db; text-transform:uppercase; letter-spacing:1.2px; padding-bottom:5px; border-bottom:1px solid rgba(0,200,219,.25); margin-bottom:7px; }
 .result-section-text { font-size:13.5px; line-height:1.7; color:#d4d4d4; }
 .evidence-strip {
   background:rgba(0,200,220,.06); border-left:3px solid #00c8db; border:1px solid rgba(0,200,220,.18);
@@ -161,6 +161,13 @@ input[type="checkbox"], input[type="radio"] { width:17px; height:17px; cursor:po
 .evidence-link { color:#00d4e8; text-decoration:underline; text-underline-offset:2px; font-weight:600; }
 .evidence-link:hover { color:#5ce8ff; }
 @media print { .evidence-link { color:#005588 !important; } }
+/* ===== CLINICAL PROTOCOL ===== */
+.protocol-ref { font-size:10px; font-weight:600; letter-spacing:1.2px; color:#6B7A8A; text-transform:uppercase; white-space:nowrap; padding-top:4px; }
+.mono-data { font-family:'IBM Plex Mono',monospace; font-size:.93em; font-weight:500; color:#F0F2F5; background:rgba(240,242,245,.05); border-radius:3px; padding:0 2px; }
+.evidence-num { font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:500; color:#6B7A8A; }
+.evidence-label { font-size:10px; font-weight:600; color:#00c8db; text-transform:uppercase; letter-spacing:1.2px; padding-bottom:5px; border-bottom:1px solid rgba(0,200,219,.25); margin-bottom:7px; }
+.header-row { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+@media print { .mono-data { color:#111 !important; background:#F0F2F5 !important; } .protocol-ref { color:#555 !important; } }
 /* ===== FLAGS ===== */
 .flag { border-radius:8px; padding:10px 12px; margin-bottom:8px; font-size:12.5px; line-height:1.6; }
 .flag-warn { background:rgba(220,160,30,.12); border:1px solid rgba(220,160,30,.35); color:#ffd080; }
@@ -183,7 +190,7 @@ input[type="checkbox"], input[type="radio"] { width:17px; height:17px; cursor:po
   background:linear-gradient(135deg,rgba(0,200,220,.15),rgba(100,80,200,.1));
   border:1px solid rgba(0,200,220,.3); border-radius:14px; padding:20px; margin-bottom:16px; text-align:center;
 }
-.patient-sheet-header h2 { font-family:'Playfair Display',serif; font-size:20px; margin-bottom:8px; }
+.patient-sheet-header h2 { font-family:'Inter',sans-serif; font-weight:600; font-size:20px; margin-bottom:8px; }
 .patient-meta { font-size:13px; color:#ccc; line-height:1.8; }
 .patient-drug-card { border:1px solid rgba(255,255,255,.15); border-radius:12px; padding:16px; margin-bottom:14px; }
 .patient-drug-name { font-size:15px; font-weight:700; margin-bottom:12px; color:#00d4e8; }
@@ -472,11 +479,36 @@ const GUIDELINE_REGEX = new RegExp(GUIDELINE_LINKS.map(g => escapeRegExp(g[0])).
 const GUIDELINE_URL_MAP = GUIDELINE_LINKS.reduce((m, g) => { m[g[0]] = g[1]; return m; }, {});
 function linkifyGuidelines(text) {
   if (!text) return text;
+  // Number each distinct guideline (by URL) in order of first appearance,
+  // rendering a mono [n] marker before the tappable citation.
+  const urlIndex = {};
   return text.replace(GUIDELINE_REGEX, (match) => {
     const url = GUIDELINE_URL_MAP[match];
     if (!url) return match;
-    return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="evidence-link">${match}</a>`;
+    if (!(url in urlIndex)) urlIndex[url] = Object.keys(urlIndex).length + 1;
+    return `<span class="evidence-num">[${urlIndex[url]}]</span> <a href="${url}" target="_blank" rel="noopener noreferrer" class="evidence-link">${match}</a>`;
   });
+}
+
+// ================================================================
+// CLINICAL PROTOCOL — registry + mono data spans (parity with native app)
+// ================================================================
+const PROTOCOLS = {
+  sglt2i: ['01','SGLT2 INHIBITORS'], glp1: ['02','GLP-1 RA / TIRZEPATIDE'],
+  dpp4i: ['03','DPP-4 INHIBITORS'], metformin: ['04','METFORMIN'],
+  sulfonylurea: ['05','SULFONYLUREAS'], meglitinide: ['06','MEGLITINIDES'],
+  tzd: ['07','THIAZOLIDINEDIONES'], agi: ['08','ALPHA-GLUCOSIDASE INHIBITORS'],
+  basal: ['09','BASAL INSULIN'], bolus: ['10','BOLUS INSULIN'],
+  premixed: ['11','PREMIXED INSULIN'], pump: ['12','INSULIN PUMP (CSII)'],
+  u500: ['13','U-500 INSULIN'],
+};
+function protocolFor(recId) { return PROTOCOLS[recId.split('-')[0]] || null; }
+
+// Renders numeric/dosing tokens (doses, targets, intervals, times) in IBM Plex Mono.
+const DATA_RE = /(?:POD\s?#?\d+)|(?:U-?\d{3})|(?:\d[\d\u2013\-\/.,:]*\d|\d)(?:\s?(?:mg\/dL|mg|units?|days?|hours?|hrs?|h\b|%|AM|PM))?/g;
+function monoData(text) {
+  if (!text) return text;
+  return text.replace(DATA_RE, (m) => `<span class="mono-data">${m}</span>`);
 }
 // ================================================================
 // ALGORITHM FUNCTIONS
@@ -1657,7 +1689,7 @@ class PerioperativeDMApp {
         ${results.map(r => this.renderClinicianCard(r)).join('')}
         <div class="card" style="font-size:12px;color:#888;line-height:1.7;">
           <div style="font-weight:700;color:#00c8db;margin-bottom:8px;">📋 ABSMC PREOPERATIVE GLYCEMIC GOALS</div>
-          <div>• Perioperative blood glucose target: <strong style="color:#f5f5f5;">100–180 mg/dL</strong></div>
+          <div>• Perioperative blood glucose target: <span class="mono-data">100–180 mg/dL</span></div>
           <div>• Stricter targets are NOT recommended — increase hypoglycemia without improving outcomes (ADA 2026)</div>
           <div>• HbA1c alone is NOT a reason to postpone elective surgery (ADA 2026)</div>
           <div>• CGM may be used as adjunct but NOT sole monitoring modality intraoperatively</div>
@@ -1680,29 +1712,32 @@ class PerioperativeDMApp {
   }
   renderClinicianCard(r) {
     const badgeHtml = `<span class="badge badge-${r.badgeType}">${r.badge}</span>`;
-    const sectionHtml = (label, text, icon='') => text
+    const proto = protocolFor(r.id);
+    const protoHtml = proto
+      ? `<span class="protocol-ref" title="Protocol ${proto[0]}: ${proto[1]}">Protocol ${proto[0]}</span>` : '';
+    const sectionHtml = (label, text) => text
       ? `<div class="result-section">
-          <div class="result-section-label">${icon} ${label}</div>
-          <div class="result-section-text">${text}</div>
+          <div class="result-section-label">${label}</div>
+          <div class="result-section-text">${monoData(text)}</div>
          </div>` : '';
     const flagsHtml = r.flags.map(f => `<div class="flag flag-${f.type}">${f.text}</div>`).join('');
     const comboHtml = r.comboFlag ? `<div class="flag flag-warn">${r.comboFlag}</div>` : '';
     return `
       <div class="result-card">
         <div class="result-card-header">
-          ${badgeHtml}
+          <div class="header-row">${badgeHtml}${protoHtml}</div>
           <h3>${r.drugClass}</h3>
           <div class="drug-list">${r.drugNames.join(' · ')}</div>
         </div>
         <div class="result-card-body">
           ${comboHtml}
           ${flagsHtml}
-          ${sectionHtml('Night Before Surgery', r.clinician.nightBefore, '🌙')}
-          ${sectionHtml('Morning of Surgery', r.clinician.morningOf, '🌅')}
-          ${sectionHtml('Dietary Instructions', r.clinician.dietary, '🥤')}
-          ${sectionHtml('Monitoring', r.clinician.monitoring, '🔬')}
-          ${sectionHtml('Resumption', r.clinician.resumption, '🔄')}
-          ${r.clinician.evidence ? `<div class="evidence-strip"><strong>📚 Evidence:</strong> ${linkifyGuidelines(r.clinician.evidence)}</div>` : ''}
+          ${sectionHtml('Night Before Surgery', r.clinician.nightBefore)}
+          ${sectionHtml('Morning of Surgery', r.clinician.morningOf)}
+          ${sectionHtml('Dietary Instructions', r.clinician.dietary)}
+          ${sectionHtml('Monitoring', r.clinician.monitoring)}
+          ${sectionHtml('Resumption', r.clinician.resumption)}
+          ${r.clinician.evidence ? `<div class="evidence-strip"><div class="evidence-label">Evidence</div>${linkifyGuidelines(r.clinician.evidence)}</div>` : ''}
         </div>
       </div>`;
   }
