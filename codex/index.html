@@ -120,6 +120,15 @@ input[type="number"]::-webkit-inner-spin-button { opacity:.5; }
 .check-label:hover { background:linear-gradient(135deg,rgba(0,200,220,.12),rgba(100,80,200,.08)); border-color:rgba(0,200,220,.4); }
 .check-label.selected { border-color:#00c8db; background:linear-gradient(135deg,rgba(0,200,220,.18),rgba(100,80,200,.1)); }
 .check-label { touch-action: manipulation; -webkit-tap-highlight-color: transparent; user-select:none; }
+.no-selection-flash .header-banner,
+.no-selection-flash .card,
+.no-selection-flash .result-card { animation:none !important; }
+.no-selection-flash .check-label,
+.no-selection-flash .custom-check,
+.no-selection-flash .custom-radio,
+.no-selection-flash .custom-radio::after,
+.no-selection-flash .toggle-btn,
+.no-selection-flash .tab { transition:none !important; }
 .custom-check {
   width:20px; height:20px; border:2px solid rgba(0,200,220,.5); border-radius:4px;
   flex-shrink:0; display:flex; align-items:center; justify-content:center;
@@ -1394,17 +1403,17 @@ class PerioperativeDMApp {
     }
     this.setState('output');
   }
-  setOutputTab(tab) { this.outputTab = tab; this.render(); }
+  setOutputTab(tab) { this.outputTab = tab; this.render({ quiet: true }); }
   updatePatient(key, val) { this.state.patient[key] = val; }
-  updateContext(key, val) { this.state.context[key] = val; this.render(); }
-  updateDetails(key, val) { this.state.details[key] = val; this.render(); }
+  updateContext(key, val) { this.state.context[key] = val; this.render({ quiet: true }); }
+  updateDetails(key, val) { this.state.details[key] = val; this.render({ quiet: true }); }
   // No-render variants: used by free-text/number inputs so typing does not rebuild
   // the DOM mid-keystroke (which previously dropped focus and forced a re-tap per digit).
   updateDetailsNoRender(key, val) { this.state.details[key] = val; }
   updateInsulinDetail(drugId, key, val) {
     if (!this.state.details.insulinDetails[drugId]) this.state.details.insulinDetails[drugId] = {};
     this.state.details.insulinDetails[drugId][key] = val;
-    this.render();
+    this.render({ quiet: true });
   }
   updateInsulinDetailNoRender(drugId, key, val) {
     if (!this.state.details.insulinDetails[drugId]) this.state.details.insulinDetails[drugId] = {};
@@ -1413,7 +1422,7 @@ class PerioperativeDMApp {
   toggleDrug(drugId) {
     if (this.state.selected.has(drugId)) this.state.selected.delete(drugId);
     else this.state.selected.add(drugId);
-    this.render();
+    this.render({ quiet: true });
   }
   goBack() {
     const steps = ['intro','patient','context','medications','details','output'];
@@ -1572,7 +1581,7 @@ class PerioperativeDMApp {
       <div class="card">
         <div class="search-wrap">
           <span class="search-icon">🔍</span>
-          <input type="text" placeholder="Search medications..." value="${this.searchQuery}" oninput="window.app.searchQuery=this.value;window.app.render()">
+          <input type="text" placeholder="Search medications..." value="${this.searchQuery}" oninput="window.app.searchQuery=this.value;window.app.render({quiet:true})">
         </div>
         ${selected.size > 0 ? `<div class="selected-count">✓ ${selected.size} medication${selected.size > 1 ? 's' : ''} selected</div>` : ''}
         ${allSections}
@@ -1967,7 +1976,8 @@ class PerioperativeDMApp {
       control.onkeydown = event => this.keyClick(event, control);
     });
   }
-  render() {
+  render({ quiet = false } = {}) {
+    document.body.classList.toggle('no-selection-flash', quiet);
     let html = '';
     if (this.step === 'intro') html = this.renderIntro();
     else if (this.step === 'patient') html = this.renderPatient();
