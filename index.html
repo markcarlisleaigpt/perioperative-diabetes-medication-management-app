@@ -505,7 +505,7 @@ const PROTOCOLS = {
 function protocolFor(recId) { return PROTOCOLS[recId.split('-')[0]] || null; }
 
 // Renders numeric/dosing tokens (doses, targets, intervals, times) in IBM Plex Mono.
-const DATA_RE = /(?:POD\s?#?\d+)|(?:U-?\d{3})|(?:\d[\d\u2013\-\/.,:]*\d|\d)(?:\s?(?:mg\/dL|mg|units?|days?|hours?|hrs?|h\b|%|AM|PM))?/g;
+const DATA_RE = /(?:POD\s?#?\d+)|(?:U-?\d{3})|(?<![A-Za-z][-\u2013]?)(?:\d[\d\u2013\-\/.,:]*\d|\d)(?:\s?(?:mg\/dL|mg|units?|days?|hours?|hrs?|h\b|%|AM|PM))?/g;
 function monoData(text) {
   if (!text) return text;
   return text.replace(DATA_RE, (m) => `<span class="mono-data">${m}</span>`);
