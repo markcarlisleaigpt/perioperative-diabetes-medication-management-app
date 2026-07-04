@@ -551,9 +551,7 @@ function getSGLT2iResults(ctx, details, selected) {
     let rec = 'hold'; // 'hold', 'continue', 'consider', 'hold-bariatric'
     let holdDays = hd;
     if (mode === 'FDA') {
-      if (sType === 'minor' || sType === 'colonoscopy') {
-        rec = 'continue';
-      } else if (sType === 'bariatric') {
+      if (sType === 'bariatric') {
         rec = 'hold-bariatric';
       } else {
         rec = 'hold';
@@ -681,7 +679,7 @@ function getSGLT2iResults(ctx, details, selected) {
   resumption += ' Verify with surgeon before restarting.';
   const drugNames = drugs.map(d => `${d.name} (${d.brand})`);
   const evidenceNote = mode === 'FDA'
-    ? 'Source: ADA Standards of Care 2026; AHA/ACC Perioperative Guideline 2024; SPAQI BJA 2026.'
+    ? 'Source: ADA Standards of Care 2026 and AHA/ACC Perioperative Guideline 2024: hold SGLT2 inhibitors before scheduled surgery (3 days for canagliflozin/dapagliflozin/empagliflozin; 4 days for ertugliflozin). SPAQI BJA 2026 provides the separate risk-stratified pathway.'
     : 'Source: SPAQI Multidisciplinary Consensus (Oprea et al., BJA 2026); 2025 HbA1c-stratified DKA meta-analysis (Lee et al., Diabetes Obes Metab).';
   return {
     id: 'sglt2i',
@@ -702,6 +700,7 @@ function getGLP1Results(ctx, details, selected) {
   if (!allDrugs.length) return null;
   const giSymptoms = details.giSymptoms;
   const arrivalTime = ctx.arrivalTime || '';
+  const npoCutoff = details.glp1NpoCutoff || 'midnight';
   const flags = [];
   let badge = 'CONTINUE';
   let badgeType = 'continue';
@@ -713,10 +712,20 @@ function getGLP1Results(ctx, details, selected) {
   if (giSymptoms === null) {
     flags.push({ type: 'warn', text: 'GI symptom screen not completed. Continue per ABSMC protocol with dietary modification. Screen patient for GI symptoms at preoperative visit.' });
   }
+  flags.push({ type: 'info', text: 'Higher delayed gastric-emptying risk may occur during dose escalation, at higher doses, or in patients with known gastroparesis/dysmotility or Parkinson disease. This does not change the patient instructions: continue the medication plan and clear liquid diet unless the clinical team advises otherwise. Consider point-of-care gastric ultrasound on the day of procedure if aspiration risk remains a concern.' });
+  const npoPatient = npoCutoff === 'midnight'
+    ? 'Then have NOTHING to eat or drink (including water) after midnight the night before your surgery.'
+    : `Then have NOTHING to eat or drink (including water) starting ${npoCutoff.replace('h', '')} hours before your scheduled procedure time.`;
+  const verifyText = npoCutoff === 'midnight'
+    ? 'Please verify your exact arrival time with your surgeon\'s office.'
+    : 'Please verify your exact arrival time and procedure time with your surgeon\'s office.';
+  const npoClinician = npoCutoff === 'midnight'
+    ? 'then strict NPO after midnight — nothing to eat or drink'
+    : `then strict NPO starting ${npoCutoff.replace('h', '')} hours before the scheduled procedure — nothing to eat or drink`;
   const dietary24h = arrivalTime
-    ? `Start a clear liquid diet 24 hours before your planned arrival time. If your planned arrival time is ${arrivalTime}, begin clear liquids at that same time the day before. Then have NOTHING to eat or drink (including water) after midnight the night before your surgery. Please verify your exact arrival time with your surgeon's office.`
-    : 'Start a clear liquid diet 24 hours before your planned arrival time for surgery. Then have NOTHING to eat or drink (including water) after midnight the night before your surgery. Please verify your exact arrival time with your surgeon\'s office.';
-  const dietaryClinician = `Universal dietary modification required for all GLP-1 RA and tirzepatide patients. Clear liquid diet starting 24 hours before planned arrival time (arrival is typically ~2 hours before surgery; effective window ≈26 hours before surgery start), then strict NPO after midnight — nothing to eat or drink.${arrivalTime ? ` Patient's planned arrival: ${arrivalTime}.` : ''}`;
+    ? `Start a clear liquid diet 24 hours before your planned arrival time. If your planned arrival time is ${arrivalTime}, begin clear liquids at that same time the day before. ${npoPatient} ${verifyText}`
+    : `Start a clear liquid diet 24 hours before your planned arrival time for surgery. ${npoPatient} ${verifyText}`;
+  const dietaryClinician = `Universal dietary modification required for all GLP-1 RA and tirzepatide patients. Clear liquid diet starting 24 hours before planned arrival time (arrival is typically ~2 hours before surgery; effective window ≈26 hours before surgery start), ${npoClinician}.${arrivalTime ? ` Patient's planned arrival: ${arrivalTime}.` : ''}`;
   const morningOf = giSymptoms === true
     ? 'CONSIDER HOLDING per GI symptom screen (see flags). Notify anesthesia team. Continue dietary modification regardless of medication decision.'
     : 'Continue medication on usual schedule. No dose adjustment required. Clear liquid diet restriction in effect.';
@@ -725,7 +734,7 @@ function getGLP1Results(ctx, details, selected) {
     : 'Continue taking this medication as usual on your regular schedule.';
   const drugNames = allDrugs.map(d => `${d.name} (${d.brand})`);
   const resumption = 'Resume when tolerating oral intake postoperatively. No specific postoperative hold period required. If postoperative GI symptoms develop, hold until resolved.';
-  const evidence = 'Source: AGA/ASA/ASMBS/ISCPO/SAGES Multisociety Clinical Practice Guidance, October 2024. ASA Affirmation of Value, May 2024. ADA Standards of Care 2026. ADS/ANZCA/GESA/NACOS 2025 guidelines. Note: ABSMC protocol (continue + 24h liquid diet) is consistent with 2024 multisociety guidance.';
+  const evidence = 'Source: AGA/ASA/ASMBS/ISCPO/SAGES Multisociety Clinical Practice Guidance, October 2024. ASA Affirmation of Value, May 2024. ADA Standards of Care 2026. ADS/ANZCA/GESA/NACOS 2025 guidelines. Note: ABSMC protocol (continue + 24h clear liquid diet) is consistent with 2024 multisociety guidance.';
   return {
     id: 'glp1',
     drugClass: 'GLP-1 RA / GIP-GLP-1 Dual Agonist',
@@ -765,7 +774,7 @@ function getDPP4iResults(ctx, details, selected) {
     patientMorning = 'Do NOT take this medication on the morning of surgery.';
   }
   const drugNames = allDrugs.map(d => `${d.name} (${d.brand})`);
-  const evidence = 'Source: ADA Standards of Care 2026 (hold). AHA/ACC 2024 and SAMBA Updated Consensus 2024 note continuation reasonable given low hypoglycemia risk. ABSMC default: hold.';
+  const evidence = 'Source: ADA Standards of Care 2026; AHA/ACC 2024 and SAMBA Updated Consensus 2024 note continuation reasonable given low hypoglycemia risk. ABSMC default is a conservative institutional hold, not a universal guideline mandate.';
   const resumption = 'Resume when tolerating oral intake postoperatively. No monitoring required.';
   return {
     id: 'dpp4i',
@@ -815,7 +824,7 @@ function getMetforminResults(ctx, details, selected) {
       patientMorning = 'Do NOT take this medication. You are receiving contrast dye within 48 hours of surgery.';
     } else {
       badge = 'HOLD MORNING OF SURGERY'; badgeType = 'hold';
-      morningOf = `HOLD morning of surgery (eGFR ${eGFR} mL/min/1.73m² — above threshold, but ABSMC default is hold on day of surgery per ADA 2026). Note: AHA/ACC 2024 Class 2a states continuation is reasonable for normal renal function. Clinician may use judgment.`;
+      morningOf = `HOLD morning of surgery (eGFR ${eGFR} mL/min/1.73m²). ABSMC uses a conservative institutional hold on the day of surgery; AHA/ACC 2024 Class 2a states continuation is reasonable for normal renal function. Clinician may use judgment.`;
       patientMorning = 'Do NOT take this medication on the morning of surgery.';
       if (contrast === null) {
         flags.push({ type: 'warn', text: 'Contrast exposure status not confirmed. If patient is receiving iodinated contrast within 48h of surgery, hold metformin regardless of eGFR.' });
@@ -823,7 +832,7 @@ function getMetforminResults(ctx, details, selected) {
     }
   }
   const drugNames = directMet.map(d => `${d.name} (${d.brand})`);
-  const evidence = `Source: ADA Standards of Care 2026 (hold on day of surgery). AHA/ACC 2024 — Class 2a: continuation reasonable with normal renal function. Perioperative metformin review 2025 — lactic acidosis risk not well-supported by evidence. FDA labeling: contraindicated below eGFR 30; do not initiate at eGFR 30–45.`;
+  const evidence = `Source: ADA Standards of Care 2026; AHA/ACC 2024 Class 2a: continuation reasonable with normal renal function. ABSMC default is a conservative day-of-surgery hold. Perioperative metformin review 2025: lactic acidosis risk not well-supported by evidence. FDA labeling: contraindicated below eGFR 30; do not initiate at eGFR 30-45.`;
   const resumption = 'Hold 48 hours postoperatively if any concern about renal function or hemodynamic instability. If contrast used: hold 48h post-contrast, reassess eGFR before restarting. Resume when oral intake established and renal function stable. Verify with surgeon.';
   return {
     id: 'metformin',
@@ -921,7 +930,7 @@ function getTZDResults(ctx, details, selected) {
   if (hasHF) {
     flags.push({ type: 'alert', text: 'Heart failure present: Thiazolidinediones cause fluid retention and may worsen heart failure. Monitor closely postoperatively. Consult cardiology or endocrinology before restarting. Do not resume if new or worsening edema or fluid overload develops.' });
   }
-  const evidence = 'Source: ADA Standards of Care 2026. SAMBA 2024. CCJM guideline comparison (2025). Fluid retention risk — caution in HF per prescribing information.';
+  const evidence = 'Source: ADA Standards of Care 2026. SAMBA 2024 and CCJM guideline comparison (2025) note continuation is reasonable given low hypoglycemia risk and slow offset; ABSMC default is a conservative institutional hold. Fluid retention risk: caution in HF per prescribing information.';
   const resumption = 'Resume when tolerating oral intake. Monitor for fluid retention, edema, and worsening HF symptoms. Verify with surgeon.' + (hasHF ? ' Formal cardiology/endocrinology review recommended before restarting in HF patients.' : '');
   return {
     id: 'tzd',
@@ -1161,6 +1170,7 @@ function getPremixedInsulinResults(ctx, details, selected) {
       patientMorning = `Check your blood sugar first. If below 120 mg/dL, do NOT take any insulin this morning and call your surgical team. If above 120 mg/dL, take HALF your usual morning dose of ${drug.brand}: ${!isNaN(amDose) ? `${dosePct(amDose, 50)} units` : 'half your usual morning amount'}.`;
     }
     flags.push({ type: 'info', text: `Premixed insulin (${drug.brand}) contains both short-acting and intermediate-acting components. The short-acting component creates hypoglycemia risk while NPO — hence the 50% morning reduction. When in doubt, err toward holding entirely and managing with correctional insulin as needed.` });
+    flags.push({ type: 'info', text: 'If the patient is admitted, premixed insulin is generally not preferred for inpatient glycemic management because meal timing and intake are variable. Consider conversion to a basal-bolus or basal-plus-correction regimen per hospital/endocrinology protocol.' });
     results.push({
       id: `premixed-${drug.id}`,
       drugClass: 'Premixed Insulin',
@@ -1170,9 +1180,9 @@ function getPremixedInsulinResults(ctx, details, selected) {
       clinician: {
         nightBefore,
         morningOf,
-        monitoring: 'Check blood glucose before morning dose. Target 100–180 mg/dL perioperatively. Hold entirely if BG <120 mg/dL.',
+        monitoring: 'Check blood glucose before morning dose. Target 100–180 mg/dL perioperatively. Hold entirely if BG <120 mg/dL (ABSMC institutional safety threshold).',
         resumption: 'Resume usual premixed regimen when tolerating regular meals. Verify with prescriber.',
-        evidence: `Source: ADA Standards of Care 2026. Demma et al., J Clin Anesth 2017. JBDS Insulin Table. Evening: reduce ${minReduct}–${maxReduct}%. Morning: reduce 50%; hold if BG <120 mg/dL.`
+        evidence: `Source: ADA Standards of Care 2026. Demma et al., J Clin Anesth 2017. JBDS Insulin Table. Evening: reduce ${minReduct}–${maxReduct}%. Morning: reduce 50%; BG <120 mg/dL hold threshold is an ABSMC institutional safety threshold.`
       },
       patient: { nightBefore: `REDUCE your evening ${drug.brand}: ${nightEvLabel}.`, morningOf: patientMorning, dietary: null },
       flags,
@@ -1190,6 +1200,8 @@ function getPumpResult(ctx, details, selected) {
     flags.push({ type: 'alert', text: 'T1DM on insulin pump: NEVER suspend pump for extended periods without an alternative insulin source. If pump is suspended >1 hour during surgery, the anesthesia team must have an IV insulin infusion protocol in place.' });
   }
   flags.push({ type: 'info', text: 'Patient and family/caregiver must be instructed on how to suspend and resume the pump. If pump is suspended intraoperatively at anesthesiologist\'s request, IV insulin infusion will be managed by the surgical/anesthesia team. Pump should be resumed postoperatively when patient is alert and able to manage the device.' });
+  flags.push({ type: 'info', text: 'Automated insulin delivery / hybrid closed-loop systems: preoperatively coordinate whether to switch to manual mode with a fixed basal rate or convert to IV insulin per anesthesia/endocrinology plan. CGM may be used as an adjunct but not as the sole intraoperative glucose monitor.' });
+  flags.push({ type: 'warn', text: 'Device safety: insulin pumps should be removed for MRI; institutional/device guidance should be followed for CT/ionizing radiation and electrocautery. If the pump is stopped in type 1 diabetes, do not leave the patient without basal insulin coverage.' });
   const nightBefore = 'Continue pump at current programmed basal rate. No bolus doses unless eating (usual meal rules apply). Check blood glucose at bedtime.';
   const morningOf = timing === 'PM'
     ? 'Continue pump at current basal rate. May bolus normally with breakfast (if eating). Once NPO: continue basal rate only — HOLD further bolus doses until eating postoperatively. Anesthesiologist may request pump suspension — patient/team must know how to suspend.'
@@ -1207,9 +1219,9 @@ function getPumpResult(ctx, details, selected) {
     clinician: {
       nightBefore,
       morningOf,
-      monitoring: 'Check blood glucose on admission and per institutional protocol. Target 100–180 mg/dL perioperatively. Ensure anesthesia team aware of CSII and has plan for intraoperative management.',
+      monitoring: 'Check blood glucose on admission and per institutional protocol. Target 100–180 mg/dL perioperatively. Ensure anesthesia team aware of CSII/AID status and has plan for intraoperative management. Use point-of-care blood glucose for treatment decisions; CGM is adjunctive.',
       resumption: 'Resume pump bolus dosing when patient is alert, able to manage device, and tolerating oral intake. Resume usual settings.',
-      evidence: 'Source: ADA Standards of Care 2026. Continue pump at current basal rate; hold bolus while NPO. Anesthesiologist has discretion to suspend.'
+      evidence: 'Source: ADA Standards of Care 2026; Endocrine Society inpatient hyperglycemia guideline. Continue pump at current basal rate when appropriate; hold bolus while NPO; AID/manual-mode or IV-insulin plan should be coordinated with anesthesia/endocrinology.'
     },
     patient: { nightBefore: patientNight, morningOf: patientMorning, dietary: null },
     flags,
@@ -1227,9 +1239,9 @@ function getU500Result(selected) {
     clinician: {
       nightBefore: null,
       morningOf: 'ENDOCRINOLOGY CONSULTATION REQUIRED before surgery. U-500 Regular insulin has a unique PK profile — longer onset and duration than standard regular insulin, behaving more like an intermediate-acting agent. Standard dose-reduction protocols do NOT apply. Do not modify this medication without endocrinology guidance.',
-      monitoring: 'Do not apply standard insulin hold/reduction rules. Management requires endocrinology input.',
+      monitoring: 'Do not apply standard insulin hold/reduction rules. Management requires endocrinology input. Inpatient requirements may be substantially lower than home dosing, and U-500 dosing errors are high-risk; use pharmacy/endocrinology safeguards if administered inpatient.',
       resumption: 'Per endocrinology guidance.',
-      evidence: 'U-500 Regular is used in severe insulin resistance with very high doses. PK profile is distinct from standard regular insulin. Perioperative management is highly individualized.'
+      evidence: 'U-500 Regular is used in severe insulin resistance with very high doses. PK profile is distinct from standard regular insulin. Perioperative management is highly individualized; inpatient dosing needs may be markedly lower than outpatient dosing and require safeguards against dosing errors.'
     },
     patient: {
       nightBefore: null,
@@ -1278,6 +1290,7 @@ class PerioperativeDMApp {
         eGFR: '',
         contrastWithin48h: null,
         giSymptoms: null,
+        glp1NpoCutoff: 'midnight',
         insulinDetails: {},
       },
     };
@@ -1331,7 +1344,7 @@ class PerioperativeDMApp {
   renderHeader(title, sub, step) {
     return `
       <div class="header-banner">
-        <div class="clinic-label">ABSMC Preoperative Clinic · EBAMG · Sutter Health</div>
+        <div class="clinic-label">ABSMC Preoperative Clinic · EBAMG</div>
         ${step ? `<div class="step-indicator">${step}</div>` : ''}
         <h1>${title}</h1>
         ${sub ? `<p>${sub}</p>` : ''}
@@ -1499,7 +1512,7 @@ class PerioperativeDMApp {
           </div>
           <div class="evidence-strip">
             ${details.sglt2iMode === 'FDA'
-              ? '<strong>FDA/ADA Default:</strong> Hold canagliflozin, dapagliflozin, empagliflozin ≥3 days; ertugliflozin ≥4 days before elective surgery. Continue for minor procedures and colonoscopy.'
+              ? '<strong>FDA/ADA Default:</strong> Hold canagliflozin, dapagliflozin, and empagliflozin at least 3 days; ertugliflozin at least 4 days before elective surgery. No minor-procedure or colonoscopy continuation exception in this mode.'
               : '<strong>SPAQI (2026) — risk-stratified, hold by default:</strong> Continued without monitoring only for minor procedures/endoscopy (any patient) and major noncardiac surgery in a non-diabetic without anticipated prolonged fasting. All other cases hold; where the chart attaches eDKA monitoring to continuation, the app holds by default and notes the drug may be continued safely if monitoring is performed. Type 1 diabetes always holds (off-label, high eDKA risk).'}
           </div>
           ${details.sglt2iMode === 'SPAQI' ? `
@@ -1553,6 +1566,22 @@ class PerioperativeDMApp {
             <div class="check-label ${details.giSymptoms===false?'selected':''}" onclick="window.app.updateDetails('giSymptoms',false)">
               <span class="custom-radio"></span> No
             </div>
+          </div>
+          <hr class="divider">
+          <div class="question" style="font-size:14px;">Strict NPO cutoff</div>
+          <p class="helper-text">Default is NPO after midnight. Use an hour-based cutoff only if the perioperative team gives procedure-time instructions.</p>
+          <div class="btn-row">
+            ${[
+              ['midnight', 'After midnight'],
+              ['8h', '8 h before procedure'],
+              ['6h', '6 h'],
+              ['4h', '4 h'],
+              ['2h', '2 h'],
+            ].map(([value, label]) => `
+              <div class="check-label ${details.glp1NpoCutoff === value ? 'selected' : ''}" onclick="window.app.updateDetails('glp1NpoCutoff','${value}')">
+                <span class="custom-radio"></span> ${label}
+              </div>
+            `).join('')}
           </div>
           <div class="evidence-strip">
             <strong>ABSMC Protocol:</strong> Continue GLP-1 RA unless GI symptoms present. Universal clear liquid diet 24 hours before planned arrival time for all GLP-1 RA and tirzepatide patients. Per 2024 multisociety guidance (AGA/ASA/ASMBS).
@@ -1704,7 +1733,7 @@ class PerioperativeDMApp {
           <div>• Stricter targets are NOT recommended — increase hypoglycemia without improving outcomes (ADA 2026)</div>
           <div>• HbA1c alone is NOT a reason to postpone elective surgery (ADA 2026)</div>
           <div>• CGM may be used as adjunct but NOT sole monitoring modality intraoperatively</div>
-          <div style="margin-top:8px;font-style:italic;">ADA Standards of Care 2026 · ABSMC Preoperative Clinic · Sutter Health</div>
+          <div style="margin-top:8px;font-style:italic;">ADA Standards of Care 2026 · ABSMC Preoperative Clinic</div>
         </div>
         <div class="btn-row no-print" style="margin-top:8px;">
           <button class="btn-primary" onclick="window.app.startOver()">New Assessment</button>
@@ -1758,7 +1787,7 @@ class PerioperativeDMApp {
     const ctx = this.state.context;
     const header = `
       <div class="patient-sheet-header">
-        <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:#00c8db;margin-bottom:8px;">ALTA BATES SUMMIT MEDICAL CENTER · SUTTER HEALTH<br>PREOPERATIVE CLINIC · MEDICATION INSTRUCTIONS</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:#00c8db;margin-bottom:8px;">ALTA BATES SUMMIT MEDICAL CENTER<br>PREOPERATIVE CLINIC · MEDICATION INSTRUCTIONS</div>
         <h2>Surgery Preparation Instructions</h2>
         <div class="patient-meta">
           ${patientName}${p.dob ? ` · DOB: ${p.dob}` : ''}${p.arrivalTime ? ` · Arrival: ${p.arrivalTime}` : ''}<br>
@@ -1790,7 +1819,7 @@ class PerioperativeDMApp {
         <div style="margin-bottom:6px;"><strong>Questions?</strong> Call the ABSMC Preoperative Clinic: <strong>(510) 869-8865</strong></div>
         <div style="margin-bottom:6px;">These instructions apply to your <strong>diabetes medications only</strong>. Continue all other medications as instructed by your surgeon.</div>
         <div style="margin-bottom:6px;"><strong>Important:</strong> These recommendations were generated based on information available at your preoperative visit. Please verify your arrival time with your surgeon's office, as surgery times can change. Resuming any medications after surgery requires your surgeon's approval.</div>
-        <div style="font-size:11px;color:#888;margin-top:8px;">Alta Bates Summit Medical Center Preoperative Clinic · Sutter Health · Generated ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
+        <div style="font-size:11px;color:#888;margin-top:8px;">Alta Bates Summit Medical Center Preoperative Clinic · Generated ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
       </div>`;
     return header + cards + footer;
   }
@@ -1815,7 +1844,7 @@ class PerioperativeDMApp {
       patient: { firstName: '', lastName: '', dob: '', arrivalTime: '' },
       context: { dmType: null, surgeryType: null, surgeryTiming: null, hasHF: null, hasCKD: null, arrivalTime: '' },
       selected: new Set(),
-      details: { sglt2iMode: 'FDA', a1cOver8: null, prolongedFasting: null, surgeryOver3h: null, eGFR: '', contrastWithin48h: null, giSymptoms: null, insulinDetails: {} },
+      details: { sglt2iMode: 'FDA', a1cOver8: null, prolongedFasting: null, surgeryOver3h: null, eGFR: '', contrastWithin48h: null, giSymptoms: null, glp1NpoCutoff: 'midnight', insulinDetails: {} },
     };
     this.render();
   }
