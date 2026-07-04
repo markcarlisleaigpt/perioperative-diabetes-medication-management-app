@@ -246,11 +246,6 @@ input[type="checkbox"], input[type="radio"] { width:17px; height:17px; cursor:po
 .patient-card-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:12px; }
 .patient-drug-title { font-size:15px; font-weight:700; color:#f5f5f5; line-height:1.35; }
 .patient-drug-subtitle { font-size:12px; color:#aaa; margin-top:2px; }
-.patient-protocol-chip {
-  flex:none; border:1px solid rgba(120,227,181,.35); border-radius:4px;
-  padding:4px 7px; color:#78e3b5; background:rgba(120,227,181,.08);
-  font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:500; letter-spacing:.7px; text-transform:uppercase;
-}
 /* ===== DOSE INPUT ===== */
 .dose-group { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
 .dose-group label { font-size:13px; color:#ccc; flex:1; }
@@ -298,8 +293,6 @@ input[type="checkbox"], input[type="radio"] { width:17px; height:17px; cursor:po
   .flag-alert { background:#ffe6e6 !important; border:1px solid #cc3300 !important; color:#660000 !important; }
   .flag-label { color:#333 !important; }
   .flag-icon { background:#fff !important; }
-  .patient-protocol-chip { color:#005588 !important; border-color:#99d0e8 !important; background:#eef9ff !important; }
-
   /* Typography for print */
   .patient-drug-name { color:#005588 !important; font-weight:700; font-size:13pt; }
   .patient-drug-title { color:#005588 !important; font-weight:700; font-size:13pt; }
@@ -1890,8 +1883,6 @@ class PerioperativeDMApp {
       </div>`;
     const cleanHeader = header.replace('Major NonCardiac Surgery Surgery', 'Major Noncardiac Surgery');
     const cards = results.map(r => {
-      const proto = protocolFor(r.id);
-      const protoHtml = proto ? `<span class="patient-protocol-chip">Protocol ${proto[0]}</span>` : '';
       const sec = (label, text, extra='') => text
         ? `<div class="patient-section">
             <div class="patient-section-label">${label}</div>
@@ -1910,7 +1901,6 @@ class PerioperativeDMApp {
               <div class="patient-drug-title">${r.drugClass}</div>
               <div class="patient-drug-subtitle">${r.drugNames.join(', ')}</div>
             </div>
-            ${protoHtml}
           </div>
           ${sec('The Night Before Surgery', r.patient.nightBefore)}
           ${sec('The Morning of Surgery', r.patient.morningOf)}
