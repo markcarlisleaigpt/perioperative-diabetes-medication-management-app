@@ -774,9 +774,9 @@ function getDPP4iResults(ctx, details, selected) {
     patientMorning = 'Take this medication as usual.';
   } else if (timing === 'PM') {
     badge = 'HOLD MORNING OF SURGERY'; badgeType = 'hold';
-    morningOf = 'HOLD morning of surgery. If patient is eating a light breakfast (per surgeon\'s NPO instructions), may take with breakfast for PM surgery — but default is HOLD.';
+    morningOf = 'HOLD morning of surgery. If patient is eating a light breakfast for PM surgery (when appropriate), may take with breakfast — but default is HOLD.';
     patientMorning = 'Do NOT take this medication on the morning of surgery.';
-    flags.push({ type: 'info', text: 'PM surgery: If patient is eating a light breakfast per their surgeon\'s instructions, DPP-4 inhibitor may be taken with breakfast given very low hypoglycemia risk. Clinical judgment applies.' });
+    flags.push({ type: 'info', text: 'PM surgery: If patient is eating a light breakfast, DPP-4 inhibitor may be taken with breakfast given very low hypoglycemia risk. Clinical judgment applies.' });
   } else {
     badge = 'HOLD MORNING OF SURGERY'; badgeType = 'hold';
     morningOf = 'HOLD morning of surgery. Do not administer. Note: AHA/ACC 2024 and SAMBA 2024 consider continuation reasonable given low hypoglycemia risk; ABSMC default is HOLD per ADA 2026.';
@@ -1172,7 +1172,7 @@ function getPremixedInsulinResults(ctx, details, selected) {
     const nightBefore = `REDUCE evening ${drug.name} (${drug.brand}) by ${minReduct}–${maxReduct}%: ${nightEvLabel}.`;
     let morningOf, patientMorning;
     if (timing === 'PM') {
-      morningOf = `PM surgery: If patient eating full breakfast per surgeon's instructions, may take usual morning dose. If eating only a light breakfast or NPO, REDUCE morning dose by 50%: ${amHalfStr}. HOLD entirely if morning blood glucose <120 mg/dL — check BG before administering.`;
+      morningOf = `PM surgery: If patient eating full breakfast, may take usual morning dose. If eating only a light breakfast or NPO, REDUCE morning dose by 50%: ${amHalfStr}. HOLD entirely if morning blood glucose <120 mg/dL — check BG before administering.`;
       patientMorning = `IMPORTANT: Check your blood sugar before taking any insulin. If your blood sugar is below 120 mg/dL, do NOT take any morning insulin — call your surgical team. If eating a full breakfast, take your usual morning dose. If eating lightly or not at all: take only HALF your usual morning dose (${!isNaN(amDose) ? `${dosePct(amDose, 50)} units` : 'half your usual amount'}).`;
     } else {
       morningOf = `REDUCE morning dose by 50%: ${amHalfStr}. HOLD entirely if morning blood glucose <120 mg/dL. Check blood glucose before administering.`;
@@ -1430,7 +1430,7 @@ class PerioperativeDMApp {
       </div>
       <div class="card">
         <div class="question">Surgery Type</div>
-        ${btn('Minor procedure / office procedure', 'surgeryType', 'minor', ctx.surgeryType, 'e.g., cataract surgery, skin lesion or biopsy, dental extraction, joint/epidural injection, port placement, simple hand or foot procedure. Usually local or MAC anesthesia, brief, same-day discharge.')}
+        ${btn('Minor procedure', 'surgeryType', 'minor', ctx.surgeryType, 'e.g., cataract surgery, skin lesion or biopsy, dental extraction, joint/epidural injection, port placement, simple hand or foot procedure. Usually local or MAC anesthesia, brief, same-day discharge.')}
         ${btn('Colonoscopy / endoscopy', 'surgeryType', 'colonoscopy', ctx.surgeryType)}
         ${btn('Major noncardiac surgery', 'surgeryType', 'majorNoncardiac', ctx.surgeryType, 'e.g., joint replacement, hysterectomy, bowel resection, major abdominal/pelvic, spine, or vascular surgery. Usually general anesthesia, longer fasting, often an overnight or multi-day stay.')}
         ${btn('Cardiac surgery', 'surgeryType', 'cardiac', ctx.surgeryType)}
@@ -1439,7 +1439,7 @@ class PerioperativeDMApp {
       <div class="card">
         <div class="question">Surgery Timing</div>
         ${btn('AM surgery', 'surgeryTiming', 'AM', ctx.surgeryTiming, 'NPO from midnight — standard')}
-        ${btn('PM surgery', 'surgeryTiming', 'PM', ctx.surgeryTiming, 'Patient may eat a light breakfast per surgeon instructions')}
+        ${btn('PM surgery', 'surgeryTiming', 'PM', ctx.surgeryTiming, 'Patient may eat a light breakfast when appropriate')}
       </div>
       <div class="card">
         <div class="question">Heart Failure (any stage)?</div>
