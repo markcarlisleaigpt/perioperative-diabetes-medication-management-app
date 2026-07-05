@@ -907,7 +907,7 @@ function getMeglitinideResults(ctx, details, selected) {
   const flags = [];
   let morningOf, patientMorning;
   if (timing === 'PM') {
-    morningOf = 'PM surgery: If patient is eating a full breakfast per surgeon\'s NPO instructions, may take usual morning dose with breakfast. HOLD if eating only a light meal or if NPO. Default: HOLD.';
+    morningOf = 'PM surgery: If patient is eating a full breakfast (PM surgery, when appropriate), may take usual morning dose with breakfast. HOLD if eating only a light meal or if NPO. Default: HOLD.';
     patientMorning = 'Do NOT take this medication on the morning of surgery unless your surgeon has specifically told you that you may eat a full breakfast.';
     flags.push({ type: 'info', text: 'PM surgery: Meglitinides may be taken with a full breakfast given their short half-life (~1h). HOLD if NPO or light breakfast only.' });
   } else {
@@ -961,7 +961,7 @@ function getAGIResults(ctx, details, selected) {
   const flags = [];
   let morningOf, patientMorning;
   if (timing === 'PM') {
-    morningOf = 'PM surgery: May take with breakfast if patient is eating a carbohydrate-containing breakfast per surgeon\'s instructions. HOLD if NPO or eating protein-only. Default: HOLD.';
+    morningOf = 'PM surgery: May take with breakfast if patient is eating a carbohydrate-containing breakfast (when appropriate). HOLD if NPO or eating protein-only. Default: HOLD.';
     patientMorning = 'Take this medication with breakfast ONLY if your surgeon has told you that you may eat breakfast AND if your breakfast contains carbohydrates (bread, cereal, fruit, etc.). Otherwise, do NOT take it.';
   } else {
     morningOf = 'HOLD — medication requires dietary carbohydrates to work and is functionally ineffective while NPO.';
@@ -1110,7 +1110,7 @@ function getBolusInsulinResults(ctx, details, selected) {
     if (timing === 'PM') {
       // Patient may eat breakfast
       const bkfstText = !isNaN(bkfst) ? `${bkfst} units (your usual breakfast dose)` : 'your usual breakfast dose';
-      morningOf = `HOLD all lunch and dinner doses while NPO. If patient is eating a full breakfast per surgeon's instructions: MAY TAKE usual breakfast dose (${bkfstText}) with breakfast. HOLD all further prandial doses once NPO.`;
+      morningOf = `HOLD all lunch and dinner doses while NPO. If patient is eating a full breakfast (when appropriate): MAY TAKE usual breakfast dose (${bkfstText}) with breakfast. HOLD all further prandial doses once NPO.`;
       patientMorning = !isNaN(bkfst)
         ? `If you are eating a full breakfast (as told by your surgeon): take your usual breakfast dose of ${drug.brand} (${bkfst} units). Do NOT take any further doses of ${drug.brand} after breakfast, as you will not be eating again before surgery.`
         : `If you are eating a full breakfast (as told by your surgeon): take your usual breakfast dose of ${drug.brand}. Do NOT take any further doses after breakfast.`;
