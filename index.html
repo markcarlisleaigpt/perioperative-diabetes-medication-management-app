@@ -6,98 +6,131 @@
 <title>Perioperative Diabetes Medication Management Tool</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-* { margin:0; padding:0; box-sizing:border-box; }
-html { color-scheme: light dark; scroll-behavior: smooth; }
-body {
-  font-family: 'Inter', -apple-system, sans-serif;
-  background: linear-gradient(135deg, #0a1628 0%, #1a2e4a 50%, #0f1f35 100%);
-  color: #f5f5f5; line-height: 1.6; min-height: 100vh;
-  overflow-x: hidden; position: relative;
+/* ============================================================
+   GLASS — luminous clinical dashboard
+   Deep-space indigo, breathing aurora field, true glassmorphism,
+   orchestrated reveals. Reduced motion fully respected.
+   ============================================================ */
+:root {
+  --bg:#05070F; --text:#F2F6FF; --dim:#93A0C0; --dim2:#6B7897;
+  --glass:rgba(255,255,255,.065); --glass-hi:rgba(255,255,255,.12); --glass-border:rgba(160,190,255,.16);
+  --accent:#22D3EE; --violet:#7C6AF0; --magenta:#E45BC8;
+  --accent-glow:rgba(34,211,238,.35);
+  --red:#FF6B7A; --green:#4ADE9C; --amber:#FFC466; --cyan:#5EE1FF; --purple:#C08BFF;
 }
+* { margin:0; padding:0; box-sizing:border-box; }
+html { color-scheme: dark; scroll-behavior:smooth; }
+body {
+  font-family:'Inter', -apple-system, sans-serif;
+  background:var(--bg); color:var(--text); line-height:1.6; min-height:100vh;
+  overflow-x:hidden; position:relative;
+}
+/* the aurora field — three drifting light masses, slow breath */
 body::before {
-  content:''; position:fixed; top:0; left:0; width:100%; height:100%;
-  background: radial-gradient(circle at 20% 50%, rgba(0,200,200,.1) 0%, transparent 50%),
-              radial-gradient(circle at 80% 80%, rgba(200,100,200,.05) 0%, transparent 50%);
-  pointer-events:none; z-index:0;
+  content:''; position:fixed; inset:-20%; pointer-events:none; z-index:0;
+  background:
+    radial-gradient(42% 34% at 22% 30%, rgba(34,211,238,.16) 0%, transparent 70%),
+    radial-gradient(38% 40% at 78% 22%, rgba(124,106,240,.18) 0%, transparent 70%),
+    radial-gradient(46% 38% at 60% 85%, rgba(228,91,200,.10) 0%, transparent 70%);
+  animation:aurora 26s ease-in-out infinite alternate;
+}
+@keyframes aurora {
+  0%   { transform:translate3d(0,0,0) scale(1); opacity:.9; }
+  50%  { transform:translate3d(2%, -2%, 0) scale(1.06); opacity:1; }
+  100% { transform:translate3d(-2%, 2%, 0) scale(1.02); opacity:.85; }
 }
 .container { max-width:680px; margin:0 auto; padding:16px; min-height:100vh; position:relative; z-index:1; }
-@keyframes fadeInUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
-@keyframes slideDown { from{opacity:0;transform:translateY(-10px)} to{opacity:1;transform:translateY(0)} }
+@keyframes fadeInUp { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:translateY(0)} }
+@keyframes slideDown { from{opacity:0;transform:translateY(-12px)} to{opacity:1;transform:translateY(0)} }
+@keyframes pulseDot { 0%,100%{box-shadow:0 0 0 0 rgba(255,107,122,.5)} 50%{box-shadow:0 0 0 5px rgba(255,107,122,0)} }
 /* ===== HEADER ===== */
 .header-banner {
-  background: linear-gradient(135deg, rgba(0,180,219,.15) 0%, rgba(100,80,200,.15) 100%);
-  border:1px solid rgba(0,200,220,.3); backdrop-filter:blur(20px);
-  border-radius:20px; padding:28px 24px; margin-bottom:20px;
-  box-shadow:0 8px 32px rgba(0,0,0,.3); animation:slideDown .6s ease-out;
+  background:linear-gradient(150deg, rgba(34,211,238,.14), rgba(124,106,240,.12) 55%, rgba(228,91,200,.08));
+  border:1px solid var(--glass-border); backdrop-filter:blur(24px) saturate(1.4);
+  border-radius:24px; padding:30px 24px; margin-bottom:20px;
+  box-shadow:0 12px 48px rgba(3,6,20,.6), inset 0 1px 0 rgba(255,255,255,.14);
+  animation:slideDown .7s cubic-bezier(.2,.8,.2,1);
   text-align:center; position:relative; overflow:hidden;
 }
 .header-banner::before {
-  content:''; position:absolute; top:-50%; right:-50%; width:200%; height:200%;
-  background:radial-gradient(circle, rgba(0,200,220,.1) 0%, transparent 70%); pointer-events:none;
+  content:''; position:absolute; top:-60%; left:-30%; width:160%; height:120%;
+  background:radial-gradient(circle, rgba(255,255,255,.08) 0%, transparent 60%); pointer-events:none;
 }
-.clinic-label { font-size:11px; font-weight:700; color:#00c8db; margin-bottom:8px; text-transform:uppercase; letter-spacing:1.2px; }
-.header-banner h1 { font-family:'Inter',sans-serif; font-size:26px; font-weight:600; margin-bottom:8px; letter-spacing:-.5px; line-height:1.2; }
-.header-banner p { font-size:13px; opacity:.8; font-weight:300; letter-spacing:.3px; }
-.step-indicator { font-size:11px; color:#00c8db; margin-bottom:6px; font-weight:600; text-transform:uppercase; letter-spacing:1px; }
-/* ===== CARDS ===== */
+.clinic-label { font-size:11px; font-weight:600; color:var(--accent); margin-bottom:10px; text-transform:uppercase; letter-spacing:.2em; text-shadow:0 0 12px var(--accent-glow); }
+.header-banner h1 { font-family:'Space Grotesk',sans-serif; font-size:27px; font-weight:600; margin-bottom:8px; letter-spacing:-.4px; line-height:1.2; }
+.header-banner p { font-size:13px; color:var(--dim); font-weight:400; letter-spacing:.3px; }
+.step-indicator { font-size:11px; color:var(--accent); margin-bottom:8px; font-weight:600; text-transform:uppercase; letter-spacing:.16em; text-shadow:0 0 12px var(--accent-glow); }
+/* ===== CARDS — true glass, staggered entrance ===== */
 .card {
-  background: linear-gradient(135deg, rgba(255,255,255,.08) 0%, rgba(255,255,255,.03) 100%);
-  border:1px solid rgba(255,255,255,.15); backdrop-filter:blur(20px);
-  border-radius:16px; padding:24px; margin-bottom:16px;
-  box-shadow:0 8px 32px rgba(0,0,0,.3); animation:fadeInUp .5s ease-out both;
+  background:linear-gradient(160deg, rgba(255,255,255,.085), rgba(255,255,255,.025));
+  border:1px solid var(--glass-border); backdrop-filter:blur(24px) saturate(1.4);
+  border-radius:20px; padding:24px; margin-bottom:16px;
+  box-shadow:0 12px 48px rgba(3,6,20,.55); animation:fadeInUp .55s cubic-bezier(.2,.8,.2,1) both;
   position:relative;
 }
+.card:nth-of-type(2) { animation-delay:.06s; }
+.card:nth-of-type(3) { animation-delay:.12s; }
+.card:nth-of-type(4) { animation-delay:.18s; }
 .card::before {
-  content:''; position:absolute; top:0; left:0; right:0; height:1px;
-  background:linear-gradient(90deg, transparent, rgba(255,255,255,.2), transparent);
+  content:''; position:absolute; top:0; left:8%; right:8%; height:1px;
+  background:linear-gradient(90deg, transparent, rgba(255,255,255,.35), transparent);
 }
-.question { font-size:16px; font-weight:600; margin-bottom:16px; font-family:'Inter',sans-serif; }
-.section-label { font-size:11px; font-weight:700; color:#00c8db; margin-bottom:6px; text-transform:uppercase; letter-spacing:1.2px; margin-top:16px; }
+.question { font-family:'Space Grotesk',sans-serif; font-size:16.5px; font-weight:600; margin-bottom:16px; letter-spacing:-.2px; }
+.section-label { font-size:11px; font-weight:600; color:var(--accent); margin-bottom:6px; text-transform:uppercase; letter-spacing:.14em; margin-top:16px; }
 .section-label:first-of-type { margin-top:0; }
-.section-text { font-size:13.5px; line-height:1.7; color:#d4d4d4; font-weight:300; margin-bottom:12px; }
+.section-text { font-size:13.5px; line-height:1.7; color:#C9D3EA; font-weight:400; margin-bottom:12px; }
 /* ===== BUTTONS ===== */
 button {
   display:block; width:100%; padding:14px 16px; margin-bottom:10px;
-  font-size:14px; border:1px solid rgba(255,255,255,.2);
-  background:linear-gradient(135deg,rgba(255,255,255,.08) 0%,rgba(255,255,255,.03) 100%);
-  color:#f5f5f5; border-radius:10px; cursor:pointer; text-align:left;
-  transition:all .3s cubic-bezier(.34,1.56,.64,1); font-family:'Inter',sans-serif; font-weight:500;
+  font-size:14px; border:1px solid var(--glass-border);
+  background:linear-gradient(160deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+  color:var(--text); border-radius:14px; cursor:pointer; text-align:left;
+  transition:all .3s cubic-bezier(.2,.8,.2,1); font-family:'Inter',sans-serif; font-weight:500;
   position:relative; overflow:hidden;
 }
-button:hover { border-color:rgba(0,200,220,.5); background:linear-gradient(135deg,rgba(0,200,220,.15),rgba(100,80,200,.1)); transform:translateY(-1px); box-shadow:0 8px 24px rgba(0,200,220,.2); }
+button:hover { border-color:rgba(34,211,238,.55); background:linear-gradient(160deg, rgba(34,211,238,.14), rgba(124,106,240,.10)); transform:translateY(-1px); box-shadow:0 10px 32px rgba(34,211,238,.22); }
 button:active { transform:translateY(0); }
-.btn-primary { background:linear-gradient(135deg,#00c8db,#0088aa); border:none; color:#0a1628; font-weight:700; text-align:center; }
-.btn-primary:hover { background:linear-gradient(135deg,#00d4e8,#0096ba); border:none; }
-.btn-back { background:transparent; border:1px solid rgba(255,255,255,.2); color:#aaa; font-size:13px; padding:10px 14px; text-align:center; margin-bottom:12px; }
-.btn-back:hover { border-color:rgba(255,255,255,.4); color:#f5f5f5; transform:none; }
+.btn-primary {
+  background:linear-gradient(120deg, #22D3EE, #7C6AF0);
+  border:none; color:#040B18; font-weight:700; text-align:center; letter-spacing:.01em;
+  box-shadow:0 8px 30px rgba(34,211,238,.35), 0 2px 10px rgba(124,106,240,.4);
+}
+.btn-primary:hover { background:linear-gradient(120deg, #3DE0F8, #8F7DFF); box-shadow:0 12px 40px rgba(34,211,238,.5), 0 4px 14px rgba(124,106,240,.5); border:none; }
+.btn-back { background:transparent; border:1px solid rgba(255,255,255,.16); color:var(--dim); font-size:13px; padding:10px 14px; text-align:center; margin-bottom:12px; box-shadow:none; }
+.btn-back:hover { border-color:rgba(255,255,255,.35); color:var(--text); transform:none; background:transparent; box-shadow:none; }
 .btn-row { display:flex; gap:10px; }
 .btn-row button { flex:1; }
 .btn-sm { padding:10px 14px; font-size:13px; margin-bottom:8px; }
 /* ===== FORM INPUTS ===== */
 .field-group { margin-bottom:16px; }
-.field-label { font-size:12px; font-weight:600; color:#00c8db; text-transform:uppercase; letter-spacing:.8px; margin-bottom:6px; display:block; }
+.field-label { font-size:11.5px; font-weight:600; color:var(--accent); text-transform:uppercase; letter-spacing:.1em; margin-bottom:6px; display:block; }
 input[type="text"], input[type="date"], input[type="number"] {
-  width:100%; padding:12px 14px; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.2);
-  border-radius:10px; color:#f5f5f5; font-family:'Inter',sans-serif; font-size:14px;
-  transition:border-color .3s;
+  width:100%; padding:12px 14px; background:rgba(8,12,26,.55); border:1px solid var(--glass-border);
+  border-radius:12px; color:var(--text); font-family:'Inter',sans-serif; font-size:14px;
+  transition:border-color .3s, box-shadow .3s; backdrop-filter:blur(8px);
 }
 input[type="text"]:focus, input[type="date"]:focus, input[type="number"]:focus {
-  outline:none; border-color:#00c8db; background:rgba(0,200,220,.08);
+  outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(34,211,238,.18), 0 0 18px rgba(34,211,238,.15);
 }
-input[type="text"]::placeholder, input[type="number"]::placeholder { color:#666; }
+input[type="text"]::placeholder, input[type="number"]::placeholder { color:var(--dim2); }
 input[type="number"] { -moz-appearance:textfield; }
 input[type="number"]::-webkit-inner-spin-button { opacity:.5; }
-/* ===== CHECKBOX + RADIO ===== */
+/* ===== CHECKBOX + RADIO — glow rings ===== */
 .check-label {
   display:flex; align-items:flex-start; gap:12px; padding:12px 14px; margin-bottom:8px;
-  background:linear-gradient(135deg,rgba(0,200,220,.06),rgba(100,80,200,.04));
-  border:1px solid rgba(0,200,220,.18); border-radius:10px; cursor:pointer; font-size:14px; transition:all .3s;
+  background:linear-gradient(160deg, rgba(255,255,255,.05), rgba(255,255,255,.015));
+  border:1px solid var(--glass-border); border-radius:12px; cursor:pointer; font-size:14px;
+  transition:all .25s cubic-bezier(.2,.8,.2,1);
+  touch-action:manipulation; -webkit-tap-highlight-color:transparent; user-select:none;
 }
-.check-label:hover { background:linear-gradient(135deg,rgba(0,200,220,.12),rgba(100,80,200,.08)); border-color:rgba(0,200,220,.4); }
-.check-label.selected { border-color:#00c8db; background:linear-gradient(135deg,rgba(0,200,220,.18),rgba(100,80,200,.1)); }
-.check-label { touch-action: manipulation; -webkit-tap-highlight-color: transparent; user-select:none; }
+.check-label:hover { border-color:rgba(34,211,238,.45); background:linear-gradient(160deg, rgba(34,211,238,.10), rgba(124,106,240,.06)); }
+.check-label.selected {
+  border-color:var(--accent);
+  background:linear-gradient(160deg, rgba(34,211,238,.16), rgba(124,106,240,.10));
+  box-shadow:0 0 0 1px rgba(34,211,238,.35), 0 0 22px rgba(34,211,238,.18);
+}
 .no-selection-flash .header-banner,
 .no-selection-flash .card,
 .no-selection-flash .result-card { animation:none !important; }
@@ -108,115 +141,137 @@ input[type="number"]::-webkit-inner-spin-button { opacity:.5; }
 .no-selection-flash .toggle-btn,
 .no-selection-flash .tab { transition:none !important; }
 .custom-check {
-  width:20px; height:20px; border:2px solid rgba(0,200,220,.5); border-radius:4px;
+  width:20px; height:20px; border:2px solid rgba(94,225,255,.5); border-radius:6px;
   flex-shrink:0; display:flex; align-items:center; justify-content:center;
   font-size:13px; font-weight:700; color:transparent; background:transparent;
   transition:all .2s; margin-top:1px;
 }
-.check-label.selected .custom-check { background:#00c8db; border-color:#00c8db; color:#0a1628; }
+.check-label.selected .custom-check { background:linear-gradient(120deg,#22D3EE,#7C6AF0); border-color:transparent; color:#040B18; box-shadow:0 0 12px var(--accent-glow); }
 .custom-radio {
-  width:20px; height:20px; border:2px solid rgba(0,200,220,.5); border-radius:50%;
+  width:20px; height:20px; border:2px solid rgba(94,225,255,.5); border-radius:50%;
   flex-shrink:0; display:flex; align-items:center; justify-content:center;
   transition:all .2s; margin-top:1px;
 }
 .custom-radio::after { content:''; width:10px; height:10px; border-radius:50%; background:transparent; transition:all .2s; }
-.check-label.selected .custom-radio { border-color:#00c8db; }
-.check-label.selected .custom-radio::after { background:#00c8db; }
-input[type="checkbox"], input[type="radio"] { width:17px; height:17px; cursor:pointer; flex-shrink:0; accent-color:#00c8db; margin-top:1px; }
-.check-info { font-size:12px; color:#aaa; margin-top:2px; }
+.check-label.selected .custom-radio { border-color:var(--accent); box-shadow:0 0 12px var(--accent-glow); }
+.check-label.selected .custom-radio::after { background:linear-gradient(120deg,#22D3EE,#7C6AF0); }
+input[type="checkbox"], input[type="radio"] { width:17px; height:17px; cursor:pointer; flex-shrink:0; accent-color:var(--accent); margin-top:1px; }
+.check-info { font-size:12px; color:var(--dim); margin-top:2px; }
 .category-header {
-  font-size:12px; font-weight:700; color:#00c8db; text-transform:uppercase; letter-spacing:1px;
-  padding:10px 0 6px; border-bottom:1px solid rgba(0,200,220,.2); margin-bottom:8px; margin-top:16px;
+  font-family:'Space Grotesk',sans-serif; font-size:12px; font-weight:600; color:var(--accent);
+  text-transform:uppercase; letter-spacing:.12em;
+  padding:10px 0 6px; border-bottom:1px solid rgba(34,211,238,.25); margin-bottom:8px; margin-top:16px;
+  text-shadow:0 0 12px var(--accent-glow);
 }
 .category-header:first-of-type { margin-top:0; }
 .drug-indent { padding-left:8px; }
 /* ===== SEARCH ===== */
 .search-wrap { position:relative; margin-bottom:16px; }
 .search-wrap input { padding-left:36px; }
-.search-icon { position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#666; font-size:15px; pointer-events:none; }
+.search-icon { position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--dim2); font-size:15px; pointer-events:none; }
 /* ===== TOGGLE ===== */
-.toggle-row { display:flex; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.15); border-radius:10px; padding:4px; margin-bottom:16px; gap:4px; }
-.toggle-btn { flex:1; padding:9px; font-size:13px; font-weight:600; border:none; border-radius:7px; background:transparent; color:#aaa; cursor:pointer; transition:all .3s; text-align:center; }
-.toggle-btn.active { background:linear-gradient(135deg,#00c8db,#0088aa); color:#0a1628; }
-/* ===== BADGES ===== */
-.badge { display:inline-block; font-size:11px; font-weight:700; padding:4px 10px; border-radius:4px; letter-spacing:1px; text-transform:uppercase; margin-bottom:10px; }
-.badge-hold { background:rgba(220,60,60,.3); border:1px solid rgba(220,60,60,.6); color:#ff9999; }
-.badge-continue { background:rgba(40,180,100,.3); border:1px solid rgba(40,180,100,.6); color:#80ffb0; }
-.badge-modify { background:rgba(220,160,30,.3); border:1px solid rgba(220,160,30,.6); color:#ffd080; }
-.badge-consider { background:rgba(0,180,220,.3); border:1px solid rgba(0,180,220,.6); color:#80e8ff; }
-.badge-consult { background:rgba(180,80,220,.3); border:1px solid rgba(180,80,220,.6); color:#d080ff; }
+.toggle-row { display:flex; background:rgba(8,12,26,.55); border:1px solid var(--glass-border); border-radius:14px; padding:4px; margin-bottom:16px; gap:4px; backdrop-filter:blur(8px); }
+.toggle-btn { flex:1; padding:9px; font-size:13px; font-weight:600; border:none; border-radius:10px; background:transparent; color:var(--dim); cursor:pointer; transition:all .25s; text-align:center; box-shadow:none; margin:0; }
+.toggle-btn.active { background:linear-gradient(120deg,#22D3EE,#7C6AF0); color:#040B18; box-shadow:0 4px 16px rgba(34,211,238,.35); }
+/* ===== BADGES — luminous pills ===== */
+.badge {
+  display:inline-flex; align-items:center; gap:7px; font-size:11px; font-weight:700;
+  padding:5px 12px; border-radius:999px; letter-spacing:.1em; text-transform:uppercase; margin-bottom:10px;
+  backdrop-filter:blur(8px);
+}
+.badge::before { content:''; width:7px; height:7px; border-radius:50%; flex-shrink:0; background:currentColor; }
+.badge-hold { background:rgba(255,107,122,.14); border:1px solid rgba(255,107,122,.5); color:var(--red); box-shadow:0 0 18px rgba(255,107,122,.2); }
+.badge-hold::before { animation:pulseDot 2s ease-in-out infinite; }
+.badge-continue { background:rgba(74,222,156,.13); border:1px solid rgba(74,222,156,.5); color:var(--green); box-shadow:0 0 18px rgba(74,222,156,.18); }
+.badge-modify { background:rgba(255,196,102,.13); border:1px solid rgba(255,196,102,.5); color:var(--amber); box-shadow:0 0 18px rgba(255,196,102,.16); }
+.badge-consider { background:rgba(94,225,255,.13); border:1px solid rgba(94,225,255,.5); color:var(--cyan); box-shadow:0 0 18px rgba(94,225,255,.18); }
+.badge-consult { background:rgba(192,139,255,.13); border:1px solid rgba(192,139,255,.5); color:var(--purple); box-shadow:0 0 18px rgba(192,139,255,.18); }
 /* ===== RESULT CARDS ===== */
 .result-card {
-  border:1px solid rgba(255,255,255,.12); border-radius:14px; margin-bottom:16px;
-  overflow:hidden; animation:fadeInUp .5s ease-out both;
+  border:1px solid var(--glass-border); border-radius:20px; margin-bottom:16px;
+  background:linear-gradient(160deg, rgba(255,255,255,.07), rgba(255,255,255,.02));
+  backdrop-filter:blur(24px) saturate(1.4);
+  overflow:hidden; animation:fadeInUp .55s cubic-bezier(.2,.8,.2,1) both;
+  box-shadow:0 12px 48px rgba(3,6,20,.55);
 }
+.result-card:nth-of-type(2) { animation-delay:.07s; }
+.result-card:nth-of-type(3) { animation-delay:.14s; }
+.result-card:nth-of-type(4) { animation-delay:.21s; }
 .result-card-header {
-  background:linear-gradient(135deg,rgba(0,200,220,.12),rgba(100,80,200,.08));
+  background:linear-gradient(150deg, rgba(34,211,238,.13), rgba(124,106,240,.10));
   border-bottom:1px solid rgba(255,255,255,.1); padding:16px 18px;
 }
-.result-card-header h3 { font-size:15px; font-weight:700; margin-bottom:4px; }
-.result-card-header .drug-list { font-size:12px; color:#aaa; }
+.result-card-header h3 { font-family:'Space Grotesk',sans-serif; font-size:15.5px; font-weight:600; margin-bottom:4px; }
+.result-card-header .drug-list { font-size:12px; color:var(--dim); }
 .result-card-body { padding:16px 18px; }
 .result-section { margin-bottom:14px; }
 .result-section:last-child { margin-bottom:0; }
-.result-section-label { font-size:10px; font-weight:600; color:#00c8db; text-transform:uppercase; letter-spacing:1.2px; padding-bottom:5px; border-bottom:1px solid rgba(0,200,219,.25); margin-bottom:7px; }
-.result-section-text { font-size:13.5px; line-height:1.7; color:#d4d4d4; }
+.result-section-label { font-size:10px; font-weight:600; color:var(--accent); text-transform:uppercase; letter-spacing:.14em; padding-bottom:5px; border-bottom:1px solid rgba(34,211,238,.28); margin-bottom:7px; }
+.result-section-text { font-size:13.5px; line-height:1.7; color:#C9D3EA; }
 .evidence-strip {
-  background:rgba(0,200,220,.06); border-left:3px solid #00c8db; border:1px solid rgba(0,200,220,.18);
-  border-left:3px solid #00c8db; border-radius:8px; padding:12px 14px; margin-top:12px;
-  font-size:12px; line-height:1.6; color:#bbb;
+  background:rgba(34,211,238,.06); border:1px solid rgba(34,211,238,.2); border-left:3px solid var(--accent);
+  border-radius:12px; padding:12px 14px; margin-top:12px;
+  font-size:12px; line-height:1.6; color:var(--dim);
 }
-.evidence-strip strong { color:#00c8db; }
-.evidence-link { color:#00d4e8; text-decoration:underline; text-underline-offset:2px; font-weight:600; }
-.evidence-link:hover { color:#5ce8ff; }
+.evidence-strip strong { color:var(--accent); }
+.evidence-link { color:#5EE1FF; text-decoration:underline; text-underline-offset:2px; font-weight:600; }
+.evidence-link:hover { color:#9DEEFF; text-shadow:0 0 12px var(--accent-glow); }
 @media print { .evidence-link { color:#005588 !important; } }
-.mono-data { font-family:'IBM Plex Mono',monospace; font-size:.93em; font-weight:500; color:#F0F2F5; background:rgba(240,242,245,.05); border-radius:3px; padding:0 2px; }
-.evidence-num { font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:500; color:#6B7A8A; }
-.evidence-label { font-size:10px; font-weight:600; color:#00c8db; text-transform:uppercase; letter-spacing:1.2px; padding-bottom:5px; border-bottom:1px solid rgba(0,200,219,.25); margin-bottom:7px; }
-@media print { .mono-data { color:#111 !important; background:#F0F2F5 !important; } }
+.mono-data { font-family:'IBM Plex Mono',monospace; font-size:.93em; font-weight:500; color:#F4F8FF; background:rgba(160,190,255,.08); border-radius:4px; padding:0 3px; }
+.evidence-num { font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:500; color:var(--dim2); }
+.evidence-label { font-size:10px; font-weight:600; color:var(--accent); text-transform:uppercase; letter-spacing:.14em; padding-bottom:5px; border-bottom:1px solid rgba(34,211,238,.28); margin-bottom:7px; }
+@media print { .mono-data { color:#111 !important; background:#EEF1F7 !important; } }
 /* ===== FLAGS ===== */
-.flag { border-radius:8px; padding:10px 12px; margin-bottom:8px; font-size:12.5px; line-height:1.6; }
-.flag-label { font-size:10px; font-weight:600; letter-spacing:1.2px; text-transform:uppercase; margin-bottom:3px; opacity:.9; }
-.flag-warn { background:rgba(220,160,30,.12); border:1px solid rgba(220,160,30,.35); color:#ffd080; }
-.flag-info { background:rgba(0,160,220,.1); border:1px solid rgba(0,160,220,.3); color:#80d8ff; }
-.flag-alert { background:rgba(220,60,60,.12); border:1px solid rgba(220,60,60,.35); color:#ff9999; }
+.flag { border-radius:12px; padding:10px 12px; margin-bottom:8px; font-size:12.5px; line-height:1.6; backdrop-filter:blur(8px); }
+.flag-label { font-size:10px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; margin-bottom:3px; opacity:.95; }
+.flag-warn { background:rgba(255,196,102,.10); border:1px solid rgba(255,196,102,.38); color:#FFD9A0; }
+.flag-info { background:rgba(94,225,255,.09); border:1px solid rgba(94,225,255,.32); color:#B5E9FF; }
+.flag-alert { background:rgba(255,107,122,.10); border:1px solid rgba(255,107,122,.4); color:#FFB3BC; }
 /* ===== DISCLAIMER ===== */
 .disclaimer {
-  background:rgba(220,100,100,.1); border:1px solid rgba(220,100,100,.25);
-  border-radius:12px; padding:14px 16px; margin-bottom:18px; font-size:12px; line-height:1.6; color:#d4d4d4;
+  background:rgba(255,107,122,.08); border:1px solid rgba(255,107,122,.25);
+  border-radius:16px; padding:14px 16px; margin-bottom:18px; font-size:12px; line-height:1.6; color:#C9D3EA;
+  backdrop-filter:blur(8px);
 }
-.disclaimer strong { color:#ff9999; }
+.disclaimer strong { color:var(--red); }
 /* ===== OUTPUT TABS ===== */
 .tab-bar { display:flex; gap:8px; margin-bottom:16px; }
-.tab { flex:1; padding:11px; font-size:13px; font-weight:600; border:1px solid rgba(255,255,255,.2); border-radius:10px; background:rgba(255,255,255,.05); color:#aaa; cursor:pointer; text-align:center; transition:all .3s; }
-.tab.active { background:linear-gradient(135deg,rgba(0,200,220,.2),rgba(100,80,200,.15)); border-color:#00c8db; color:#f5f5f5; }
+.tab { flex:1; padding:11px; font-size:13px; font-weight:600; border:1px solid var(--glass-border); border-radius:14px; background:rgba(255,255,255,.04); color:var(--dim); cursor:pointer; text-align:center; transition:all .25s; }
+.tab.active { background:linear-gradient(150deg, rgba(34,211,238,.2), rgba(124,106,240,.16)); border-color:rgba(34,211,238,.6); color:var(--text); box-shadow:0 0 22px rgba(34,211,238,.2); }
 .tab-content { display:none; }
 .tab-content.active { display:block; }
 /* ===== PATIENT SHEET ===== */
 .patient-sheet-header {
-  background:linear-gradient(135deg,rgba(0,200,220,.15),rgba(100,80,200,.1));
-  border:1px solid rgba(0,200,220,.3); border-radius:14px; padding:20px; margin-bottom:16px; text-align:center;
+  background:linear-gradient(150deg, rgba(34,211,238,.15), rgba(124,106,240,.10));
+  border:1px solid rgba(34,211,238,.3); border-radius:18px; padding:20px; margin-bottom:16px; text-align:center;
+  backdrop-filter:blur(16px);
 }
-.patient-sheet-header h2 { font-family:'Inter',sans-serif; font-weight:600; font-size:20px; margin-bottom:8px; }
-.patient-meta { font-size:13px; color:#ccc; line-height:1.8; }
-.patient-drug-card { border:1px solid rgba(255,255,255,.15); border-radius:12px; padding:16px; margin-bottom:14px; }
-.patient-drug-name { font-size:15px; font-weight:600; margin-bottom:12px; color:#00d4e8; }
+.patient-sheet-header h2 { font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:20px; margin-bottom:8px; }
+.patient-meta { font-size:13px; color:#C9D3EA; line-height:1.8; }
+.patient-drug-card { border:1px solid var(--glass-border); border-radius:16px; padding:16px; margin-bottom:14px; background:rgba(255,255,255,.04); backdrop-filter:blur(16px); }
+.patient-drug-name { font-size:15px; font-weight:600; margin-bottom:12px; color:#5EE1FF; }
 .patient-section { margin-bottom:12px; }
-.patient-section-label { font-size:11px; font-weight:600; color:#00c8db; text-transform:uppercase; letter-spacing:1.2px; padding-bottom:5px; border-bottom:1px solid rgba(0,200,219,.25); margin-bottom:7px; }
-.patient-section-text { font-size:14px; line-height:1.75; color:#e0e0e0; }
-.patient-dietary { background:rgba(0,200,220,.08); border:1px solid rgba(0,200,220,.25); border-radius:8px; padding:12px; margin-top:10px; }
-.patient-dietary-label { font-size:11px; font-weight:600; color:#00c8db; text-transform:uppercase; letter-spacing:1.2px; padding-bottom:5px; border-bottom:1px solid rgba(0,200,219,.25); margin-bottom:7px; }
-.patient-footer { border:1px solid rgba(255,255,255,.1); border-radius:12px; padding:16px; margin-top:8px; font-size:12px; color:#aaa; line-height:1.7; }
+.patient-section-label { font-size:11px; font-weight:600; color:var(--accent); text-transform:uppercase; letter-spacing:.12em; padding-bottom:5px; border-bottom:1px solid rgba(34,211,238,.28); margin-bottom:7px; }
+.patient-section-text { font-size:14px; line-height:1.75; color:#E3E9F7; }
+.patient-dietary { background:rgba(34,211,238,.09); border:1px solid rgba(34,211,238,.3); border-radius:12px; padding:12px; margin-top:10px; }
+.patient-dietary-label { font-size:11px; font-weight:600; color:var(--accent); text-transform:uppercase; letter-spacing:.12em; padding-bottom:5px; border-bottom:1px solid rgba(34,211,238,.28); margin-bottom:7px; }
+.patient-footer { border:1px solid rgba(255,255,255,.1); border-radius:16px; padding:16px; margin-top:8px; font-size:12px; color:var(--dim); line-height:1.7; background:rgba(255,255,255,.03); }
 /* ===== DOSE INPUT ===== */
 .dose-group { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
-.dose-group label { font-size:13px; color:#ccc; flex:1; }
+.dose-group label { font-size:13px; color:#C9D3EA; flex:1; }
 .dose-group input { width:80px; flex:none; }
-.dose-group .units { font-size:12px; color:#888; flex:none; }
+.dose-group .units { font-size:12px; color:var(--dim2); flex:none; }
 /* ===== MISC ===== */
-.helper-text { font-size:12px; color:#888; line-height:1.5; margin-bottom:14px; font-style:italic; }
-.divider { border:none; border-top:1px solid rgba(255,255,255,.08); margin:16px 0; }
-.selected-count { font-size:12px; color:#00c8db; margin-bottom:12px; font-weight:600; }
-.no-meds-msg { font-size:13px; color:#888; text-align:center; padding:20px; }
+.helper-text { font-size:12px; color:var(--dim2); line-height:1.5; margin-bottom:14px; font-style:italic; }
+.divider { border:none; height:1px; background:linear-gradient(90deg, transparent, rgba(160,190,255,.25), transparent); margin:16px 0; }
+.selected-count { font-size:12px; color:var(--accent); margin-bottom:12px; font-weight:600; text-shadow:0 0 12px var(--accent-glow); }
+.no-meds-msg { font-size:13px; color:var(--dim2); text-align:center; padding:20px; }
+/* ===== A11Y ===== */
+:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation:none !important; transition:none !important; }
+  body::before { animation:none !important; }
+}
 /* ===== PRINT STYLES ===== */
 @media print {
   body { background:#fff !important; color:#111 !important; }
@@ -407,7 +462,7 @@ function dosePct(base, reductPct) {
 function pctOrUnits(base, lo, hi, pctLo, pctHi) {
   // Returns formatted string: "X–Y units (reduced from Z units)" or "reduce by X–Y%"
   const r = doseRange(base, pctLo, pctHi);
-  if (r) return `${r} <span style="color:#999">(reduced from your usual ${base} units)</span>`;
+  if (r) return `${r} <span style="color:var(--dim2)">(reduced from your usual ${base} units)</span>`;
   return `reduce by ${pctLo}–${pctHi}% from your usual dose`;
 }
 function halfDose(base) {
@@ -1366,7 +1421,7 @@ class PerioperativeDMApp {
           <input type="text" value="${p.dob}" placeholder="e.g., 01/15/1955" oninput="window.app.updatePatient('dob', this.value)">
         </div>
         <div class="field-group">
-          <label class="field-label">Planned Arrival Time <span style="font-size:11px;color:#888;font-weight:400;text-transform:none;">(optional — used in patient instructions)</span></label>
+          <label class="field-label">Planned Arrival Time <span style="font-size:11px;color:var(--dim2);font-weight:400;text-transform:none;">(optional — used in patient instructions)</span></label>
           <input type="text" value="${p.arrivalTime}" placeholder="e.g., 7:30 AM on Monday June 16, 2026" oninput="window.app.updatePatient('arrivalTime', this.value)">
         </div>
         <button class="btn-primary" onclick="window.app.savePatientAndContinue()">Next: Clinical Context →</button>
@@ -1501,7 +1556,7 @@ class PerioperativeDMApp {
           </div>
           ${details.sglt2iMode === 'SPAQI' ? `
             <hr class="divider">
-            <div class="question" style="font-size:14px;">HbA1c >8%? <span style="font-size:12px;font-weight:400;color:#aaa">(Used for the minor-surgery eDKA testing footnote)</span></div>
+            <div class="question" style="font-size:14px;">HbA1c >8%? <span style="font-size:12px;font-weight:400;color:var(--dim2)">(Used for the minor-surgery eDKA testing footnote)</span></div>
             <div class="btn-row">
               <div class="check-label ${details.a1cOver8===true?'selected':''}" onclick="window.app.updateDetails('a1cOver8',true)">
                 <span class="custom-radio"></span> Yes (>8%)
@@ -1514,7 +1569,7 @@ class PerioperativeDMApp {
               </div>
             </div>
             <hr class="divider">
-            <div class="question" style="font-size:14px;">Prolonged postoperative fasting anticipated? <span style="font-size:12px;font-weight:400;color:#aaa">(NPO/poor intake well beyond the day of surgery)</span></div>
+            <div class="question" style="font-size:14px;">Prolonged postoperative fasting anticipated? <span style="font-size:12px;font-weight:400;color:var(--dim2)">(NPO/poor intake well beyond the day of surgery)</span></div>
             <div class="btn-row">
               <div class="check-label ${details.prolongedFasting===true?'selected':''}" onclick="window.app.updateDetails('prolongedFasting',true)">
                 <span class="custom-radio"></span> Yes
@@ -1524,7 +1579,7 @@ class PerioperativeDMApp {
               </div>
             </div>
             <hr class="divider">
-            <div class="question" style="font-size:14px;">Anticipated surgery length >3 hours? <span style="font-size:12px;font-weight:400;color:#aaa">(Flags intraoperative eDKA monitoring if continued)</span></div>
+            <div class="question" style="font-size:14px;">Anticipated surgery length >3 hours? <span style="font-size:12px;font-weight:400;color:var(--dim2)">(Flags intraoperative eDKA monitoring if continued)</span></div>
             <div class="btn-row">
               <div class="check-label ${details.surgeryOver3h===true?'selected':''}" onclick="window.app.updateDetails('surgeryOver3h',true)">
                 <span class="custom-radio"></span> Yes
@@ -1598,7 +1653,7 @@ class PerioperativeDMApp {
       const dd = details.insulinDetails[drug.id] || {};
       html += `
         <div class="card">
-          <div class="question" style="font-size:15px;">${drug.name} <span style="color:#888;font-size:13px;">(${drug.brand})</span></div>
+          <div class="question" style="font-size:15px;">${drug.name} <span style="color:var(--dim2);font-size:13px;">(${drug.brand})</span></div>
           ${drug.concentrated ? `<div class="flag flag-info" style="margin-bottom:12px;">${drug.concentratedNote}</div>` : ''}
           ${drug.needsFrequency ? `
             <div class="section-label">Dosing Frequency</div>
@@ -1647,7 +1702,7 @@ class PerioperativeDMApp {
       const dd = details.insulinDetails[drug.id] || {};
       html += `
         <div class="card">
-          <div class="question" style="font-size:15px;">${drug.name} <span style="color:#888;font-size:13px;">(${drug.brand})</span></div>
+          <div class="question" style="font-size:15px;">${drug.name} <span style="color:var(--dim2);font-size:13px;">(${drug.brand})</span></div>
           <p class="helper-text">Prandial insulin — will be held while NPO. Enter current doses for patient instructions.</p>
           <div class="section-label">Breakfast Dose (units)</div>
           <div class="dose-group">
@@ -1675,7 +1730,7 @@ class PerioperativeDMApp {
       const dd = details.insulinDetails[drug.id] || {};
       html += `
         <div class="card">
-          <div class="question" style="font-size:15px;">${drug.name} <span style="color:#888;font-size:13px;">(${drug.brand})</span></div>
+          <div class="question" style="font-size:15px;">${drug.name} <span style="color:var(--dim2);font-size:13px;">(${drug.brand})</span></div>
           <div class="section-label">Evening / Bedtime Dose</div>
           <div class="dose-group">
             <label>Evening dose</label>
@@ -1711,8 +1766,8 @@ class PerioperativeDMApp {
       </div>
       <div id="clinician-tab" class="tab-content ${this.outputTab==='clinician'?'active':''} no-print">
         ${results.map(r => this.renderClinicianCard(r)).join('')}
-        <div class="card" style="font-size:12px;color:#888;line-height:1.7;">
-          <div style="font-weight:700;color:#00c8db;margin-bottom:8px;">📋 ABSMC PREOPERATIVE GLYCEMIC GOALS</div>
+        <div class="card" style="font-size:12px;color:var(--dim2);line-height:1.7;">
+          <div style="font-weight:700;color:var(--accent);margin-bottom:8px;">📋 ABSMC PREOPERATIVE GLYCEMIC GOALS</div>
           <div>• Perioperative blood glucose target: <span class="mono-data">100–180 mg/dL</span></div>
           <div>• Stricter targets are NOT recommended — increase hypoglycemia without improving outcomes (ADA 2026)</div>
           <div>• HbA1c alone is NOT a reason to postpone elective surgery (ADA 2026)</div>
@@ -1768,7 +1823,7 @@ class PerioperativeDMApp {
     const ctx = this.state.context;
     const header = `
       <div class="patient-sheet-header">
-        <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:#00c8db;margin-bottom:8px;">ALTA BATES SUMMIT MEDICAL CENTER<br>PREOPERATIVE CLINIC · MEDICATION INSTRUCTIONS</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:var(--accent);margin-bottom:8px;">ALTA BATES SUMMIT MEDICAL CENTER<br>PREOPERATIVE CLINIC · MEDICATION INSTRUCTIONS</div>
         <h2>Surgery Preparation Instructions</h2>
         <div class="patient-meta">
           ${patientName}${p.dob ? ` · DOB: ${p.dob}` : ''}${p.arrivalTime ? ` · Arrival: ${p.arrivalTime}` : ''}<br>
@@ -1800,7 +1855,7 @@ class PerioperativeDMApp {
         <div style="margin-bottom:6px;"><strong>Questions?</strong> Call the ABSMC Preoperative Clinic: <strong>(510) 869-8865</strong></div>
         <div style="margin-bottom:6px;">These instructions apply to your <strong>diabetes medications only</strong>. Continue all other medications as instructed by your surgeon.</div>
         <div style="margin-bottom:6px;"><strong>Important:</strong> These recommendations were generated based on information available at your preoperative visit. Please verify your arrival time with your surgeon's office, as surgery times can change. Resuming any medications after surgery requires your surgeon's approval.</div>
-        <div style="font-size:11px;color:#888;margin-top:8px;">Alta Bates Summit Medical Center Preoperative Clinic · Generated ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
+        <div style="font-size:11px;color:var(--dim2);margin-top:8px;">Alta Bates Summit Medical Center Preoperative Clinic · Generated ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
       </div>`;
     return header + cards + footer;
   }
