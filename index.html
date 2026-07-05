@@ -170,13 +170,10 @@ input[type="checkbox"], input[type="radio"] { width:17px; height:17px; cursor:po
 .evidence-link { color:#00d4e8; text-decoration:underline; text-underline-offset:2px; font-weight:600; }
 .evidence-link:hover { color:#5ce8ff; }
 @media print { .evidence-link { color:#005588 !important; } }
-/* ===== CLINICAL PROTOCOL ===== */
-.protocol-ref { font-size:10px; font-weight:600; letter-spacing:1.2px; color:#6B7A8A; text-transform:uppercase; white-space:nowrap; padding-top:4px; }
 .mono-data { font-family:'IBM Plex Mono',monospace; font-size:.93em; font-weight:500; color:#F0F2F5; background:rgba(240,242,245,.05); border-radius:3px; padding:0 2px; }
 .evidence-num { font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:500; color:#6B7A8A; }
 .evidence-label { font-size:10px; font-weight:600; color:#00c8db; text-transform:uppercase; letter-spacing:1.2px; padding-bottom:5px; border-bottom:1px solid rgba(0,200,219,.25); margin-bottom:7px; }
-.header-row { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
-@media print { .mono-data { color:#111 !important; background:#F0F2F5 !important; } .protocol-ref { color:#555 !important; } }
+@media print { .mono-data { color:#111 !important; background:#F0F2F5 !important; } }
 /* ===== FLAGS ===== */
 .flag { border-radius:8px; padding:10px 12px; margin-bottom:8px; font-size:12.5px; line-height:1.6; }
 .flag-label { font-size:10px; font-weight:600; letter-spacing:1.2px; text-transform:uppercase; margin-bottom:3px; opacity:.9; }
@@ -500,19 +497,6 @@ function linkifyGuidelines(text) {
   });
 }
 
-// ================================================================
-// CLINICAL PROTOCOL — registry + mono data spans (parity with native app)
-// ================================================================
-const PROTOCOLS = {
-  sglt2i: ['01','SGLT2 INHIBITORS'], glp1: ['02','GLP-1 RA / TIRZEPATIDE'],
-  dpp4i: ['03','DPP-4 INHIBITORS'], metformin: ['04','METFORMIN'],
-  sulfonylurea: ['05','SULFONYLUREAS'], meglitinide: ['06','MEGLITINIDES'],
-  tzd: ['07','THIAZOLIDINEDIONES'], agi: ['08','ALPHA-GLUCOSIDASE INHIBITORS'],
-  basal: ['09','BASAL INSULIN'], bolus: ['10','BOLUS INSULIN'],
-  premixed: ['11','PREMIXED INSULIN'], pump: ['12','INSULIN PUMP (CSII)'],
-  u500: ['13','U-500 INSULIN'],
-};
-function protocolFor(recId) { return PROTOCOLS[recId.split('-')[0]] || null; }
 function flagLabel(t) { return t === 'alert' ? 'Alert' : t === 'info' ? 'Info' : 'Caution'; }
 
 // Renders numeric/dosing tokens (doses, targets, intervals, times) in IBM Plex Mono.
@@ -1752,9 +1736,6 @@ class PerioperativeDMApp {
   }
   renderClinicianCard(r) {
     const badgeHtml = `<span class="badge badge-${r.badgeType}">${r.badge}</span>`;
-    const proto = protocolFor(r.id);
-    const protoHtml = proto
-      ? `<span class="protocol-ref" title="Protocol ${proto[0]}: ${proto[1]}">Protocol ${proto[0]}</span>` : '';
     const sectionHtml = (label, text) => text
       ? `<div class="result-section">
           <div class="result-section-label">${label}</div>
@@ -1765,7 +1746,7 @@ class PerioperativeDMApp {
     return `
       <div class="result-card">
         <div class="result-card-header">
-          <div class="header-row">${badgeHtml}${protoHtml}</div>
+          ${badgeHtml}
           <h3>${r.drugClass}</h3>
           <div class="drug-list">${r.drugNames.join(' · ')}</div>
         </div>
