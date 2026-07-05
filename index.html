@@ -1512,20 +1512,16 @@ class PerioperativeDMApp {
       return `<div class="category-header">${cls.icon} ${cls.label}</div>${drugs.map(drugItem).join('')}`;
     };
     const allSections = Object.keys(DRUG_DB).map(section).join('');
-    if (!allSections.trim()) {
-      return `${this.renderHeader('Select Medications','','Step 3 of 5')}${this.renderBackBtn()}
-      <div class="card"><p class="no-meds-msg">No medications match "${this.searchQuery}".</p></div>`;
-    }
     return `
       ${this.renderHeader('Select Medications', 'Choose all diabetes medications this patient takes', 'Step 3 of 5')}
       ${this.renderBackBtn()}
       <div class="card">
         <div class="search-wrap">
           <span class="search-icon">🔍</span>
-          <input type="text" placeholder="Search medications..." value="${this.searchQuery}" oninput="window.app.searchQuery=this.value;window.app.render({quiet:true})">
+          <input id="med-search" type="text" placeholder="Search medications..." value="${this.searchQuery.replace(/"/g,'&quot;')}" oninput="window.app.searchQuery=this.value;window.app.render({quiet:true})">
         </div>
         ${selected.size > 0 ? `<div class="selected-count">✓ ${selected.size} medication${selected.size > 1 ? 's' : ''} selected</div>` : ''}
-        ${allSections}
+        ${allSections.trim() ? allSections : `<p class="no-meds-msg">No medications match "${this.searchQuery.replace(/</g,'&lt;')}". Clear or edit the search above.</p>`}
       </div>
       ${selected.size > 0 ? `<button class="btn-primary" onclick="window.app.goToDetails()">Next: Medication Details →</button>` : ''}`;
   }
@@ -1893,7 +1889,13 @@ class PerioperativeDMApp {
     else if (this.step === 'medications') html = this.renderMedications();
     else if (this.step === 'details') html = this.renderDetails();
     else if (this.step === 'output') html = this.renderOutput();
+    const focusSearch = document.activeElement && document.activeElement.id === 'med-search';
+    const caret = focusSearch ? document.activeElement.selectionStart : 0;
     document.getElementById('app').innerHTML = html;
+    if (focusSearch) {
+      const el = document.getElementById('med-search');
+      if (el) { el.focus(); el.setSelectionRange(caret, caret); }
+    }
   }
 }
 window.app = new PerioperativeDMApp();
