@@ -1863,6 +1863,8 @@ class PerioperativeDMApp {
     const caret = focusSearch ? document.activeElement.selectionStart : 0;
     document.getElementById('app').innerHTML = html;
     if (focusSearch) { const el = document.getElementById('med-search'); if (el) { el.focus(); el.setSelectionRange(caret, caret); } }
+    if (this.step !== this.lastRenderedStep) window.scrollTo(0, 0);
+    this.lastRenderedStep = this.step;
   }
 }
 window.app = new PerioperativeDMApp();
