@@ -1023,10 +1023,11 @@ function getBasalInsulinResults(ctx, details, selected) {
     flags.push({ type: 'warn', text: 'Diabetes type not entered — T1DM-conservative (smaller) dose reductions applied. Verify diabetes type with patient.' });
   }
   const isT1 = dmType === 'T1DM' || !dmType;
-  // ADA 2026: basal analogs to 75–80% of dose. T1D default is the conservative
-  // end (20% reduction → 80%, never more); T2D 20–25%. NPH handled separately at 50%.
-  const minReduct = 20; // min % reduction
-  const maxReduct = isT1 ? 20 : 25; // max % reduction
+  // ADA 2026 band: basal analogs to 75–80% of dose (T1D never reduce more than 20%).
+  // Patients get ONE specific dose — the largest reduction in the band (user decision
+  // 2026-07-05): T1D 20% (→80%), T2D 25% (→75%). NPH handled separately at 50%.
+  const minReduct = isT1 ? 20 : 25;
+  const maxReduct = minReduct;
   // Collapse "20–20%" to "20%" when the range has no spread (T1D).
   const reductPct = minReduct === maxReduct ? `${minReduct}%` : `${minReduct}–${maxReduct}%`;
   drugs.forEach(drug => {
@@ -1115,7 +1116,7 @@ function getBasalInsulinResults(ctx, details, selected) {
         morningOf,
         monitoring: `Check blood glucose on admission. Target perioperative glucose 100–180 mg/dL. Do not hold ALL basal insulin in T1DM — dose reduction required but some basal must be maintained.`,
         resumption: 'Resume usual dose when tolerating oral intake and blood glucose is stable. Verify with prescriber.',
-        evidence: `Source: ADA Standards of Care 2026 — long-acting basal analogs given at 75–80% of the usual dose perioperatively, NPH reduced to 50%; the same percentage applies to each injection in twice-daily regimens. ${drug.isNPH ? 'NPH: reduce each dose to 50% (pronounced peak raises fasting hypoglycemia risk).' : (isT1 ? 'T1DM: reduce 20% (to 80%) as the conservative default — never more; some need their full unreduced dose.' : 'T2DM: reduce 20–25% (to 75–80%).')} Target perioperative glucose 100–180 mg/dL.`
+        evidence: `Source: ADA Standards of Care 2026 — long-acting basal analogs given at 75–80% of the usual dose perioperatively, NPH reduced to 50%; the same percentage applies to each injection in twice-daily regimens. ${drug.isNPH ? 'NPH: reduce each dose to 50% (pronounced peak raises fasting hypoglycemia risk).' : (isT1 ? 'T1DM: reduce 20% (to 80%) as the conservative default — never more; some need their full unreduced dose.' : 'T2DM: reduce 25% (to 75%) — largest of the 20–25% guideline band, giving the patient one specific dose.')} Target perioperative glucose 100–180 mg/dL.`
       },
       patient: { nightBefore: patientNight, morningOf: patientMorning, dietary: null },
       flags: drugFlags,
@@ -1192,14 +1193,16 @@ function getPremixedInsulinResults(ctx, details, selected) {
     const evDose = parseFloat(dd.eveningDose);
     const amDose = parseFloat(dd.morningDose);
     const flags = [...baseFlags];
-    const minReduct = isT1 ? 10 : 20;
-    const maxReduct = isT1 ? 20 : 25;
-    // Night before: reduce by 20-25% (T2) or 10-20% (T1)
+    // Largest reduction of the guideline band → one specific patient dose
+    // (user decision 2026-07-05): T1 20%, T2 25%.
+    const minReduct = isT1 ? 20 : 25;
+    const maxReduct = minReduct;
+    const reductPct = `${minReduct}%`;
     const nightEvStr = doseRange(evDose, minReduct, maxReduct);
-    const nightEvLabel = nightEvStr ? `${nightEvStr} (reduced from your usual ${evDose} units)` : `reduce by ${minReduct}–${maxReduct}%`;
+    const nightEvLabel = nightEvStr ? `${nightEvStr} (reduced from your usual ${evDose} units)` : `reduce by ${reductPct}`;
     // Morning of surgery: reduce by 50%, hold if BG <120
     const amHalfStr = !isNaN(amDose) ? `${dosePct(amDose, 50)} units (50% of usual ${amDose} units)` : '50% of your usual morning dose';
-    const nightBefore = `REDUCE evening ${drug.name} (${drug.brand}) by ${minReduct}–${maxReduct}%: ${nightEvLabel}.`;
+    const nightBefore = `REDUCE evening ${drug.name} (${drug.brand}) by ${reductPct}: ${nightEvLabel}.`;
     let morningOf, patientMorning;
     if (timing === 'PM') {
       morningOf = `PM surgery: If patient eating full breakfast, may take usual morning dose. If eating only a light breakfast or NPO, REDUCE morning dose by 50%: ${amHalfStr}. HOLD entirely if morning blood glucose <120 mg/dL — check BG before administering.`;
@@ -1221,7 +1224,7 @@ function getPremixedInsulinResults(ctx, details, selected) {
         morningOf,
         monitoring: 'Check blood glucose before morning dose. Target 100–180 mg/dL perioperatively. Hold entirely if BG <120 mg/dL (ABSMC institutional safety threshold).',
         resumption: 'Resume usual premixed regimen when tolerating regular meals. Verify with prescriber.',
-        evidence: `Source: ADA Standards of Care 2026. Demma et al., J Clin Anesth 2017. JBDS Insulin Table. Evening: reduce ${minReduct}–${maxReduct}%. Morning: reduce 50%; BG <120 mg/dL hold threshold is an ABSMC institutional safety threshold.`
+        evidence: `Source: ADA Standards of Care 2026. Demma et al., J Clin Anesth 2017. JBDS Insulin Table. Evening: reduce ${reductPct} (largest of the guideline band: T1 10–20%, T2 20–25%). Morning: reduce 50%; BG <120 mg/dL hold threshold is an ABSMC institutional safety threshold.`
       },
       patient: { nightBefore: `REDUCE your evening ${drug.brand}: ${nightEvLabel}.`, morningOf: patientMorning, dietary: null },
       flags,
@@ -1849,8 +1852,8 @@ class PerioperativeDMApp {
     const footer = `
       <div class="patient-footer">
         <div style="margin-bottom:6px;"><strong>Questions?</strong> Call the ABSMC Preoperative Clinic: <strong>(510) 869-8865</strong></div>
-        <div style="margin-bottom:6px;">These instructions apply to your <strong>diabetes medications only</strong>. Continue all other medications as instructed by your surgeon.</div>
-        <div style="margin-bottom:6px;"><strong>Important:</strong> These recommendations were generated based on information available at your preoperative visit. Please verify your arrival time with your surgeon's office, as surgery times can change. Resuming any medications after surgery requires your surgeon's approval.</div>
+        <div style="margin-bottom:6px;">These instructions apply to your <strong>diabetes medications only</strong>.</div>
+        <div style="margin-bottom:6px;"><strong>Important:</strong> These recommendations were generated based on information available at your preoperative visit. Please verify your arrival time with your surgeon's office, as surgery times can change. Check with your surgeon's office if you have questions about resuming your medications after surgery.</div>
         <div style="font-size:11px;color:var(--dim2);margin-top:8px;">Alta Bates Summit Medical Center Preoperative Clinic · Generated ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
       </div>`;
     return header + cards + footer;
