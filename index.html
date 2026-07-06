@@ -749,9 +749,9 @@ function getDPP4iResults(ctx, details, selected) {
     patientMorning = 'Take this medication as usual.';
   } else if (timing === 'PM') {
     badge = 'HOLD MORNING OF SURGERY'; badgeType = 'hold';
-    morningOf = 'HOLD morning of surgery. If patient is eating a light breakfast (per surgeon\'s NPO instructions), may take with breakfast for PM surgery — but default is HOLD.';
+    morningOf = 'HOLD morning of surgery. If patient is eating a light breakfast for PM surgery (when appropriate), may take with breakfast — but default is HOLD.';
     patientMorning = 'Do NOT take this medication on the morning of surgery.';
-    flags.push({ type: 'info', text: 'PM surgery: If patient is eating a light breakfast per their surgeon\'s instructions, DPP-4 inhibitor may be taken with breakfast given very low hypoglycemia risk. Clinical judgment applies.' });
+    flags.push({ type: 'info', text: 'PM surgery: If patient is eating a light breakfast, DPP-4 inhibitor may be taken with breakfast given very low hypoglycemia risk. Clinical judgment applies.' });
   } else {
     badge = 'HOLD MORNING OF SURGERY'; badgeType = 'hold';
     morningOf = 'HOLD morning of surgery. Do not administer. Note: AHA/ACC 2024 and SAMBA 2024 consider continuation reasonable given low hypoglycemia risk; ABSMC default is HOLD per ADA 2026.';
@@ -882,7 +882,7 @@ function getMeglitinideResults(ctx, details, selected) {
   const flags = [];
   let morningOf, patientMorning;
   if (timing === 'PM') {
-    morningOf = 'PM surgery: If patient is eating a full breakfast per surgeon\'s NPO instructions, may take usual morning dose with breakfast. HOLD if eating only a light meal or if NPO. Default: HOLD.';
+    morningOf = 'PM surgery: If patient is eating a full breakfast (PM surgery, when appropriate), may take usual morning dose with breakfast. HOLD if eating only a light meal or if NPO. Default: HOLD.';
     patientMorning = 'Do NOT take this medication on the morning of surgery unless your surgeon has specifically told you that you may eat a full breakfast.';
     flags.push({ type: 'info', text: 'PM surgery: Meglitinides may be taken with a full breakfast given their short half-life (~1h). HOLD if NPO or light breakfast only.' });
   } else {
@@ -936,7 +936,7 @@ function getAGIResults(ctx, details, selected) {
   const flags = [];
   let morningOf, patientMorning;
   if (timing === 'PM') {
-    morningOf = 'PM surgery: May take with breakfast if patient is eating a carbohydrate-containing breakfast per surgeon\'s instructions. HOLD if NPO or eating protein-only. Default: HOLD.';
+    morningOf = 'PM surgery: May take with breakfast if patient is eating a carbohydrate-containing breakfast (when appropriate). HOLD if NPO or eating protein-only. Default: HOLD.';
     patientMorning = 'Take this medication with breakfast ONLY if your surgeon has told you that you may eat breakfast AND if your breakfast contains carbohydrates (bread, cereal, fruit, etc.). Otherwise, do NOT take it.';
   } else {
     morningOf = 'HOLD — medication requires dietary carbohydrates to work and is functionally ineffective while NPO.';
@@ -1085,7 +1085,7 @@ function getBolusInsulinResults(ctx, details, selected) {
     if (timing === 'PM') {
       // Patient may eat breakfast
       const bkfstText = !isNaN(bkfst) ? `${bkfst} units (your usual breakfast dose)` : 'your usual breakfast dose';
-      morningOf = `HOLD all lunch and dinner doses while NPO. If patient is eating a full breakfast per surgeon's instructions: MAY TAKE usual breakfast dose (${bkfstText}) with breakfast. HOLD all further prandial doses once NPO.`;
+      morningOf = `HOLD all lunch and dinner doses while NPO. If patient is eating a full breakfast (when appropriate): MAY TAKE usual breakfast dose (${bkfstText}) with breakfast. HOLD all further prandial doses once NPO.`;
       patientMorning = !isNaN(bkfst)
         ? `If you are eating a full breakfast (as told by your surgeon): take your usual breakfast dose of ${drug.brand} (${bkfst} units). Do NOT take any further doses of ${drug.brand} after breakfast, as you will not be eating again before surgery.`
         : `If you are eating a full breakfast (as told by your surgeon): take your usual breakfast dose of ${drug.brand}. Do NOT take any further doses after breakfast.`;
@@ -1147,7 +1147,7 @@ function getPremixedInsulinResults(ctx, details, selected) {
     const nightBefore = `REDUCE evening ${drug.name} (${drug.brand}) by ${minReduct}–${maxReduct}%: ${nightEvLabel}.`;
     let morningOf, patientMorning;
     if (timing === 'PM') {
-      morningOf = `PM surgery: If patient eating full breakfast per surgeon's instructions, may take usual morning dose. If eating only a light breakfast or NPO, REDUCE morning dose by 50%: ${amHalfStr}. HOLD entirely if morning blood glucose <120 mg/dL — check BG before administering.`;
+      morningOf = `PM surgery: If patient eating full breakfast, may take usual morning dose. If eating only a light breakfast or NPO, REDUCE morning dose by 50%: ${amHalfStr}. HOLD entirely if morning blood glucose <120 mg/dL — check BG before administering.`;
       patientMorning = `IMPORTANT: Check your blood sugar before taking any insulin. If your blood sugar is below 120 mg/dL, do NOT take any morning insulin — call your surgical team. If eating a full breakfast, take your usual morning dose. If eating lightly or not at all: take only HALF your usual morning dose (${!isNaN(amDose) ? `${dosePct(amDose, 50)} units` : 'half your usual amount'}).`;
     } else {
       morningOf = `REDUCE morning dose by 50%: ${amHalfStr}. HOLD entirely if morning blood glucose <120 mg/dL. Check blood glucose before administering.`;
@@ -1405,7 +1405,7 @@ class PerioperativeDMApp {
       </div>
       <div class="card">
         <div class="question">Surgery Type</div>
-        ${btn('Minor procedure / office procedure', 'surgeryType', 'minor', ctx.surgeryType, 'e.g., cataract surgery, skin lesion or biopsy, dental extraction, joint/epidural injection, port placement, simple hand or foot procedure. Usually local or MAC anesthesia, brief, same-day discharge.')}
+        ${btn('Minor procedure', 'surgeryType', 'minor', ctx.surgeryType, 'e.g., cataract surgery, skin lesion or biopsy, dental extraction, joint/epidural injection, port placement, simple hand or foot procedure. Usually local or MAC anesthesia, brief, same-day discharge.')}
         ${btn('Colonoscopy / endoscopy', 'surgeryType', 'colonoscopy', ctx.surgeryType)}
         ${btn('Major noncardiac surgery', 'surgeryType', 'majorNoncardiac', ctx.surgeryType, 'e.g., joint replacement, hysterectomy, bowel resection, major abdominal/pelvic, spine, or vascular surgery. Usually general anesthesia, longer fasting, often an overnight or multi-day stay.')}
         ${btn('Cardiac surgery', 'surgeryType', 'cardiac', ctx.surgeryType)}
@@ -1414,7 +1414,7 @@ class PerioperativeDMApp {
       <div class="card">
         <div class="question">Surgery Timing</div>
         ${btn('AM surgery', 'surgeryTiming', 'AM', ctx.surgeryTiming, 'NPO from midnight — standard')}
-        ${btn('PM surgery', 'surgeryTiming', 'PM', ctx.surgeryTiming, 'Patient may eat a light breakfast per surgeon instructions')}
+        ${btn('PM surgery', 'surgeryTiming', 'PM', ctx.surgeryTiming, 'Patient may eat a light breakfast when appropriate')}
       </div>
       <div class="card">
         <div class="question">Heart Failure (any stage)?</div>
@@ -1457,20 +1457,16 @@ class PerioperativeDMApp {
       return `<div class="category-header">${cls.icon} ${cls.label}</div>${drugs.map(drugItem).join('')}`;
     };
     const allSections = Object.keys(DRUG_DB).map(section).join('');
-    if (!allSections.trim()) {
-      return `${this.renderHeader('Select Medications','','Step 3 of 5')}${this.renderBackBtn()}
-      <div class="card"><p class="no-meds-msg">No medications match "${this.searchQuery}".</p></div>`;
-    }
     return `
       ${this.renderHeader('Select Medications', 'Choose all diabetes medications this patient takes', 'Step 3 of 5')}
       ${this.renderBackBtn()}
       <div class="card">
         <div class="search-wrap">
           <span class="search-icon">🔍</span>
-          <input type="text" placeholder="Search medications..." value="${this.searchQuery}" oninput="window.app.searchQuery=this.value;window.app.render({quiet:true})">
+          <input id="med-search" type="text" placeholder="Search medications..." value="${this.searchQuery.replace(/"/g,'&quot;')}" oninput="window.app.searchQuery=this.value;window.app.render({quiet:true})">
         </div>
         ${selected.size > 0 ? `<div class="selected-count">✓ ${selected.size} medication${selected.size > 1 ? 's' : ''} selected</div>` : ''}
-        ${allSections}
+        ${allSections.trim() ? allSections : `<p class="no-meds-msg">No medications match "${this.searchQuery.replace(/</g,'&lt;')}". Clear or edit the search above.</p>`}
       </div>
       ${selected.size > 0 ? `<button class="btn-primary" onclick="window.app.goToDetails()">Next: Medication Details →</button>` : ''}`;
   }
@@ -1838,7 +1834,10 @@ class PerioperativeDMApp {
     else if (this.step === 'medications') html = this.renderMedications();
     else if (this.step === 'details') html = this.renderDetails();
     else if (this.step === 'output') html = this.renderOutput();
+    const focusSearch = document.activeElement && document.activeElement.id === 'med-search';
+    const caret = focusSearch ? document.activeElement.selectionStart : 0;
     document.getElementById('app').innerHTML = html;
+    if (focusSearch) { const el = document.getElementById('med-search'); if (el) { el.focus(); el.setSelectionRange(caret, caret); } }
   }
 }
 window.app = new PerioperativeDMApp();
