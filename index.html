@@ -751,7 +751,7 @@ function getGLP1Results(ctx, details, selected) {
   if (giSymptoms === null) {
     flags.push({ type: 'warn', text: 'GI symptom screen not completed. Continue per ABSMC protocol with dietary modification. Screen patient for GI symptoms at preoperative visit.' });
   }
-  flags.push({ type: 'info', text: 'Higher delayed gastric-emptying risk may occur during dose escalation, at higher doses, or in patients with known gastroparesis/dysmotility or Parkinson disease. This does not change the patient instructions: continue the medication plan and clear liquid diet unless the clinical team advises otherwise. Consider point-of-care gastric ultrasound on the day of procedure if aspiration risk remains a concern.' });
+  flags.push({ type: 'info', text: 'Higher delayed gastric-emptying risk may occur during dose escalation, at higher doses, or in patients with known gastroparesis/dysmotility or Parkinson's disease. This does not change the patient instructions: continue the medication plan and clear liquid diet unless the clinical team advises otherwise. Consider point-of-care gastric ultrasound on the day of procedure if aspiration risk remains a concern.' });
   const npoPatient = npoCutoff === 'midnight'
     ? 'Then have NOTHING to eat or drink (including water) after midnight the night before your surgery.'
     : `Then have NOTHING to eat or drink (including water) starting ${npoCutoff.replace('h', '')} hours before your scheduled procedure time.`;
