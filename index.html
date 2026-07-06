@@ -6,109 +6,95 @@
 <title>Perioperative Diabetes Medication Management Tool</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 /* ============================================================
-   INSTRUMENT — refined clinical hardware
-   Graphite faceplate, machined edges, engraved labels,
-   indicator-lamp status badges. Motion is minimal by design.
+   VIAL & LABEL — clinical packaging
+   Paper-white sheet, pharmaceutical-label color bands per
+   action, drug-class chips, hazard stripes on HOLD.
    ============================================================ */
 :root {
-  --bg:#0F1211; --bg-well:#0B0E0D;
-  --surface:#161A19; --surface-2:#1C2120; --surface-3:#222826;
-  --line:#262C2A; --line-strong:#3A433F;
-  --text:#E9EDEB; --dim:#9AA5A0; --dim2:#77827D;
-  --accent:#3FC9A6; --accent-dim:rgba(63,201,166,.14); --accent-ink:#0A1F19;
-  --lamp-red:#E0564F; --lamp-green:#4CB97E; --lamp-amber:#E5A33D; --lamp-cyan:#43B7D6; --lamp-violet:#B07FE0;
-  --focus:#E5A33D;
+  --paper:#F4F5F2; --card:#FFFFFF;
+  --ink:#1C2321; --dim:#5B6663; --dim2:#8A938F;
+  --line:#DFE3DF; --line-strong:#B9C1BC;
+  --accent:#0E6E5C; --accent-dim:rgba(14,110,92,.10);
+  --act-hold:#C0392F; --act-cont:#177245; --act-mod:#B26A00; --act-cons:#155E8A; --act-consult:#6A3FA0;
+  --focus:#155E8A;
+  --text:var(--ink);
 }
 * { margin:0; padding:0; box-sizing:border-box; }
-html { color-scheme: dark; scroll-behavior:smooth; }
+html { color-scheme: light; scroll-behavior:smooth; }
 body {
-  font-family:'IBM Plex Sans', -apple-system, sans-serif;
-  background:var(--bg); color:var(--text); line-height:1.6; min-height:100vh;
-  overflow-x:hidden; position:relative;
+  font-family:'Public Sans', -apple-system, sans-serif;
+  background:var(--paper); color:var(--ink); line-height:1.6; min-height:100vh;
+  overflow-x:hidden;
 }
-/* brushed-metal grain: barely-there vertical striation */
-body::before {
-  content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
-  background:repeating-linear-gradient(90deg, rgba(255,255,255,.012) 0 1px, transparent 1px 3px);
-}
-.container { max-width:680px; margin:0 auto; padding:16px; min-height:100vh; position:relative; z-index:1; }
+.container { max-width:680px; margin:0 auto; padding:16px; min-height:100vh; }
 @keyframes fadeInUp { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
 @keyframes slideDown { from{opacity:0} to{opacity:1} }
-/* ===== HEADER — faceplate ===== */
+/* ===== HEADER — carton lid ===== */
 .header-banner {
-  background:linear-gradient(180deg, var(--surface-2), var(--surface));
-  border:1px solid var(--line-strong); border-top-color:#4A554F;
-  border-radius:8px; padding:26px 24px 22px; margin-bottom:18px;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.04), 0 2px 6px rgba(0,0,0,.45);
-  text-align:center; position:relative; animation:slideDown .4s ease-out;
+  background:var(--card); border:1px solid var(--line-strong); border-top:6px solid var(--ink);
+  border-radius:3px; padding:24px 24px 20px; margin-bottom:16px; text-align:center;
+  box-shadow:0 1px 3px rgba(20,30,25,.07); animation:slideDown .35s ease-out;
 }
-.header-banner::after {
-  content:''; position:absolute; left:24px; right:24px; bottom:12px; height:1px;
-  background:linear-gradient(90deg, transparent, var(--line-strong) 20%, var(--line-strong) 80%, transparent);
-}
-.clinic-label { font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:500; color:var(--dim); margin-bottom:10px; text-transform:uppercase; letter-spacing:.18em; }
-.header-banner h1 { font-size:22px; font-weight:600; margin-bottom:8px; letter-spacing:-.2px; line-height:1.25; }
-.header-banner p { font-size:12.5px; color:var(--dim); font-weight:400; letter-spacing:.2px; margin-bottom:10px; }
-.step-indicator { font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--accent); margin-bottom:8px; font-weight:500; text-transform:uppercase; letter-spacing:.18em; }
-/* ===== CARDS — machined panels ===== */
+.clinic-label { font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:500; color:var(--dim); margin-bottom:10px; text-transform:uppercase; letter-spacing:.22em; }
+.header-banner h1 { font-family:'Archivo',sans-serif; font-size:23px; font-weight:800; margin-bottom:7px; letter-spacing:-.3px; line-height:1.2; text-wrap:balance; }
+.header-banner p { font-size:12.5px; color:var(--dim); letter-spacing:.1px; }
+.step-indicator { font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--accent); margin-bottom:8px; font-weight:500; text-transform:uppercase; letter-spacing:.2em; }
+/* ===== CARDS — white cartons ===== */
 .card {
-  background:var(--surface);
-  border:1px solid var(--line); border-radius:6px; padding:22px; margin-bottom:14px;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.03), 0 1px 3px rgba(0,0,0,.4);
-  animation:fadeInUp .3s ease-out both; position:relative;
+  background:var(--card); border:1px solid var(--line-strong); border-radius:3px;
+  padding:22px; margin-bottom:14px; box-shadow:0 1px 3px rgba(20,30,25,.07);
+  animation:fadeInUp .28s ease-out both;
 }
-.question { font-size:15.5px; font-weight:600; margin-bottom:14px; letter-spacing:-.1px; }
-.section-label { font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:500; color:var(--dim); margin-bottom:6px; text-transform:uppercase; letter-spacing:.16em; margin-top:16px; }
+.question { font-family:'Archivo',sans-serif; font-size:16px; font-weight:700; margin-bottom:14px; letter-spacing:-.1px; }
+.section-label { font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:500; color:var(--dim); margin:16px 0 6px; text-transform:uppercase; letter-spacing:.16em; }
 .section-label:first-of-type { margin-top:0; }
-.section-text { font-size:13.5px; line-height:1.7; color:#C6CDCA; font-weight:400; margin-bottom:12px; }
-/* ===== BUTTONS — momentary switches ===== */
+.section-text { font-size:13.5px; line-height:1.7; color:#333B38; margin-bottom:12px; }
+/* ===== BUTTONS ===== */
 button {
   display:block; width:100%; padding:13px 16px; margin-bottom:10px;
-  font-size:14px; border:1px solid var(--line-strong);
-  background:linear-gradient(180deg, var(--surface-3), var(--surface-2));
-  color:var(--text); border-radius:4px; cursor:pointer; text-align:left;
-  transition:border-color .12s ease-out, background .12s ease-out;
-  font-family:'IBM Plex Sans',sans-serif; font-weight:500;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.05), 0 1px 2px rgba(0,0,0,.35);
+  font-size:14px; border:1px solid var(--line-strong); background:var(--card);
+  color:var(--ink); border-radius:3px; cursor:pointer; text-align:left;
+  transition:border-color .12s, background .12s, box-shadow .12s;
+  font-family:'Public Sans',sans-serif; font-weight:600;
 }
-button:hover { border-color:var(--accent); background:linear-gradient(180deg, #242B29, #1E2422); }
-button:active { transform:translateY(1px); box-shadow:inset 0 1px 3px rgba(0,0,0,.4); }
+button:hover { border-color:var(--ink); background:#FBFCFA; }
+button:active { transform:translateY(1px); }
 .btn-primary {
-  background:linear-gradient(180deg,#3FC9A6,#2CA487); border-color:#2CA487; color:#062019;
-  font-weight:700; text-align:center; letter-spacing:.02em;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.25), 0 1px 3px rgba(0,0,0,.4);
+  background:var(--accent); border-color:var(--accent); color:#fff;
+  font-family:'Archivo',sans-serif; font-weight:700; text-align:center; letter-spacing:.03em;
+  text-transform:uppercase; font-size:13.5px;
 }
-.btn-primary:hover { background:linear-gradient(180deg,#4AD6B2,#33B394); border-color:#33B394; }
-.btn-back { background:transparent; border:1px solid var(--line); color:var(--dim); font-size:13px; padding:10px 14px; text-align:center; margin-bottom:12px; box-shadow:none; }
-.btn-back:hover { border-color:var(--line-strong); color:var(--text); background:transparent; }
+.btn-primary:hover { background:#0B5B4C; border-color:#0B5B4C; }
+.btn-back { background:transparent; border:1px solid var(--line-strong); color:var(--dim); font-size:13px; padding:10px 14px; text-align:center; margin-bottom:12px; }
+.btn-back:hover { color:var(--ink); border-color:var(--ink); background:transparent; }
 .btn-row { display:flex; gap:10px; }
 .btn-row button { flex:1; }
 .btn-sm { padding:10px 14px; font-size:13px; margin-bottom:8px; }
-/* ===== FORM INPUTS — recessed wells ===== */
+/* ===== FORM INPUTS ===== */
 .field-group { margin-bottom:16px; }
-.field-label { font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:500; color:var(--dim); text-transform:uppercase; letter-spacing:.14em; margin-bottom:6px; display:block; }
+.field-label { font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:500; color:var(--dim); text-transform:uppercase; letter-spacing:.16em; margin-bottom:6px; display:block; }
 input[type="text"], input[type="date"], input[type="number"] {
-  width:100%; padding:12px 14px; background:var(--bg-well); border:1px solid var(--line);
-  border-radius:4px; color:var(--text); font-family:'IBM Plex Sans',sans-serif; font-size:14px;
-  box-shadow:inset 0 2px 4px rgba(0,0,0,.35); transition:border-color .12s, box-shadow .12s;
+  width:100%; padding:12px 14px; background:#FDFDFC; border:1px solid var(--line-strong);
+  border-radius:3px; color:var(--ink); font-family:'Public Sans',sans-serif; font-size:14px;
+  transition:border-color .12s, box-shadow .12s;
 }
 input[type="text"]:focus, input[type="date"]:focus, input[type="number"]:focus {
-  outline:none; border-color:var(--accent); box-shadow:inset 0 2px 4px rgba(0,0,0,.35), 0 0 0 3px var(--accent-dim);
+  outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-dim);
 }
 input[type="text"]::placeholder, input[type="number"]::placeholder { color:var(--dim2); }
 input[type="number"] { -moz-appearance:textfield; }
 input[type="number"]::-webkit-inner-spin-button { opacity:.5; }
-/* ===== CHECKBOX + RADIO — panel selectors ===== */
+/* ===== CHECKBOX + RADIO ===== */
 .check-label {
   display:flex; align-items:flex-start; gap:12px; padding:12px 14px; margin-bottom:8px;
-  background:var(--surface-2); border:1px solid var(--line); border-radius:4px;
+  background:var(--card); border:1px solid var(--line); border-radius:3px;
   cursor:pointer; font-size:14px; transition:border-color .12s, background .12s;
   touch-action:manipulation; -webkit-tap-highlight-color:transparent; user-select:none;
 }
-.check-label:hover { border-color:var(--line-strong); background:var(--surface-3); }
+.check-label:hover { border-color:var(--line-strong); background:#FBFCFA; }
 .check-label.selected { border-color:var(--accent); background:var(--accent-dim); box-shadow:inset 0 0 0 1px var(--accent); }
 .no-selection-flash .header-banner,
 .no-selection-flash .card,
@@ -120,143 +106,166 @@ input[type="number"]::-webkit-inner-spin-button { opacity:.5; }
 .no-selection-flash .toggle-btn,
 .no-selection-flash .tab { transition:none !important; }
 .custom-check {
-  width:19px; height:19px; border:1.5px solid var(--line-strong); border-radius:3px;
+  width:19px; height:19px; border:1.5px solid var(--line-strong); border-radius:2px;
   flex-shrink:0; display:flex; align-items:center; justify-content:center;
-  font-size:13px; font-weight:700; color:transparent; background:var(--bg-well);
-  box-shadow:inset 0 1px 2px rgba(0,0,0,.4); transition:all .12s; margin-top:1px;
+  font-size:13px; font-weight:700; color:transparent; background:#fff;
+  transition:all .12s; margin-top:1px;
 }
-.check-label.selected .custom-check { background:var(--accent); border-color:var(--accent); color:var(--accent-ink); box-shadow:none; }
+.check-label.selected .custom-check { background:var(--accent); border-color:var(--accent); color:#fff; }
 .custom-radio {
   width:19px; height:19px; border:1.5px solid var(--line-strong); border-radius:50%;
   flex-shrink:0; display:flex; align-items:center; justify-content:center;
-  background:var(--bg-well); box-shadow:inset 0 1px 2px rgba(0,0,0,.4);
-  transition:all .12s; margin-top:1px;
+  background:#fff; transition:all .12s; margin-top:1px;
 }
 .custom-radio::after { content:''; width:9px; height:9px; border-radius:50%; background:transparent; transition:background .12s; }
 .check-label.selected .custom-radio { border-color:var(--accent); }
 .check-label.selected .custom-radio::after { background:var(--accent); }
 input[type="checkbox"], input[type="radio"] { width:16px; height:16px; cursor:pointer; flex-shrink:0; accent-color:var(--accent); margin-top:1px; }
 .check-info { font-size:12px; color:var(--dim); margin-top:2px; }
+/* ===== DRUG-CLASS LABELS — vial chips ===== */
 .category-header {
-  font-family:'IBM Plex Mono',monospace; font-size:10.5px; font-weight:500; color:var(--accent);
-  text-transform:uppercase; letter-spacing:.14em;
-  padding:10px 0 6px; border-bottom:1px solid var(--line-strong); margin-bottom:8px; margin-top:16px;
+  display:flex; align-items:center; gap:8px;
+  font-family:'Archivo',sans-serif; font-size:12px; font-weight:700; color:var(--ink);
+  text-transform:uppercase; letter-spacing:.1em;
+  padding:10px 0 6px; border-bottom:2px solid var(--ink); margin:16px 0 8px;
 }
 .category-header:first-of-type { margin-top:0; }
+.cat-chip { width:14px; height:14px; border-radius:2px; flex-shrink:0; background:var(--dim2); }
+[data-cat="sglt2i"] .cat-chip { background:#155E8A; }
+[data-cat="glp1"] .cat-chip { background:#0E8A74; }
+[data-cat="tirzepatide"] .cat-chip { background:#2E7D5B; }
+[data-cat="dpp4i"] .cat-chip { background:#B26A00; }
+[data-cat="metformin"] .cat-chip { background:#7A5230; }
+[data-cat="sulfonylurea"] .cat-chip { background:#C2851A; }
+[data-cat="meglitinide"] .cat-chip { background:#D07818; }
+[data-cat="tzd"] .cat-chip { background:#6A3FA0; }
+[data-cat="agi"] .cat-chip { background:#4C8A2E; }
+[data-cat="basalInsulin"] .cat-chip { background:#33475B; }
+[data-cat="bolusInsulin"] .cat-chip { background:#8A2E3B; }
+[data-cat="premixedInsulin"] .cat-chip { background:#55426E; }
+[data-cat="insulinU500"] .cat-chip { background:repeating-linear-gradient(45deg,#C0392F 0 4px,#fff 4px 6px); }
+[data-cat="pump"] .cat-chip { background:#3D3D3D; }
 .drug-indent { padding-left:8px; }
 /* ===== SEARCH ===== */
 .search-wrap { position:relative; margin-bottom:16px; }
 .search-wrap input { padding-left:36px; }
-.search-icon { position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--dim2); font-size:15px; pointer-events:none; }
-/* ===== TOGGLE — recessed selector ===== */
-.toggle-row { display:flex; background:var(--bg-well); border:1px solid var(--line); border-radius:5px; padding:3px; margin-bottom:16px; gap:3px; box-shadow:inset 0 2px 4px rgba(0,0,0,.35); }
-.toggle-btn { flex:1; padding:9px; font-size:13px; font-weight:600; border:none; border-radius:3px; background:transparent; color:var(--dim); cursor:pointer; transition:all .12s; text-align:center; box-shadow:none; margin:0; }
-.toggle-btn.active { background:var(--accent); color:var(--accent-ink); box-shadow:0 1px 2px rgba(0,0,0,.4); }
-/* ===== BADGES — indicator lamps ===== */
+.search-icon { position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--dim2); display:flex; pointer-events:none; }
+/* ===== TOGGLE ===== */
+.toggle-row { display:flex; background:#EDEFEA; border:1px solid var(--line-strong); border-radius:3px; padding:3px; margin-bottom:16px; gap:3px; }
+.toggle-btn { flex:1; padding:9px; font-size:13px; font-weight:600; border:none; border-radius:2px; background:transparent; color:var(--dim); cursor:pointer; transition:all .12s; text-align:center; margin:0; }
+.toggle-btn.active { background:var(--ink); color:#fff; }
+/* ===== BADGES — printed action labels ===== */
 .badge {
-  display:inline-flex; align-items:center; gap:7px;
-  font-family:'IBM Plex Mono',monospace; font-size:10.5px; font-weight:500;
-  padding:5px 10px; border-radius:3px; letter-spacing:.12em; text-transform:uppercase;
-  margin-bottom:10px; background:var(--bg-well); border:1px solid var(--line-strong);
-  box-shadow:inset 0 1px 2px rgba(0,0,0,.4);
+  display:inline-block; font-family:'Archivo',sans-serif; font-size:11px; font-weight:800;
+  padding:5px 12px; border-radius:2px; letter-spacing:.12em; text-transform:uppercase;
+  margin-bottom:10px; color:#fff; background:var(--dim);
 }
-.badge::before { content:''; width:7px; height:7px; border-radius:50%; flex-shrink:0; }
-.badge-hold { color:#F0938D; } .badge-hold::before { background:var(--lamp-red); box-shadow:0 0 6px rgba(224,86,79,.8); }
-.badge-continue { color:#8AD5AB; } .badge-continue::before { background:var(--lamp-green); box-shadow:0 0 6px rgba(76,185,126,.8); }
-.badge-modify { color:#F2C285; } .badge-modify::before { background:var(--lamp-amber); box-shadow:0 0 6px rgba(229,163,61,.8); }
-.badge-consider { color:#8FD3E8; } .badge-consider::before { background:var(--lamp-cyan); box-shadow:0 0 6px rgba(67,183,214,.8); }
-.badge-consult { color:#D3AEEC; } .badge-consult::before { background:var(--lamp-violet); box-shadow:0 0 6px rgba(176,127,224,.8); }
-/* ===== RESULT CARDS ===== */
+.badge-hold { background:var(--act-hold); }
+.badge-continue { background:var(--act-cont); }
+.badge-modify { background:var(--act-mod); }
+.badge-consider { background:var(--act-cons); }
+.badge-consult { background:var(--act-consult); }
+/* ===== RESULT CARDS — label bands ===== */
 .result-card {
-  border:1px solid var(--line); border-radius:6px; margin-bottom:16px; background:var(--surface);
-  overflow:hidden; animation:fadeInUp .3s ease-out both;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.03), 0 1px 3px rgba(0,0,0,.4);
+  border:1px solid var(--line-strong); border-radius:3px; margin-bottom:16px; background:var(--card);
+  overflow:hidden; animation:fadeInUp .28s ease-out both; box-shadow:0 1px 3px rgba(20,30,25,.07);
 }
-.result-card-header { background:var(--surface-2); border-bottom:1px solid var(--line-strong); padding:16px 18px; }
-.result-card-header h3 { font-size:15px; font-weight:600; margin-bottom:4px; letter-spacing:-.1px; }
-.result-card-header .drug-list { font-size:12px; color:var(--dim); }
+.result-card-header { background:#42504B; padding:16px 18px; position:relative; }
+.result-card-header h3 { font-family:'Archivo',sans-serif; font-size:16px; font-weight:800; margin-bottom:3px; letter-spacing:.02em; color:#fff; text-transform:uppercase; }
+.result-card-header .drug-list { font-size:12px; color:rgba(255,255,255,.82); }
+.result-card-header .badge { background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.6); padding:4px 11px; }
+.result-card:has(.badge-hold) .result-card-header { background:var(--act-hold); }
+.result-card:has(.badge-continue) .result-card-header { background:var(--act-cont); }
+.result-card:has(.badge-modify) .result-card-header { background:var(--act-mod); }
+.result-card:has(.badge-consider) .result-card-header { background:var(--act-cons); }
+.result-card:has(.badge-consult) .result-card-header { background:var(--act-consult); }
+/* hazard stripe: HOLD reads like a paralytic-agent label */
+.result-card:has(.badge-hold) .result-card-header::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:8px;
+  background:repeating-linear-gradient(-45deg, rgba(255,255,255,.85) 0 8px, transparent 8px 16px);
+}
+.result-card:has(.badge-hold) .result-card-header { padding-top:22px; }
 .result-card-body { padding:16px 18px; }
 .result-section { margin-bottom:14px; }
 .result-section:last-child { margin-bottom:0; }
-.result-section-label { font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:500; color:var(--accent); text-transform:uppercase; letter-spacing:.14em; padding-bottom:5px; border-bottom:1px solid var(--line-strong); margin-bottom:7px; }
-.result-section-text { font-size:13.5px; line-height:1.7; color:#C6CDCA; }
+.result-section-label { font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:500; color:var(--accent); text-transform:uppercase; letter-spacing:.16em; padding-bottom:5px; border-bottom:1px solid var(--line); margin-bottom:7px; }
+.result-section-text { font-size:13.5px; line-height:1.7; color:#333B38; }
 .evidence-strip {
-  background:var(--surface-2); border:1px solid var(--line); border-left:3px solid var(--accent);
-  border-radius:4px; padding:12px 14px; margin-top:12px;
+  background:#F3F5F1; border:1px solid var(--line); border-left:3px solid var(--accent);
+  border-radius:2px; padding:12px 14px; margin-top:12px;
   font-size:12px; line-height:1.6; color:var(--dim);
 }
 .evidence-strip strong { color:var(--accent); }
-.evidence-link { color:#5FD9BC; text-decoration:underline; text-underline-offset:2px; font-weight:600; }
-.evidence-link:hover { color:#8CE8D2; }
+.evidence-link { color:var(--accent); text-decoration:underline; text-underline-offset:2px; font-weight:600; }
+.evidence-link:hover { color:#0B5B4C; }
 @media print { .evidence-link { color:#00614C !important; } }
-.mono-data { font-family:'IBM Plex Mono',monospace; font-size:.93em; font-weight:500; color:#F2F6F4; background:rgba(233,237,235,.06); border-radius:2px; padding:0 2px; }
+.mono-data { font-family:'IBM Plex Mono',monospace; font-size:.93em; font-weight:500; color:var(--ink); background:#EDEFEA; border-radius:2px; padding:0 2px; }
 .evidence-num { font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:500; color:var(--dim2); }
-.evidence-label { font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:500; color:var(--accent); text-transform:uppercase; letter-spacing:.14em; padding-bottom:5px; border-bottom:1px solid var(--line-strong); margin-bottom:7px; }
+.evidence-label { font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:500; color:var(--accent); text-transform:uppercase; letter-spacing:.16em; padding-bottom:5px; border-bottom:1px solid var(--line); margin-bottom:7px; }
 @media print { .mono-data { color:#111 !important; background:#EDEFF0 !important; } }
 /* ===== FLAGS ===== */
-.flag { border-radius:4px; padding:10px 12px 10px 14px; margin-bottom:8px; font-size:12.5px; line-height:1.6; border:1px solid var(--line); background:var(--surface-2); position:relative; }
-.flag::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; border-radius:3px 0 0 3px; }
-.flag-label { font-family:'IBM Plex Mono',monospace; font-size:9.5px; font-weight:500; letter-spacing:.16em; text-transform:uppercase; margin-bottom:3px; }
-.flag-warn { color:#E8CA9C; } .flag-warn::before { background:var(--lamp-amber); } .flag-warn .flag-label { color:var(--lamp-amber); }
-.flag-info { color:#A9D3E4; } .flag-info::before { background:var(--lamp-cyan); } .flag-info .flag-label { color:var(--lamp-cyan); }
-.flag-alert { color:#F0ABA7; } .flag-alert::before { background:var(--lamp-red); } .flag-alert .flag-label { color:var(--lamp-red); }
+.flag { border-radius:2px; padding:10px 12px 10px 14px; margin-bottom:8px; font-size:12.5px; line-height:1.6; border:1px solid var(--line); background:#FBFCFA; position:relative; color:#333B38; }
+.flag::before { content:''; position:absolute; left:0; top:0; bottom:0; width:4px; }
+.flag-label { font-family:'Archivo',sans-serif; font-size:10px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; margin-bottom:3px; }
+.flag-warn { background:#FBF4E4; border-color:#EAD9B4; } .flag-warn::before { background:var(--act-mod); } .flag-warn .flag-label { color:var(--act-mod); }
+.flag-info { background:#EBF3F8; border-color:#C4DAE8; } .flag-info::before { background:var(--act-cons); } .flag-info .flag-label { color:var(--act-cons); }
+.flag-alert { background:#FAEAE8; border-color:#EBC4C0; } .flag-alert::before { background:var(--act-hold); } .flag-alert .flag-label { color:var(--act-hold); }
 /* ===== DISCLAIMER ===== */
 .disclaimer {
-  background:var(--surface-2); border:1px solid var(--line); border-left:3px solid var(--lamp-red);
-  border-radius:4px; padding:14px 16px; margin-bottom:18px; font-size:12px; line-height:1.6; color:#C6CDCA;
+  background:#FAEAE8; border:1px solid #EBC4C0; border-left:4px solid var(--act-hold);
+  border-radius:2px; padding:14px 16px; margin-bottom:18px; font-size:12px; line-height:1.6; color:#333B38;
 }
-.disclaimer strong { color:#F0938D; }
+.disclaimer strong { color:var(--act-hold); }
 /* ===== OUTPUT TABS ===== */
 .tab-bar { display:flex; gap:8px; margin-bottom:16px; }
-.tab { flex:1; padding:11px; font-size:13px; font-weight:600; border:1px solid var(--line); border-radius:4px; background:var(--surface-2); color:var(--dim); cursor:pointer; text-align:center; transition:all .12s; position:relative; }
-.tab.active { background:var(--surface-3); border-color:var(--line-strong); color:var(--text); box-shadow:inset 0 -2px 0 var(--accent); }
+.tab { flex:1; padding:11px; font-family:'Archivo',sans-serif; font-size:12.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; border:1px solid var(--line-strong); border-radius:3px; background:var(--card); color:var(--dim); cursor:pointer; text-align:center; transition:all .12s; }
+.tab.active { background:var(--ink); border-color:var(--ink); color:#fff; }
 .tab-content { display:none; }
 .tab-content.active { display:block; }
 /* ===== PATIENT SHEET ===== */
 .patient-sheet-header {
-  background:var(--surface-2); border:1px solid var(--line-strong);
-  border-radius:6px; padding:20px; margin-bottom:16px; text-align:center;
+  background:var(--card); border:1px solid var(--line-strong); border-top:6px solid var(--accent);
+  border-radius:3px; padding:20px; margin-bottom:16px; text-align:center;
 }
-.patient-sheet-header h2 { font-weight:600; font-size:19px; margin-bottom:8px; }
-.patient-meta { font-size:13px; color:#C6CDCA; line-height:1.8; }
-.patient-drug-card { border:1px solid var(--line); border-radius:6px; padding:16px; margin-bottom:14px; background:var(--surface); }
-.patient-drug-name { font-size:15px; font-weight:600; margin-bottom:12px; color:var(--accent); }
+.patient-sheet-header h2 { font-family:'Archivo',sans-serif; font-weight:800; font-size:20px; margin-bottom:8px; }
+.patient-meta { font-size:13px; color:#333B38; line-height:1.8; }
+.patient-drug-card { border:1px solid var(--line-strong); border-radius:3px; padding:16px; margin-bottom:14px; background:var(--card); }
+.patient-drug-name { font-family:'Archivo',sans-serif; font-size:15px; font-weight:800; margin-bottom:12px; color:var(--accent); }
 .patient-section { margin-bottom:12px; }
-.patient-section-label { font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:500; color:var(--accent); text-transform:uppercase; letter-spacing:.14em; padding-bottom:5px; border-bottom:1px solid var(--line-strong); margin-bottom:7px; }
-.patient-section-text { font-size:14px; line-height:1.75; color:#DEE4E1; }
-.patient-dietary { background:var(--accent-dim); border:1px solid rgba(63,201,166,.35); border-radius:4px; padding:12px; margin-top:10px; }
-.patient-dietary-label { font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:500; color:var(--accent); text-transform:uppercase; letter-spacing:.14em; padding-bottom:5px; border-bottom:1px solid rgba(63,201,166,.35); margin-bottom:7px; }
-.patient-footer { border:1px solid var(--line); border-radius:6px; padding:16px; margin-top:8px; font-size:12px; color:var(--dim); line-height:1.7; background:var(--surface); }
+.patient-section-label { font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:500; color:var(--accent); text-transform:uppercase; letter-spacing:.16em; padding-bottom:5px; border-bottom:1px solid var(--line); margin-bottom:7px; }
+.patient-section-text { font-size:14px; line-height:1.75; color:#242B28; }
+.patient-dietary { background:var(--accent-dim); border:1px solid rgba(14,110,92,.3); border-radius:2px; padding:12px; margin-top:10px; }
+.patient-dietary-label { font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:500; color:var(--accent); text-transform:uppercase; letter-spacing:.16em; padding-bottom:5px; border-bottom:1px solid rgba(14,110,92,.3); margin-bottom:7px; }
+.patient-footer { border:1px solid var(--line-strong); border-radius:3px; padding:16px; margin-top:8px; font-size:12px; color:var(--dim); line-height:1.7; background:var(--card); }
 /* ===== DOSE INPUT ===== */
 .dose-group { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
-.dose-group label { font-size:13px; color:#C6CDCA; flex:1; }
+.dose-group label { font-size:13px; color:#333B38; flex:1; }
 .dose-group input { width:80px; flex:none; }
 .dose-group .units { font-size:12px; color:var(--dim2); flex:none; }
 /* ===== MISC ===== */
-.helper-text { font-size:12px; color:var(--dim2); line-height:1.5; margin-bottom:14px; }
+.helper-text { font-size:12px; color:var(--dim); line-height:1.5; margin-bottom:14px; }
 .divider { border:none; border-top:1px solid var(--line); margin:16px 0; }
 .selected-count { font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--accent); margin-bottom:12px; font-weight:500; letter-spacing:.06em; }
-.no-meds-msg { font-size:13px; color:var(--dim2); text-align:center; padding:20px; }
+.no-meds-msg { font-size:13px; color:var(--dim); text-align:center; padding:20px; }
 /* ===== A11Y ===== */
 :focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation:none !important; transition:none !important; }
 }
-/* ===== PRINT STYLES ===== */
+/* ===== PRINT ===== */
 @media print {
   body { background:#fff !important; color:#111 !important; }
-  body::before { display:none; }
   .container { max-width:100%; padding:0; }
   .no-print { display:none !important; }
   .print-only { display:block !important; }
-  .patient-sheet-header, .patient-drug-card, .patient-footer { border-color:#ccc !important; background:#f9f9f9 !important; }
+  .patient-sheet-header, .patient-drug-card, .patient-footer { border-color:#ccc !important; background:#fff !important; box-shadow:none !important; }
   .patient-drug-name { color:#00614C !important; }
   .patient-section-label { color:#00614C !important; }
   .patient-section-text { color:#111 !important; }
   .patient-meta { color:#333 !important; }
   .patient-dietary { background:#ecf8f4 !important; border-color:#9ed4c5 !important; }
   .patient-dietary-label { color:#00614C !important; }
-  .patient-footer { color:#555 !important; border-color:#ccc !important; background:#f9f9f9 !important; }
+  .patient-footer { color:#555 !important; border-color:#ccc !important; }
   .tab-bar, .btn-row, button { display:none !important; }
   .tab-content { display:block !important; }
   #clinician-tab { display:none !important; }
@@ -592,7 +601,7 @@ function getSGLT2iResults(ctx, details, selected) {
       const d = decisions.find(x => x.drug.id === drug.id);
       if (d && d.rec === 'continue') {
         // SGLT2i continues but combo pill also has metformin/DPP4i which would hold
-        comboFlag = `⚠️ COMBINATION PRODUCT: ${drug.name} (${drug.brand}) contains both ${drug.name} and ${drug.combo.filter(c => c !== 'sglt2i').join(' and ')}. Although the SGLT2 inhibitor component would normally continue in this scenario, the other component(s) should be held on the day of surgery. Since these cannot be separated, HOLD the entire ${drug.brand} pill on the morning of surgery. Discuss with the prescribing physician — they may wish to prescribe the components separately for the perioperative period.`;
+        comboFlag = `COMBINATION PRODUCT: ${drug.name} (${drug.brand}) contains both ${drug.name} and ${drug.combo.filter(c => c !== 'sglt2i').join(' and ')}. Although the SGLT2 inhibitor component would normally continue in this scenario, the other component(s) should be held on the day of surgery. Since these cannot be separated, HOLD the entire ${drug.brand} pill on the morning of surgery. Discuss with the prescribing physician — they may wish to prescribe the components separately for the perioperative period.`;
         d.rec = 'combo-continue-hold';
       }
     }
@@ -1243,7 +1252,7 @@ function getU500Result(selected) {
     id: 'u500',
     drugClass: 'Insulin — U-500 (Concentrated)',
     drugNames: ['Regular U-500 (Humulin R U-500)'],
-    badge: '⚠️ CONSULT REQUIRED',
+    badge: 'CONSULT REQUIRED',
     badgeType: 'consult',
     clinician: {
       nightBefore: null,
@@ -1257,7 +1266,7 @@ function getU500Result(selected) {
       morningOf: 'IMPORTANT: Do not change your U-500 insulin dose without specific instructions from your endocrinologist or prescribing doctor. This insulin requires special management around surgery. Your surgical team will contact your diabetes doctor.',
       dietary: null,
     },
-    flags: [{ type: 'alert', text: '⛔ U-500 Regular insulin requires endocrinology consultation before elective surgery. Standard perioperative insulin protocols do not apply. Contact prescribing provider.' }],
+    flags: [{ type: 'alert', text: 'U-500 Regular insulin requires endocrinology consultation before elective surgery. Standard perioperative insulin protocols do not apply. Contact prescribing provider.' }],
     comboFlag: null,
   };
 }
@@ -1367,7 +1376,7 @@ class PerioperativeDMApp {
       ${this.renderHeader('Perioperative Diabetes Medication Management Tool', 'Evidence-based perioperative instructions for all diabetes medications')}
       <div class="card">
         <div class="disclaimer">
-          <strong>⚠️ Clinical Disclaimer:</strong> This tool is a decision-support aid for qualified healthcare professionals only. It does not replace clinical judgment, institutional protocols, or direct patient assessment. All recommendations should be reviewed by the treating clinical team. Users assume full responsibility for clinical decisions made.
+          <strong>Clinical Disclaimer:</strong> This tool is a decision-support aid for qualified healthcare professionals only. It does not replace clinical judgment, institutional protocols, or direct patient assessment. All recommendations should be reviewed by the treating clinical team. Users assume full responsibility for clinical decisions made.
         </div>
         <p class="helper-text">Generates perioperative hold/continue/modify instructions for SGLT2 inhibitors, GLP-1 receptor agonists, DPP-4 inhibitors, metformin, sulfonylureas, thiazolidinediones, meglitinides, alpha-glucosidase inhibitors, and all insulin types including pumps.</p>
         <button class="btn-primary" onclick="window.app.setState('patient')">Begin Assessment →</button>
@@ -1479,7 +1488,7 @@ class PerioperativeDMApp {
       const cls = DRUG_DB[classKey];
       const drugs = filterDrugs(cls.drugs);
       if (!drugs.length) return '';
-      return `<div class="category-header">${cls.icon} ${cls.label}</div>${drugs.map(drugItem).join('')}`;
+      return `<div class="category-header" data-cat="${classKey}"><span class="cat-chip"></span>${cls.label}</div>${drugs.map(drugItem).join('')}`;
     };
     const allSections = Object.keys(DRUG_DB).map(section).join('');
     return `
@@ -1487,7 +1496,7 @@ class PerioperativeDMApp {
       ${this.renderBackBtn()}
       <div class="card">
         <div class="search-wrap">
-          <span class="search-icon">🔍</span>
+          <span class="search-icon"><svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="9" cy="9" r="5.5"/><path d="M13.2 13.2 17 17"/></svg></span>
           <input id="med-search" type="text" placeholder="Search medications..." value="${this.searchQuery.replace(/"/g,'&quot;')}" oninput="window.app.searchQuery=this.value;window.app.render({quiet:true})">
         </div>
         ${selected.size > 0 ? `<div class="selected-count">✓ ${selected.size} medication${selected.size > 1 ? 's' : ''} selected</div>` : ''}
@@ -1722,18 +1731,18 @@ class PerioperativeDMApp {
     const p = this.state.patient;
     const patientName = [p.firstName, p.lastName].filter(Boolean).join(' ') || 'Patient';
     return `
-      ${this.renderHeader('💊 Perioperative Medication Instructions', patientName + (p.dob ? ` · DOB: ${p.dob}` : ''), 'Step 5 of 5 — Results')}
+      ${this.renderHeader('Perioperative Medication Instructions', patientName + (p.dob ? ` · DOB: ${p.dob}` : ''), 'Step 5 of 5 — Results')}
       <div class="no-print">
         ${this.renderBackBtn()}
         <div class="tab-bar">
-          <div class="tab ${this.outputTab==='clinician'?'active':''}" onclick="window.app.setOutputTab('clinician')">🩺 Clinician Summary</div>
-          <div class="tab ${this.outputTab==='patient'?'active':''}" onclick="window.app.setOutputTab('patient')">📄 Patient Sheet</div>
+          <div class="tab ${this.outputTab==='clinician'?'active':''}" onclick="window.app.setOutputTab('clinician')">Clinician Summary</div>
+          <div class="tab ${this.outputTab==='patient'?'active':''}" onclick="window.app.setOutputTab('patient')">Patient Sheet</div>
         </div>
       </div>
       <div id="clinician-tab" class="tab-content ${this.outputTab==='clinician'?'active':''} no-print">
         ${results.map(r => this.renderClinicianCard(r)).join('')}
         <div class="card" style="font-size:12px;color:var(--dim2);line-height:1.7;">
-          <div style="font-weight:700;color:var(--accent);margin-bottom:8px;">📋 ABSMC PREOPERATIVE GLYCEMIC GOALS</div>
+          <div style="font-weight:700;color:var(--accent);margin-bottom:8px;">ABSMC PREOPERATIVE GLYCEMIC GOALS</div>
           <div>• Perioperative blood glucose target: <span class="mono-data">100–180 mg/dL</span></div>
           <div>• Stricter targets are NOT recommended — increase hypoglycemia without improving outcomes (ADA 2026)</div>
           <div>• HbA1c alone is NOT a reason to postpone elective surgery (ADA 2026)</div>
@@ -1747,8 +1756,8 @@ class PerioperativeDMApp {
       <div id="patient-tab" class="tab-content ${this.outputTab==='patient'?'active':''}">
         ${this.renderPatientSheet(results)}
         <div class="btn-row no-print" style="margin-top:12px;">
-          <button class="btn-primary" onclick="window.app.printSheet()">🖨️ Print</button>
-          <button class="btn-primary" onclick="window.app.savePDF()">📄 Save as PDF</button>
+          <button class="btn-primary" onclick="window.app.printSheet()">Print</button>
+          <button class="btn-primary" onclick="window.app.savePDF()">Save as PDF</button>
         </div>
         <div class="btn-row no-print" style="margin-top:8px;">
           <button onclick="window.app.startOver()">New Assessment</button>
