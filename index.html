@@ -1801,8 +1801,8 @@ class PerioperativeDMApp {
     const ctx = this.state.context;
     const header = `
       <div class="patient-sheet-header">
-        <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:var(--accent);margin-bottom:8px;">ALTA BATES SUMMIT MEDICAL CENTER<br>PREOPERATIVE CLINIC · MEDICATION INSTRUCTIONS</div>
-        <h2>Surgery Preparation Instructions</h2>
+        <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:var(--accent);margin-bottom:8px;">ALTA BATES SUMMIT MEDICAL CENTER<br>PREOPERATIVE CLINIC</div>
+        <h2>Diabetes Medication Instructions</h2>
         <div class="patient-meta">
           ${patientName}${p.dob ? ` · DOB: ${p.dob}` : ''}${p.arrivalTime ? ` · Arrival: ${p.arrivalTime}` : ''}<br>
           ${ctx.surgeryTiming === 'AM' ? 'AM Surgery' : 'PM Surgery'} · ${ctx.surgeryType ? ctx.surgeryType.replace('majorNoncardiac','Major Noncardiac Surgery').replace('minor','Minor Procedure').replace('colonoscopy','Colonoscopy').replace('cardiac','Cardiac Surgery').replace('bariatric','Bariatric Surgery') : ''}
