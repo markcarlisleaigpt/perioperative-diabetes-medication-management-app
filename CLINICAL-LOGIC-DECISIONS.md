@@ -123,14 +123,19 @@ Generated text must **never** cite R7 for a hold.
 
 Note the DKA-history limb was previously dropped and has been restored; it is the most predictive item on the footnote's list.
 
-### Unknown-value conventions — deliberate asymmetry
+### Unknown / unanswered conventions — deliberate asymmetry
 
-| Question | Unknown resolves to | Why |
+| Question | Unknown or blank resolves to | Why |
 |---|---|---|
+| More than 12 h without carbohydrate | **Cannot be left blank — REQUIRED** | Always answerable; it is a clinical judgment about the case, not a lookup. It forces a hold in every branch, so a blank would generate a recommendation from an unanswered question. The app refuses to generate until it is answered. |
 | History of DKA | **HOLD** | Cannot be verified in clinic; conservative default appropriate. |
 | Ketogenic diet | **NOT ketogenic** | Patients on these diets know it; strict forms are uncommon outside bariatric preparation. |
+| Expected surgery > 3 h | **NO — no trigger** | Not required. A blank permits continuation; the fasting question carries the decision. |
+| Most recent A1c > 8% ("Not available") | **No trigger — permits continuation** | A missing A1c is common. Holding a patient for an absent lab rather than an abnormal one is too costly a default. The clinician view should note that A1c was not supplied, so the omission is visible rather than silent. |
 
-Recorded because the difference will otherwise look like an inconsistency.
+Recorded because the differences will otherwise look like inconsistencies.
+
+Note on the >3 h rule: it was briefly considered whether >3 h should stop being decisive when the fasting answer is No. Rejected — if a case is expected to exceed 3 h the drug is held, independent of the fasting answer. The two triggers remain independent (§2b).
 
 ---
 
@@ -232,7 +237,19 @@ Note: `SGLT2I-SPEC.md` §1 states the "Preoperative DOS" row is out of scope bec
 
 ## 7. Clinician view
 
-Per `SGLT2I-SPEC.md` §5.2, the clinician view shows: base recommendation with R-number(s); any applied override marked as institutional; the named trigger that fired; a conflict flag where an override acts against an R1 continue; the note that eDKA monitoring is an alternative to holding where monitoring exists; and the override control.
+Per `SGLT2I-SPEC.md` §5.2, the clinician view shows: base recommendation with R-number(s); any applied override marked as institutional; the named trigger that fired; the source-override notice described below; the note that eDKA monitoring is an alternative to holding where monitoring exists; and the override control.
+
+### Source-override notice — ANNOUNCE EVERY OVERRIDE (decided 2026-07-31)
+
+Whenever an institutional trigger (§2b, §2c) overrides a source CONTINUE, the clinician view must say so and name the trigger that did it. **This applies to every override, not a subset** — R1 or R2, T2DM or non-diabetic, any of the five triggers.
+
+Fires when `baseRecommendation === 'CONTINUE'` and `overrideTriggers.length > 0`. The notice carries the source recommendation with its R-number, and every firing trigger.
+
+> **Rationale.** Five institutional rules override a published guideline. Each is defensible and each is recorded here. The honest behavior is to disclose the departure every time rather than only in one branch. It also makes the clinician override control meaningful — the reviewing clinician sees what the source said and what the institutional rule did to it.
+
+**This supersedes the earlier `overridesR1Continue` flag**, which fired only when the overridden continue was an R1 earned via HF or CKD in a T2DM patient. That definition produced a confusing asymmetry: a non-diabetic taking an SGLT2i purely for CKD, held because their case is expected to exceed 3 h, is arguably the clearest conflict in the pathway and received no notice at all. Meanwhile a T2DM patient whose R2 "consider continuing" was overridden by the same rule also received none.
+
+Accepted cost: the notice appears often, because these triggers fire often. It therefore reads as "here is the departure," not "here is an unusual conflict."
 
 **R-numbers are printed.** Box governs over Figure 2 where they conflict; the discrepancy is footnoted, which also flags a real inconsistency to residents practicing from the paper.
 

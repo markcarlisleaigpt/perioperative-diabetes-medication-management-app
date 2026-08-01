@@ -1443,6 +1443,13 @@ class PerioperativeDMApp {
   }
   setState(step) { this.step = step; this.render(); }
   generateInstructions() {
+    // The >12 h carbohydrate-fast question forces a hold in every branch, so it must
+    // be answered rather than silently defaulting to no-trigger. Surgery >3 h and A1c
+    // may be left blank; both default to no trigger by decision (2026-07-31).
+    if (this.state.details.sglt2iMode === 'SPAQI' && hasAnySGLT2i(this.state.selected) && this.state.details.prolongedFasting === null) {
+      alert('Answer the question about more than 12 hours without carbohydrate intake before generating instructions. It determines whether the SGLT2 inhibitor is held.');
+      return;
+    }
     // NPH dosing frequency must be chosen before generating (peak-related dosing differs).
     const basal = getSelectedDrugsByClass(this.state.selected, 'basalInsulin');
     for (const drug of basal) {
