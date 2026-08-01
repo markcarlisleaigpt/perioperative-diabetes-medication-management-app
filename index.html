@@ -273,6 +273,11 @@ input[type="checkbox"], input[type="radio"] { width:16px; height:16px; cursor:po
   *, *::before, *::after { animation:none !important; transition:none !important; }
 }
 /* ===== PRINT ===== */
+.provenance { border:1px solid var(--line); border-left:2px solid var(--st-cyan); background:var(--surface-2); border-radius:2px; padding:10px 12px; margin-bottom:10px; font-size:12.5px; line-height:1.65; color:var(--dim1); }
+.provenance > div { margin-bottom:5px; } .provenance > div:last-child { margin-bottom:0; }
+.prov-key { display:inline-block; font-family:var(--font-mono); font-size:10.5px; letter-spacing:.5px; text-transform:uppercase; color:var(--st-cyan); margin-right:6px; }
+.prov-override { color:#EFD3A8; } .prov-override .prov-key { color:var(--st-amber); }
+.prov-dim { color:var(--dim2); font-size:11.5px; }
 @media print {
   body { background:#fff !important; color:#111 !important; }
   body::before { display:none; }
@@ -503,6 +508,15 @@ function hasMetformin(selected) {
   }
   return false;
 }
+// Chained .replace() calls used to rewrite the "cardiac" inside "Noncardiac",
+// yielding "Major NonCardiac Surgery Surgery" on the patient sheet.
+const SURGERY_TYPE_LABELS = {
+  minor: 'Minor Procedure',
+  colonoscopy: 'Colonoscopy',
+  majorNoncardiac: 'Major Noncardiac Surgery',
+  cardiac: 'Cardiac Surgery',
+  bariatric: 'Bariatric Surgery',
+};
 function needsDetails(selected) {
   return hasAnySGLT2i(selected) || hasAnyGLP1(selected) || hasMetformin(selected) || hasAnyInsulin(selected);
 }
@@ -592,6 +606,7 @@ function getSGLT2iResults(ctx, details, selected) {
   if (mode === 'SPAQI') {
     let baseRecommendation, rNumber, rNumberSource, institutionalBase;
     let ctSurgeryConfirmPending = false;
+    let timingDeparture = false;
     const isFixedHold = (dmType === 'T1DM') || (details.ketoDiet === true) || (sType === 'bariatric');
     if (dmType === 'T1DM') {
       // T1DM -> HOLD always. FDA-label deferral, SPAQI Limitations p.18-20 (prose,
@@ -608,7 +623,12 @@ function getSGLT2iResults(ctx, details, selected) {
       // status. The DECISION (hold) is source-supported; the TIMING is an
       // institutional departure. See CLINICAL-LOGIC-DECISIONS.md section 1,
       // "Bariatric surgery OR ketogenic / very-low-carbohydrate diet".
-      baseRecommendation = 'HOLD'; rNumber = 'R3'; rNumberSource = 'Box p.12'; institutionalBase = true;
+      // Box p.12 has no bare 'R3': 3a is the non-T2DM limb (3-4 days, grade E) and
+      // 3b the T2DM limb (stop at diet onset, grade B). Figure 2 panel c prints a
+      // bare (R3) in both columns; per the decision record the Box governs.
+      baseRecommendation = 'HOLD'; rNumberSource = 'Box p.12'; institutionalBase = true;
+      rNumber = (dmType === 'T2DM') ? 'R3b' : 'R3a';
+      timingDeparture = (dmType === 'T2DM'); // we hold 72/96 h, R3b says stop at diet onset
     } else if (sType === 'cardiac') {
       // Panel d, cardiac surgery — three-way split by diabetes/HF/CKD status.
       ctSurgeryConfirmPending = true; // interim safeguard pending CT surgery confirmation (see decision doc section 1)
@@ -668,11 +688,13 @@ function getSGLT2iResults(ctx, details, selected) {
       }
     }
 
-    // Conflict flag: an institutional override forcing a HOLD against a base
-    // CONTINUE that was itself R1 because of HF/CKD cardiorenal benefit.
-    const wasR1ForHFCKD = !isFixedHold && baseRecommendation === 'CONTINUE' && rNumber === 'R1' &&
-      dmType === 'T2DM' && (hasHF || hasCKD) && (sType === 'cardiac' || sType === 'majorNoncardiac');
-    const overridesR1Continue = wasR1ForHFCKD && overrideTriggers.length > 0;
+    // Source-override notice: ANNOUNCE EVERY OVERRIDE (decision 2026-07-31).
+    // Fires whenever an institutional trigger overrides a source CONTINUE - R1 or
+    // R2, diabetic or not. Supersedes the earlier narrow flag, which fired only for
+    // an R1 earned via HF/CKD in a T2DM patient and so stayed silent for the
+    // non-diabetic taking an SGLT2i purely for CKD. See CLINICAL-LOGIC-DECISIONS.md,
+    // "Source-override notice".
+    const sourceOverrideNotice = baseRecommendation === 'CONTINUE' && overrideTriggers.length > 0;
 
     const finalRecommendation = (!isFixedHold && overrideTriggers.length > 0) ? 'HOLD' : baseRecommendation;
 
@@ -682,7 +704,9 @@ function getSGLT2iResults(ctx, details, selected) {
       rNumberSource,
       institutionalBase,
       overrideTriggers,
-      overridesR1Continue,
+      sourceOverrideNotice,
+      timingDeparture,
+      a1cSupplied: details.a1cOver8 !== null,
       ctSurgeryConfirmPending,
       finalRecommendation,
     };
@@ -739,10 +763,12 @@ function getSGLT2iResults(ctx, details, selected) {
       note = null; // hold; no continuation permitted, reason is the diet/procedure itself
     } else if (rec === 'HOLD') {
       if (spaqiProvenance.baseRecommendation === 'CONTINUE' && spaqiProvenance.overrideTriggers.length > 0) {
-        const triggerLabels = spaqiProvenance.overrideTriggers.map(t => t.label).join(', ');
-        note = `Held due to institutional criterion (no SPAQI recommendation number): ${triggerLabels}. SPAQI's own recommendation for this scenario would otherwise support continuation${spaqiProvenance.rNumber ? ` (${spaqiProvenance.rNumber})` : ''}.`;
+        // Deliberately silent: the provenance block above already states the source
+        // recommendation, its R-number, the named triggers, and the monitoring
+        // alternative. Repeating it here made the card say the same thing twice.
+        note = null;
       } else {
-        note = spaqiProvenance.rNumber ? `Held per SPAQI ${spaqiProvenance.rNumber}.` : 'Held.';
+        note = null; // the provenance block states the R-number for source-driven holds
       }
     } else if (sType === 'cardiac') {
       note = (dmType === 'T2DM')
@@ -1940,6 +1966,45 @@ class PerioperativeDMApp {
         </div>
       </div>`;
   }
+  renderProvenance(r) {
+    const p = r.provenance;
+    if (!p) return '';
+    const esc = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    const rows = [];
+    // 1. What the source recommended, with its R-number and which artifact it came from.
+    if (p.rNumber) {
+      rows.push(`<div><span class="prov-key">SPAQI</span> <span class="mono-data">${p.baseRecommendation}</span> &middot; <span class="mono-data">${p.rNumber}</span> <span class="prov-dim">(${p.rNumberSource})</span></div>`);
+    } else {
+      rows.push(`<div><span class="prov-key">SPAQI</span> <span class="prov-dim">does not cover type 1 diabetes. Held per FDA labeling, cited in the SPAQI Limitations section. No recommendation number, no evidence grade.</span></div>`);
+    }
+    // 2. Institutional override. Announced every time it fires, per decision record.
+    if (p.sourceOverrideNotice) {
+      const labels = p.overrideTriggers.map(t => esc(t.label)).join(', ');
+      const many = p.overrideTriggers.length > 1;
+      rows.push(`<div class="prov-override"><span class="prov-key">Institutional override</span> SPAQI would continue here (${p.rNumber}). Held on: <strong>${labels}</strong>. ${many ? 'These are ABSMC criteria' : 'This is an ABSMC criterion'} with no SPAQI recommendation number.</div>`);
+      rows.push(`<div class="prov-dim">Perioperative eDKA monitoring is an alternative to holding where monitoring capability exists.</div>`);
+    } else if (p.overrideTriggers.length > 0) {
+      const labels = p.overrideTriggers.map(t => esc(t.label)).join(', ');
+      rows.push(`<div><span class="prov-key">Also present</span> ${labels} <span class="prov-dim">(institutional criteria; the hold above is already source-recommended)</span></div>`);
+    }
+    // 3. Timing departure on the T2DM keto/bariatric limb.
+    if (p.timingDeparture) {
+      rows.push(`<div class="prov-override"><span class="prov-key">Timing departure</span> R3b stops the drug at the start of the very-low-carbohydrate diet, potentially about two weeks preoperatively. ABSMC holds the same 72/96 h as any other SGLT2i hold, because the clinic cannot rely on seeing these patients before the diet begins.</div>`);
+    }
+    // 4. Cardiac interim safeguard, removed once CT surgery confirms.
+    if (p.ctSurgeryConfirmPending) {
+      rows.push(`<div class="prov-override"><span class="prov-key">Confirm with CT surgery</span> Cardiac guidance follows the published algorithm and is pending written confirmation from cardiac surgery. Verify before issuing.</div>`);
+    }
+    // 5. Note an unsupplied A1c so the omission is visible rather than silent.
+    if (!p.a1cSupplied) {
+      rows.push(`<div class="prov-dim">A1c was not supplied. An unavailable A1c does not trigger a hold.</div>`);
+    }
+    // 6. Box/Figure discrepancy footnote, shown only where an affected R-number is printed.
+    if (p.rNumber === 'R3a' || p.rNumber === 'R3b') {
+      rows.push(`<div class="prov-dim">Note: Figure 2 prints a bare (R3) where the recommendation Box splits 3a and 3b. The Box governs here.</div>`);
+    }
+    return `<div class="provenance"><div class="result-section-label">Why this recommendation</div>${rows.join('')}</div>`;
+  }
   renderClinicianCard(r) {
     const badgeHtml = `<span class="badge badge-${r.badgeType}">${r.badge}</span>`;
     const sectionHtml = (label, text) => text
@@ -1957,6 +2022,7 @@ class PerioperativeDMApp {
           <div class="drug-list">${r.drugNames.join(' · ')}</div>
         </div>
         <div class="result-card-body">
+          ${this.renderProvenance(r)}
           ${comboHtml}
           ${flagsHtml}
           ${sectionHtml('Night Before Surgery', r.clinician.nightBefore)}
@@ -1978,7 +2044,7 @@ class PerioperativeDMApp {
         <h2>Diabetes Medication Instructions</h2>
         <div class="patient-meta">
           ${patientName}${p.dob ? ` · DOB: ${p.dob}` : ''}${p.arrivalTime ? ` · Arrival: ${p.arrivalTime}` : ''}<br>
-          ${ctx.surgeryTiming === 'AM' ? 'AM Surgery' : 'PM Surgery'} · ${ctx.surgeryType ? ctx.surgeryType.replace('majorNoncardiac','Major Noncardiac Surgery').replace('minor','Minor Procedure').replace('colonoscopy','Colonoscopy').replace('cardiac','Cardiac Surgery').replace('bariatric','Bariatric Surgery') : ''}
+          ${ctx.surgeryTiming === 'AM' ? 'AM Surgery' : 'PM Surgery'} · ${SURGERY_TYPE_LABELS[ctx.surgeryType] || ''}
         </div>
       </div>`;
     const cards = results.map(r => {
