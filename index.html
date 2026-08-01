@@ -510,6 +510,55 @@ function hasMetformin(selected) {
 }
 // Chained .replace() calls used to rewrite the "cardiac" inside "Noncardiac",
 // yielding "Major NonCardiac Surgery Surgery" on the patient sheet.
+// Computes the last permissible SGLT2i dose from a strict clock, per
+// CLINICAL-LOGIC-DECISIONS.md section 3: the last dose must fall at least
+// holdHours (72, or 96 for ertugliflozin) before the scheduled surgery or
+// arrival time. Calendar-day counting was rejected because an evening doser and
+// a morning doser on the same date are 12 h apart: a Monday NIGHT dose before a
+// Thursday 07:00 case is about 58 h and does not satisfy 72.
+// Returns null when any input is missing, in which case callers fall back to
+// interval-only wording.
+const DOSE_HOUR = { morning: 8, evening: 20 };
+function computeSglt2iStopDate(surgeryDate, arrivalTime, doseTime, holdHours) {
+  if (!surgeryDate || !arrivalTime || !doseTime || !DOSE_HOUR.hasOwnProperty(doseTime)) return null;
+  const dm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(surgeryDate);
+  const tm = /^(\d{1,2}):(\d{2})$/.exec(arrivalTime);
+  if (!dm || !tm) return null;
+  // Construct in local time explicitly; Date.parse on a bare YYYY-MM-DD is UTC
+  // and would shift the calendar day for anyone west of Greenwich.
+  const surgeryAt = new Date(+dm[1], +dm[2] - 1, +dm[3], +tm[1], +tm[2], 0, 0);
+  if (isNaN(surgeryAt.getTime())) return null;
+  const cutoff = new Date(surgeryAt.getTime() - holdHours * 3600 * 1000);
+  // Walk back from the surgery date to the latest dose occurrence at or before
+  // the cutoff. Bounded at 30 days so a bad input cannot loop.
+  const hour = DOSE_HOUR[doseTime];
+  let last = null;
+  for (let back = 0; back <= 30; back++) {
+    const d = new Date(surgeryAt.getFullYear(), surgeryAt.getMonth(), surgeryAt.getDate() - back, hour, 0, 0, 0);
+    if (d.getTime() <= cutoff.getTime()) { last = d; break; }
+  }
+  if (!last) return null;
+  // Every dose occurrence strictly after the last permissible one, up to and
+  // including the surgery day, is skipped.
+  const skipped = [];
+  for (let i = 1; i <= 30; i++) {
+    const d = new Date(last.getFullYear(), last.getMonth(), last.getDate() + i, hour, 0, 0, 0);
+    if (d.getTime() > surgeryAt.getTime()) break;
+    skipped.push(d);
+    if (d.getFullYear() === surgeryAt.getFullYear() && d.getMonth() === surgeryAt.getMonth() && d.getDate() === surgeryAt.getDate()) break;
+  }
+  return { lastDose: last, skipped: skipped, daysSkipped: skipped.length };
+}
+const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+function fmtDate(d) { return DAY_NAMES[d.getDay()] + ', ' + MONTH_NAMES[d.getMonth()] + ' ' + d.getDate(); }
+function fmtDayList(ds) {
+  const names = ds.map(d => DAY_NAMES[d.getDay()]);
+  if (names.length === 0) return '';
+  if (names.length === 1) return names[0];
+  if (names.length === 2) return names[0] + ' and ' + names[1];
+  return names.slice(0, -1).join(', ') + ', and ' + names[names.length - 1];
+}
 const SURGERY_TYPE_LABELS = {
   minor: 'Minor Procedure',
   colonoscopy: 'Colonoscopy',
@@ -788,8 +837,17 @@ function getSGLT2iResults(ctx, details, selected) {
     const dName = `${drug.name} (${drug.brand})`;
     if (rec === 'hold') {
       nightBefore = nightBefore || '';
-      nightBefore += `HOLD ${dName}: last dose must be at least ${holdDays*24} hours before the scheduled surgery or arrival time. Counted as a strict clock, not calendar days — an evening dose one day later than a morning dose does not satisfy it. `;
-      patientNightBefore = (patientNightBefore || '') + `STOP taking ${dName}. Your last dose must be at least ${holdDays*24} hours before your surgery. Do not take it again until your doctor tells you it is safe to restart. `;
+      const stop = computeSglt2iStopDate(ctx.surgeryDate, arrivalTime, details.sglt2iDoseTime, holdDays * 24);
+      if (stop) {
+        nightBefore += `HOLD ${dName}: last dose ${fmtDate(stop.lastDose)} (${details.sglt2iDoseTime}). Skips ${stop.daysSkipped} dose${stop.daysSkipped === 1 ? '' : 's'}: ${fmtDayList(stop.skipped)}. At least ${holdDays*24} h before the scheduled arrival time. `;
+      } else {
+        nightBefore += `HOLD ${dName}: last dose must be at least ${holdDays*24} hours before the scheduled surgery or arrival time. Counted as a strict clock, not calendar days. Supply the surgery date, arrival time and dose time of day to show exact dates. `;
+      }
+      if (stop) {
+        patientNightBefore = (patientNightBefore || '') + `STOP taking ${dName}. Your last dose is ${fmtDate(stop.lastDose)}. Do NOT take it on ${fmtDayList(stop.skipped)} \u2014 that is ${stop.daysSkipped} day${stop.daysSkipped === 1 ? '' : 's'} without it. Do not take it again until your doctor tells you it is safe to restart. `;
+      } else {
+        patientNightBefore = (patientNightBefore || '') + `STOP taking ${dName}. Your last dose must be at least ${holdDays*24} hours before your surgery. Do not take it again until your doctor tells you it is safe to restart. `;
+      }
     } else if (rec === 'hold-bariatric') {
       nightBefore = nightBefore || '';
       nightBefore += `HOLD ${dName}: stop at the start of your bariatric preoperative diet (typically 2–4 weeks before surgery, as instructed by your bariatric team). `;
