@@ -88,7 +88,7 @@ button:active { transform:translateY(1px); }
 .btn-primary:hover { background:linear-gradient(180deg,#FFCC82,#FFA940); border-color:#FFA940; box-shadow:0 0 18px rgba(255,180,84,.35); }
 .btn-back { background:transparent; border:1px solid var(--line); color:var(--dim); font-size:13px; padding:10px 14px; text-align:center; margin-bottom:12px; }
 .btn-back:hover { border-color:var(--line-strong); color:var(--text); background:transparent; box-shadow:none; }
-.btn-row { display:flex; gap:10px; }
+.btn-row { display:flex; gap:10px; flex-wrap:wrap; }
 .btn-row button { flex:1; }
 .btn-sm { padding:10px 14px; font-size:13px; margin-bottom:8px; }
 /* ===== FORM INPUTS ===== */
@@ -584,6 +584,109 @@ function getSGLT2iResults(ctx, details, selected) {
   let morningOf = '';
   let patientNightBefore = null;
   let patientMorning = '';
+  // SPAQI-mode decision logic. Computed once at scenario level (not per drug):
+  // the recommendation depends on surgery type, diabetes type, HF/CKD, and the
+  // universal hold triggers, none of which vary by which SGLT2i drug is selected.
+  // See CLINICAL-LOGIC-DECISIONS.md for full provenance of every branch below.
+  let spaqiProvenance = null;
+  if (mode === 'SPAQI') {
+    let baseRecommendation, rNumber, rNumberSource, institutionalBase;
+    let ctSurgeryConfirmPending = false;
+    const isFixedHold = (dmType === 'T1DM') || (details.ketoDiet === true) || (sType === 'bariatric');
+    if (dmType === 'T1DM') {
+      // T1DM -> HOLD always. FDA-label deferral, SPAQI Limitations p.18-20 (prose,
+      // no R-number, no evidence grade). Overrides every other branch. Source-
+      // supported prose, not an institutional rule.
+      baseRecommendation = 'HOLD'; rNumber = null; rNumberSource = 'narrative'; institutionalBase = false;
+    } else if (details.ketoDiet === true || sType === 'bariatric') {
+      // Bariatric surgery OR ketogenic/very-low-carb diet -> HOLD (R3, Box p.12).
+      // Must be evaluated before the minor/colonoscopy branch so a bariatric or
+      // keto patient having a minor procedure still holds.
+      // DEPARTURE: source scopes duration/onset by diabetes status (T2DM: stop at
+      // diet start, ~14 days preop, R3b; non-T2DM: stop 3-4 days, R3a). We hold the
+      // same 72/96 h as every other SGLT2i hold for all patients regardless of DM
+      // status. The DECISION (hold) is source-supported; the TIMING is an
+      // institutional departure. See CLINICAL-LOGIC-DECISIONS.md section 1,
+      // "Bariatric surgery OR ketogenic / very-low-carbohydrate diet".
+      baseRecommendation = 'HOLD'; rNumber = 'R3'; rNumberSource = 'Box p.12'; institutionalBase = true;
+    } else if (sType === 'cardiac') {
+      // Panel d, cardiac surgery — three-way split by diabetes/HF/CKD status.
+      ctSurgeryConfirmPending = true; // interim safeguard pending CT surgery confirmation (see decision doc section 1)
+      if (dmType === 'T2DM' && (hasHF || hasCKD)) {
+        // T2DM with HF or CKD -> continue (R1, Box p.12, grade B) — cardiorenal benefit.
+        baseRecommendation = 'CONTINUE'; rNumber = 'R1'; rNumberSource = 'Box p.12'; institutionalBase = false;
+      } else if (dmType === 'noDM') {
+        // No T2DM -> continue (R1, Box p.12, grade B).
+        baseRecommendation = 'CONTINUE'; rNumber = 'R1'; rNumberSource = 'Box p.12'; institutionalBase = false;
+      } else {
+        // T2DM without HF or CKD -> hold (R3a, grade B).
+        baseRecommendation = 'HOLD'; rNumber = 'R3a'; rNumberSource = 'Box p.12'; institutionalBase = false;
+      }
+    } else if (sType === 'minor' || sType === 'colonoscopy') {
+      // Panel a, minor procedure/colonoscopy — single column, no diabetes split -> continue (R1).
+      baseRecommendation = 'CONTINUE'; rNumber = 'R1'; rNumberSource = 'Box p.12'; institutionalBase = false;
+    } else {
+      // sType === 'majorNoncardiac' — continue by default, one rule shape for T2DM and non-DM.
+      baseRecommendation = 'CONTINUE'; rNumberSource = 'Box p.12'; institutionalBase = false;
+      if (dmType === 'T2DM' && (hasHF || hasCKD)) {
+        rNumber = 'R1'; // T2DM with HF or CKD -> continue (R1)
+      } else if (dmType === 'T2DM') {
+        rNumber = 'R2'; // T2DM without HF or CKD -> continue (R2, "consider continuing", grade B)
+      } else {
+        rNumber = 'R1'; // non-diabetic -> continue (R1)
+      }
+    }
+
+    // Universal HOLD overrides (step 2). Apply to every branch above EXCEPT the
+    // two already-HOLD branches (T1DM; keto/bariatric), which are HOLD for a
+    // different, source-driven reason and are not "overridden" by these.
+    const overrideTriggers = [];
+    if (!isFixedHold) {
+      if (details.prolongedFasting === true) {
+        // INSTITUTIONAL threshold (12 h), SOURCE concept (R1/R2 preop-fasting scope; footnote a).
+        overrideTriggers.push({ label: 'anticipated >12 h without carbohydrate', institutional: true });
+      }
+      if (details.surgeryOver3h === true) {
+        // INSTITUTIONAL EXTENSION - no R-number. >3 h is an INTRAOPERATIVE MONITORING
+        // trigger in the source (R7), never a preoperative hold. Do not cite R7 here.
+        overrideTriggers.push({ label: 'expected surgical duration >3 h', institutional: true });
+      }
+      if (hasAnyInsulin(selected)) {
+        // INSTITUTIONAL EXTENSION - no R-number. Derived from the selected medication list.
+        overrideTriggers.push({ label: 'current insulin use', institutional: true });
+      }
+      if (details.dkaHistory === true) {
+        // INSTITUTIONAL EXTENSION - no R-number.
+        overrideTriggers.push({ label: 'history of DKA', institutional: true });
+      } else if (details.dkaHistory === 'unknown') {
+        // INSTITUTIONAL EXTENSION - no R-number. Unknown DKA history resolves to HOLD (conservative default).
+        overrideTriggers.push({ label: 'DKA history unknown', institutional: true });
+      }
+      if (details.a1cOver8 === true) {
+        // INSTITUTIONAL EXTENSION - no R-number.
+        overrideTriggers.push({ label: 'most recent A1c >8%', institutional: true });
+      }
+    }
+
+    // Conflict flag: an institutional override forcing a HOLD against a base
+    // CONTINUE that was itself R1 because of HF/CKD cardiorenal benefit.
+    const wasR1ForHFCKD = !isFixedHold && baseRecommendation === 'CONTINUE' && rNumber === 'R1' &&
+      dmType === 'T2DM' && (hasHF || hasCKD) && (sType === 'cardiac' || sType === 'majorNoncardiac');
+    const overridesR1Continue = wasR1ForHFCKD && overrideTriggers.length > 0;
+
+    const finalRecommendation = (!isFixedHold && overrideTriggers.length > 0) ? 'HOLD' : baseRecommendation;
+
+    spaqiProvenance = {
+      baseRecommendation,
+      rNumber,
+      rNumberSource,
+      institutionalBase,
+      overrideTriggers,
+      overridesR1Continue,
+      ctSurgeryConfirmPending,
+      finalRecommendation,
+    };
+  }
   // Determine recommendation per drug
   let decisions = drugs.map(drug => {
     const hd = drug.holdDays || 3;
@@ -595,24 +698,8 @@ function getSGLT2iResults(ctx, details, selected) {
       } else {
         rec = 'hold';
       }
-    } else { // SPAQI — risk-stratified, "hold by default" transform.
-      // Continued WITHOUT monitoring only for minor/endoscopy (any patient) and
-      // major noncardiac in a non-diabetic without anticipated prolonged fasting.
-      // Everything else holds; where the chart attaches eDKA monitoring to
-      // continuation, the app holds by default and surfaces a "may continue
-      // with monitoring" note.
-      if (dmType === 'T1DM') {
-        rec = 'hold'; // off-label, high eDKA risk — hold for all surgery types
-      } else if (sType === 'minor' || sType === 'colonoscopy') {
-        rec = 'continue';
-      } else if (sType === 'bariatric') {
-        // T2DM: stop at start of very-low-carb diet; non-DM: stop 3–4 days before.
-        rec = (dmType === 'T2DM') ? 'hold-bariatric' : 'hold';
-      } else if (dmType === 'noDM' && sType === 'majorNoncardiac') {
-        rec = (details.prolongedFasting === true) ? 'hold' : 'continue';
-      } else {
-        rec = 'hold'; // T2DM major noncardiac/cardiac, noDM cardiac
-      }
+    } else { // SPAQI — scenario-level decision computed above applies uniformly to every selected drug.
+      rec = (spaqiProvenance.finalRecommendation === 'HOLD') ? 'hold' : 'continue';
     }
     return { drug, rec, holdDays };
   });
@@ -730,6 +817,7 @@ function getSGLT2iResults(ctx, details, selected) {
     patient: { nightBefore: patientNightBefore, morningOf: patientMorning, dietary: null },
     flags,
     comboFlag,
+    provenance: spaqiProvenance,
   };
 }
 function getGLP1Results(ctx, details, selected) {
@@ -1321,14 +1409,17 @@ class PerioperativeDMApp {
     this.outputTab = 'clinician';
     this.searchQuery = '';
     this.state = {
-      patient: { firstName: '', lastName: '', dob: '', arrivalTime: '' },
-      context: { dmType: null, surgeryType: null, surgeryTiming: null, hasHF: null, hasCKD: null, arrivalTime: '' },
+      patient: { firstName: '', lastName: '', dob: '', arrivalTime: '', surgeryDate: '' },
+      context: { dmType: null, surgeryType: null, surgeryTiming: null, hasHF: null, hasCKD: null, arrivalTime: '', surgeryDate: '' },
       selected: new Set(),
       details: {
-        sglt2iMode: 'FDA',
+        sglt2iMode: 'SPAQI',
         a1cOver8: null,
         prolongedFasting: null,
         surgeryOver3h: null,
+        sglt2iDoseTime: null,
+        dkaHistory: null,
+        ketoDiet: null,
         eGFR: '',
         contrastWithin48h: null,
         giSymptoms: null,
@@ -1427,11 +1518,17 @@ class PerioperativeDMApp {
           <label class="field-label">Planned Arrival Time <span style="font-size:11px;color:var(--dim2);font-weight:400;text-transform:none;">(optional — used in patient instructions)</span></label>
           <input type="text" value="${p.arrivalTime}" placeholder="e.g., 7:30 AM on Monday June 16, 2026" oninput="window.app.updatePatient('arrivalTime', this.value)">
         </div>
+        <div class="field-group">
+          <label class="field-label">Surgery Date</label>
+          <input type="date" value="${p.surgeryDate}" oninput="window.app.updatePatient('surgeryDate', this.value)">
+          <p class="helper-text">Optional. If provided, instructions will show exact calendar dates.</p>
+        </div>
         <button class="btn-primary" onclick="window.app.savePatientAndContinue()">Next: Clinical Context →</button>
       </div>`;
   }
   savePatientAndContinue() {
     this.state.context.arrivalTime = this.state.patient.arrivalTime;
+    this.state.context.surgeryDate = this.state.patient.surgeryDate;
     this.setState('context');
   }
   renderContext() {
@@ -1555,7 +1652,7 @@ class PerioperativeDMApp {
           </div>
           ${details.sglt2iMode === 'SPAQI' ? `
             <hr class="divider">
-            <div class="question" style="font-size:14px;">HbA1c >8%? <span style="font-size:12px;font-weight:400;color:var(--dim2)">(Used for the minor-surgery eDKA testing footnote)</span></div>
+            <div class="question" style="font-size:14px;">Most recent A1c over 8%? <span style="font-size:12px;font-weight:400;color:var(--dim2)">(Used for the minor-surgery eDKA testing footnote)</span></div>
             <div class="btn-row">
               <div class="check-label ${details.a1cOver8===true?'selected':''}" onclick="window.app.updateDetails('a1cOver8',true)">
                 <span class="custom-radio"></span> Yes (>8%)
@@ -1568,7 +1665,7 @@ class PerioperativeDMApp {
               </div>
             </div>
             <hr class="divider">
-            <div class="question" style="font-size:14px;">Prolonged postoperative fasting anticipated? <span style="font-size:12px;font-weight:400;color:var(--dim2)">(NPO/poor intake well beyond the day of surgery)</span></div>
+            <div class="question" style="font-size:14px;">Do you anticipate this patient will go more than 12 hours without carbohydrate intake at any point around surgery, including after the procedure until they resume eating or drinking carbohydrates? <span style="font-size:12px;font-weight:400;color:var(--dim2)">(NPO/poor intake well beyond the day of surgery)</span></div>
             <div class="btn-row">
               <div class="check-label ${details.prolongedFasting===true?'selected':''}" onclick="window.app.updateDetails('prolongedFasting',true)">
                 <span class="custom-radio"></span> Yes
@@ -1585,6 +1682,42 @@ class PerioperativeDMApp {
               </div>
               <div class="check-label ${details.surgeryOver3h===false?'selected':''}" onclick="window.app.updateDetails('surgeryOver3h',false)">
                 <span class="custom-radio"></span> No
+              </div>
+            </div>
+            <hr class="divider">
+            <div class="question" style="font-size:14px;">When does the patient take their SGLT2 inhibitor?</div>
+            <div class="btn-row">
+              <div class="check-label ${details.sglt2iDoseTime==='morning'?'selected':''}" onclick="window.app.updateDetails('sglt2iDoseTime','morning')">
+                <span class="custom-radio"></span> Morning
+              </div>
+              <div class="check-label ${details.sglt2iDoseTime==='evening'?'selected':''}" onclick="window.app.updateDetails('sglt2iDoseTime','evening')">
+                <span class="custom-radio"></span> Evening
+              </div>
+            </div>
+            <hr class="divider">
+            <div class="question" style="font-size:14px;">Does the patient have a history of DKA (diabetic ketoacidosis)?</div>
+            <div class="btn-row">
+              <div class="check-label ${details.dkaHistory===true?'selected':''}" onclick="window.app.updateDetails('dkaHistory',true)">
+                <span class="custom-radio"></span> Yes
+              </div>
+              <div class="check-label ${details.dkaHistory===false?'selected':''}" onclick="window.app.updateDetails('dkaHistory',false)">
+                <span class="custom-radio"></span> No
+              </div>
+              <div class="check-label ${details.dkaHistory==='unknown'?'selected':''}" onclick="window.app.updateDetails('dkaHistory','unknown')">
+                <span class="custom-radio"></span> Unknown
+              </div>
+            </div>
+            <hr class="divider">
+            <div class="question" style="font-size:14px;">Is the patient on a ketogenic or very-low-carbohydrate diet (under 50 g carbohydrate per day)?</div>
+            <div class="btn-row">
+              <div class="check-label ${details.ketoDiet===true?'selected':''}" onclick="window.app.updateDetails('ketoDiet',true)">
+                <span class="custom-radio"></span> Yes
+              </div>
+              <div class="check-label ${details.ketoDiet===false?'selected':''}" onclick="window.app.updateDetails('ketoDiet',false)">
+                <span class="custom-radio"></span> No
+              </div>
+              <div class="check-label ${details.ketoDiet==='unknown'?'selected':''}" onclick="window.app.updateDetails('ketoDiet','unknown')">
+                <span class="custom-radio"></span> Unknown
               </div>
             </div>` : ''}
         </div>`;
@@ -1876,10 +2009,10 @@ class PerioperativeDMApp {
     this.outputTab = 'clinician';
     this.searchQuery = '';
     this.state = {
-      patient: { firstName: '', lastName: '', dob: '', arrivalTime: '' },
-      context: { dmType: null, surgeryType: null, surgeryTiming: null, hasHF: null, hasCKD: null, arrivalTime: '' },
+      patient: { firstName: '', lastName: '', dob: '', arrivalTime: '', surgeryDate: '' },
+      context: { dmType: null, surgeryType: null, surgeryTiming: null, hasHF: null, hasCKD: null, arrivalTime: '', surgeryDate: '' },
       selected: new Set(),
-      details: { sglt2iMode: 'FDA', a1cOver8: null, prolongedFasting: null, surgeryOver3h: null, eGFR: '', contrastWithin48h: null, giSymptoms: null, glp1NpoCutoff: 'midnight', insulinDetails: {} },
+      details: { sglt2iMode: 'SPAQI', a1cOver8: null, prolongedFasting: null, surgeryOver3h: null, sglt2iDoseTime: null, dkaHistory: null, ketoDiet: null, eGFR: '', contrastWithin48h: null, giSymptoms: null, glp1NpoCutoff: 'midnight', insulinDetails: {} },
     };
     this.render();
   }
