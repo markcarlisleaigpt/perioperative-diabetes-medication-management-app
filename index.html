@@ -728,25 +728,32 @@ function getSGLT2iResults(ctx, details, selected) {
   // Scenario-level continuation note (SPAQI only). Surfaces "may continue with
   // monitoring" exactly where the SPAQI chart permits continuation, per spec.
   if (mode === 'SPAQI') {
+    // Rewritten to branch on spaqiProvenance.finalRecommendation (the decision
+    // block's own output) rather than re-deriving from sType/dmType. See
+    // CLINICAL-LOGIC-DECISIONS.md section 1-2 for provenance of every branch.
     let note = null;
+    const rec = spaqiProvenance.finalRecommendation;
     if (dmType === 'T1DM') {
-      note = 'Type 1 diabetes: SGLT2 inhibitors are off-label and carry a markedly higher euglycemic-DKA risk, so they are held for all surgery types. Never rely on glucose alone. If continued for a specific indication, eDKA monitoring is mandatory.';
-    } else if (sType === 'minor' || sType === 'colonoscopy') {
-      if (dmType === 'T2DM' && a1c === true) {
-        note = 'HbA1c >8%: consider eDKA testing if the patient is symptomatic, or with prolonged NPO (>12 h), very-low carbohydrate intake (<50 g/day), or prior insulin use/DKA.';
-      }
-    } else if (sType === 'bariatric') {
-      note = null; // hold; no continuation permitted
-    } else if (dmType === 'noDM' && sType === 'majorNoncardiac') {
-      if (details.prolongedFasting === true) {
-        note = 'Held because prolonged postoperative fasting is anticipated. In a patient without diabetes and no anticipated prolonged fasting, SGLT2i may be continued without routine monitoring.';
+      note = 'Type 1 diabetes: SGLT2 inhibitors are off-label and carry a markedly higher euglycemic-DKA risk, so they are held for all surgery types regardless of fasting or procedure type. Never rely on glucose alone.';
+    } else if (details.ketoDiet === true || sType === 'bariatric') {
+      note = null; // hold; no continuation permitted, reason is the diet/procedure itself
+    } else if (rec === 'HOLD') {
+      if (spaqiProvenance.baseRecommendation === 'CONTINUE' && spaqiProvenance.overrideTriggers.length > 0) {
+        const triggerLabels = spaqiProvenance.overrideTriggers.map(t => t.label).join(', ');
+        note = `Held due to institutional criterion (no SPAQI recommendation number): ${triggerLabels}. SPAQI's own recommendation for this scenario would otherwise support continuation${spaqiProvenance.rNumber ? ` (${spaqiProvenance.rNumber})` : ''}.`;
+      } else {
+        note = spaqiProvenance.rNumber ? `Held per SPAQI ${spaqiProvenance.rNumber}.` : 'Held.';
       }
     } else if (sType === 'cardiac') {
       note = (dmType === 'T2DM')
-        ? 'May be continued if HF or CKD (cardiorenal benefit). For cardiac surgery, eDKA monitoring is recommended irrespective of hold or continue. Held by default as the more practical option.'
-        : 'May be continued. For cardiac surgery, eDKA monitoring is recommended irrespective of hold or continue. Held by default as the more practical option.';
+        ? `Continuation is recommended (${spaqiProvenance.rNumber}) given HF or CKD (cardiorenal benefit). For cardiac surgery, eDKA monitoring is recommended irrespective of hold or continue. Pending CT surgery confirmation \u2014 see clinician flag.`
+        : `Continuation is recommended (${spaqiProvenance.rNumber}) for cardiac surgery in a patient without diabetes. For cardiac surgery, eDKA monitoring is recommended irrespective of hold or continue. Pending CT surgery confirmation \u2014 see clinician flag.`;
     } else if (dmType === 'T2DM' && sType === 'majorNoncardiac') {
-      note = 'May be continued — especially with HF or CKD (cardiorenal benefit) — with eDKA monitoring if surgery exceeds 3 hours. Held by default as the more practical option.';
+      note = (spaqiProvenance.rNumber === 'R1')
+        ? 'Continuation is recommended (R1) given HF or CKD (cardiorenal benefit).'
+        : 'Continuation is supported ("consider continuing", R2) for major noncardiac surgery.';
+    } else if (dmType === 'noDM' && sType === 'majorNoncardiac') {
+      note = 'Continuation is recommended (R1) for major noncardiac surgery in a patient without diabetes.';
     }
     if (note) flags.push({ type: 'info', text: note });
   }
@@ -755,8 +762,8 @@ function getSGLT2iResults(ctx, details, selected) {
     const dName = `${drug.name} (${drug.brand})`;
     if (rec === 'hold') {
       nightBefore = nightBefore || '';
-      nightBefore += `HOLD ${dName}: stop taking ${holdDays} days before surgery (i.e., your last dose should be ${holdDays} days before your surgery date). `;
-      patientNightBefore = (patientNightBefore || '') + `STOP taking ${dName} ${holdDays} days before your surgery date. Do not take it again until your doctor tells you it is safe to restart. `;
+      nightBefore += `HOLD ${dName}: last dose must be at least ${holdDays*24} hours before the scheduled surgery or arrival time. Counted as a strict clock, not calendar days — an evening dose one day later than a morning dose does not satisfy it. `;
+      patientNightBefore = (patientNightBefore || '') + `STOP taking ${dName}. Your last dose must be at least ${holdDays*24} hours before your surgery. Do not take it again until your doctor tells you it is safe to restart. `;
     } else if (rec === 'hold-bariatric') {
       nightBefore = nightBefore || '';
       nightBefore += `HOLD ${dName}: stop at the start of your bariatric preoperative diet (typically 2–4 weeks before surgery, as instructed by your bariatric team). `;
@@ -784,13 +791,18 @@ function getSGLT2iResults(ctx, details, selected) {
     // Hold-by-default: no routine monitoring when held or continued for a
     // low-risk case; describe the eDKA monitoring that applies IF the drug is
     // continued in the cardiac and T2DM-major scenarios.
-    monitoring = `No routine eDKA monitoring is required when the drug is held, or continued in a low-risk case (minor/endoscopy, or major noncardiac in a non-diabetic without prolonged fasting); test blood ketones (beta-hydroxybutyrate) only if symptomatic. eDKA can occur with normal or near-normal glucose — educate the patient on symptoms: nausea, vomiting, abdominal pain, shortness of breath, fatigue.`;
+    monitoring = '';
+    // Base "no routine monitoring" assertion removed (FIX 5): a T2DM patient
+    // continuing through major noncardiac surgery has a graded postoperative
+    // monitoring recommendation (R9) in the source, so a blanket claim was false.
+    // This app does not issue postoperative/intraoperative monitoring instructions
+    // (CLINICAL-LOGIC-DECISIONS.md section 6); no replacement guidance is added.
     if (sType === 'cardiac') {
-      monitoring += ' For cardiac surgery, eDKA monitoring is recommended irrespective of hold or continue: check serum ketones, anion gap, and venous/arterial pH (a normal anion gap excludes eDKA). Monitor on the day of surgery and postoperatively until normal oral intake. Consider prophylactic D5 50–100 mL/h plus insulin; target glucose 140–180 mg/dL.';
-    } else if (dmType === 'T2DM' && sType === 'majorNoncardiac') {
+      monitoring += 'For cardiac surgery, eDKA monitoring is recommended irrespective of hold or continue: check serum ketones, anion gap, and venous/arterial pH (a normal anion gap excludes eDKA). Monitor on the day of surgery and postoperatively until normal oral intake. Consider prophylactic D5 50–100 mL/h plus insulin; target glucose 140–180 mg/dL.';
+    } else if (dmType === 'T2DM' && sType === 'majorNoncardiac' && spaqiProvenance.finalRecommendation === 'CONTINUE') {
       monitoring += (details.surgeryOver3h === true)
-        ? ' This surgery is anticipated to exceed 3 hours: if the drug is continued, monitor for eDKA — check serum ketones, anion gap, and pH, and continue postoperatively until normal oral intake; target glucose 140–180 mg/dL.'
-        : ' If the drug is continued and surgery exceeds 3 hours, monitor for eDKA — check serum ketones, anion gap, and pH; target glucose 140–180 mg/dL.';
+        ? 'This surgery is anticipated to exceed 3 hours: if the drug is continued, monitor for eDKA — check serum ketones, anion gap, and pH, and continue postoperatively until normal oral intake; target glucose 140–180 mg/dL.'
+        : 'If the drug is continued and surgery exceeds 3 hours, monitor for eDKA — check serum ketones, anion gap, and pH; target glucose 140–180 mg/dL.';
     }
   } else if (badge === 'CONTINUE' || badge === 'CONSIDER CONTINUING') {
     monitoring = `eDKA monitoring required: Check blood ketones every 6 hours for 24 hours postoperatively. Alert threshold: blood ketones >0.6 mmol/L → notify physician immediately. Note: eDKA may present with normal or near-normal blood glucose. Ensure IV access with glucose-containing fluids available if surgery >3 hours. Target intraoperative glucose 140–180 mg/dL.`;
@@ -1648,11 +1660,11 @@ class PerioperativeDMApp {
           <div class="evidence-strip">
             ${details.sglt2iMode === 'FDA'
               ? '<strong>FDA/ADA Default:</strong> Hold canagliflozin, dapagliflozin, and empagliflozin at least 3 days; ertugliflozin at least 4 days before elective surgery. No minor-procedure or colonoscopy continuation exception in this mode.'
-              : '<strong>SPAQI (2026) — risk-stratified, hold by default:</strong> Continued without monitoring only for minor procedures/endoscopy (any patient) and major noncardiac surgery in a non-diabetic without anticipated prolonged fasting. All other cases hold; where the chart attaches eDKA monitoring to continuation, the app holds by default and notes the drug may be continued safely if monitoring is performed. Type 1 diabetes always holds (off-label, high eDKA risk).'}
+              : '<strong>SPAQI (2026) — risk-stratified:</strong> Continue for minor procedures/colonoscopy (any patient); major noncardiac surgery (T2DM and non-diabetic); and cardiac surgery in non-diabetics and in T2DM with heart failure or CKD. Hold for type 1 diabetes; ketogenic/very-low-carb diet or bariatric surgery; and cardiac surgery in T2DM without heart failure or CKD. Any of the following forces a hold regardless of the above: anticipated >12 h without carbohydrate, expected surgery >3 h, current insulin use, history of DKA (including unknown), or most recent A1c >8% — the latter four are institutional criteria with no SPAQI recommendation number. Cardiac guidance is pending confirmation from cardiac surgery.'}
           </div>
           ${details.sglt2iMode === 'SPAQI' ? `
             <hr class="divider">
-            <div class="question" style="font-size:14px;">Most recent A1c over 8%? <span style="font-size:12px;font-weight:400;color:var(--dim2)">(Used for the minor-surgery eDKA testing footnote)</span></div>
+            <div class="question" style="font-size:14px;">Most recent A1c over 8%? <span style="font-size:12px;font-weight:400;color:var(--dim2)">Yes triggers a hold. Institutional criterion, not a SPAQI recommendation.</span></div>
             <div class="btn-row">
               <div class="check-label ${details.a1cOver8===true?'selected':''}" onclick="window.app.updateDetails('a1cOver8',true)">
                 <span class="custom-radio"></span> Yes (>8%)
@@ -1675,7 +1687,7 @@ class PerioperativeDMApp {
               </div>
             </div>
             <hr class="divider">
-            <div class="question" style="font-size:14px;">Anticipated surgery length >3 hours? <span style="font-size:12px;font-weight:400;color:var(--dim2)">(Flags intraoperative eDKA monitoring if continued)</span></div>
+            <div class="question" style="font-size:14px;">Anticipated surgery length >3 hours? <span style="font-size:12px;font-weight:400;color:var(--dim2)">Yes triggers a hold. Institutional criterion, not a SPAQI recommendation.</span></div>
             <div class="btn-row">
               <div class="check-label ${details.surgeryOver3h===true?'selected':''}" onclick="window.app.updateDetails('surgeryOver3h',true)">
                 <span class="custom-radio"></span> Yes
