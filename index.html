@@ -1113,7 +1113,7 @@ function getDPP4iResults(ctx, details, selected) {
     patientMorning = 'Do NOT take this medication on the morning of surgery.';
   }
   const drugNames = allDrugs.map(d => `${d.name} (${d.brand})`);
-  const evidence = 'Source: ADA Standards of Care 2026; SAMBA Updated Consensus 2024 notes continuation reasonable given low hypoglycemia risk (not yet verified against the source document). The AHA/ACC 2024 perioperative guideline does not address DPP-4 inhibitors. ABSMC default is a conservative institutional hold, not a universal guideline mandate.';
+  const evidence = 'Source: ADA Standards of Care 2026; SAMBA Updated Consensus 2024 (Anesth Analg 2024;139:459-77) states DPP-4 inhibitors have a low perioperative hypoglycemia risk and may be continued preoperatively; its medication table lists them as "take". The AHA/ACC 2024 perioperative guideline does not address DPP-4 inhibitors. ABSMC default is a conservative institutional hold, not a universal guideline mandate.';
   const resumption = 'Resume when tolerating oral intake postoperatively. No monitoring required.';
   return {
     id: 'dpp4i',
