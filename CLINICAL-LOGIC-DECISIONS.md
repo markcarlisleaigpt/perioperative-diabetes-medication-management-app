@@ -277,7 +277,19 @@ Fires when `baseRecommendation === 'CONTINUE'` and at least one **institutional*
 
 **Two labeled groups.** Firing triggers render as "Held per SPAQI" (with R-numbers) and "Held on ABSMC criteria", each shown only when non-empty. Where the base recommendation is *already* HOLD, institutional triggers render as "Also present ... the hold above is already source-recommended" — calling them the basis would frame a grade B recommendation to discontinue as an institutional add-on a clinician might reasonably override.
 
-**The eDKA-monitoring alternative renders on every hold**, not only alongside an override notice.
+**The eDKA-monitoring alternative renders on every hold except the fixed-hold limbs** (T1DM; ketogenic/bariatric), not only alongside an override notice.
+
+> **Why the fixed-hold exception (added 2026-08-04).** It was originally specified as "every hold". A clinical review found that unsafe for T1DM: the app's own authority there is the FDA deferral in the SPAQI Limitations section, which discontinues *"irrespective of preoperative fasting and type of surgery"* and offers no monitoring alternative — and the provenance line directly above it states that SPAQI does not cover type 1 diabetes at all. Printing "monitoring is an alternative to holding" to a clinician with ketone testing available, in the single highest-eDKA-risk population in the pathway, invites exactly the wrong substitution.
+
+**Box-vs-Figure footnotes are limb-specific.** Two different discrepancies exist and each gets its own text: panel c (bariatric/VLCD) and panel d (cardiac T2DM without HF/CKD) print a **bare (R3)** where the Box splits 3a and 3b; panel b (major noncardiac fasting) prints **(R4)** in the T2DM column where the Box assigns **R3a** and reserves R4 for patients without T2DM.
+
+**"Also present" applies whenever the hold is source-backed**, whether via the base branch or via a source-backed trigger. Otherwise an institutional criterion is framed as the basis for a hold that R3a independently requires.
+
+## 8. Combination products
+
+A combination pill is held only when a component actually holds **in this scenario**. Testing merely whether the pill contains a non-SGLT2i component held minor-procedure and colonoscopy patients unnecessarily — both metformin and DPP-4 inhibitors continue there — and contradicted the DPP-4 card on the same sheet.
+
+SGLT2i + DPP-4 products (Qtern, Glyxambi) are excluded from the DPP-4 card entirely; the component's disposition is stated in the SGLT2i card's clinician note, which follows that card's actual recommendation. **Patient-sheet decision (Mark, 2026-08-04): the patient sheet names the pill and its instruction only, with no component breakdown.**
 
 > **Rationale.** Five institutional rules override a published guideline. Each is defensible and each is recorded here. The honest behavior is to disclose the departure every time rather than only in one branch. It also makes the clinician override control meaningful — the reviewing clinician sees what the source said and what the institutional rule did to it.
 
