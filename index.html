@@ -518,16 +518,26 @@ function hasMetformin(selected) {
 // Thursday 07:00 case is about 58 h and does not satisfy 72.
 // Returns null when any input is missing, in which case callers fall back to
 // interval-only wording.
-const DOSE_HOUR = { morning: 8, evening: 20 };
+const DOSE_HOUR = { morning: 6, evening: 20 };
+// Failure is reported as { error } rather than null so the caller can tell the
+// clinician WHICH field is missing or bad instead of printing a generic fallback.
 function computeSglt2iStopDate(surgeryDate, arrivalTime, doseTime, holdHours) {
-  if (!surgeryDate || !arrivalTime || !doseTime || !DOSE_HOUR.hasOwnProperty(doseTime)) return null;
+  const missing = [];
+  if (!surgeryDate) missing.push('the surgery date');
+  if (!arrivalTime) missing.push('the arrival time');
+  if (!doseTime || !DOSE_HOUR.hasOwnProperty(doseTime)) missing.push('the dose time of day');
+  if (missing.length) return { error: 'missing', missing: missing };
   const dm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(surgeryDate);
   const tm = /^(\d{1,2}):(\d{2})$/.exec(arrivalTime);
-  if (!dm || !tm) return null;
+  if (!dm || !tm) return { error: 'unparseable' };
+  // Bound-check the clock. JS rolls overflow forward, so an hour of 70 becomes a
+  // later date instead of NaN: isNaN never fires and the stop date lands before
+  // the surgery date with skip days after the operation.
+  if (+tm[1] > 23 || +tm[2] > 59) return { error: 'unparseable' };
   // Construct in local time explicitly; Date.parse on a bare YYYY-MM-DD is UTC
   // and would shift the calendar day for anyone west of Greenwich.
   const surgeryAt = new Date(+dm[1], +dm[2] - 1, +dm[3], +tm[1], +tm[2], 0, 0);
-  if (isNaN(surgeryAt.getTime())) return null;
+  if (isNaN(surgeryAt.getTime())) return { error: 'unparseable' };
   const cutoff = new Date(surgeryAt.getTime() - holdHours * 3600 * 1000);
   // Walk back from the surgery date to the latest dose occurrence at or before
   // the cutoff. Bounded at 30 days so a bad input cannot loop.
@@ -537,17 +547,32 @@ function computeSglt2iStopDate(surgeryDate, arrivalTime, doseTime, holdHours) {
     const d = new Date(surgeryAt.getFullYear(), surgeryAt.getMonth(), surgeryAt.getDate() - back, hour, 0, 0, 0);
     if (d.getTime() <= cutoff.getTime()) { last = d; break; }
   }
-  if (!last) return null;
+  if (!last) return { error: 'nointerval' };
   // Every dose occurrence strictly after the last permissible one, up to and
   // including the surgery day, is skipped.
   const skipped = [];
+  // Tracks whether a dose occurrence actually lands on the surgery date at or
+  // before arrival. True for a morning doser with a later case; false for an
+  // evening doser, who has no morning-of dose to skip.
+  let dayOfDoseSkipped = false;
   for (let i = 1; i <= 30; i++) {
     const d = new Date(last.getFullYear(), last.getMonth(), last.getDate() + i, hour, 0, 0, 0);
     if (d.getTime() > surgeryAt.getTime()) break;
+    // A dose occurrence falling on the surgery date is the morning-of dose and is
+    // instructed separately; do not also list it as a day to skip beforehand.
+    if (d.getFullYear() === surgeryAt.getFullYear() && d.getMonth() === surgeryAt.getMonth() && d.getDate() === surgeryAt.getDate()) { dayOfDoseSkipped = true; break; }
     skipped.push(d);
-    if (d.getFullYear() === surgeryAt.getFullYear() && d.getMonth() === surgeryAt.getMonth() && d.getDate() === surgeryAt.getDate()) break;
   }
-  return { lastDose: last, skipped: skipped, daysSkipped: skipped.length };
+  // Independent check that the interval really is satisfied, rather than trusting
+  // the walk-back loop above. A date is printed to a patient only if this holds.
+  if (surgeryAt.getTime() - last.getTime() < holdHours * 3600 * 1000) return { error: 'nointerval' };
+  return { lastDose: last, skipped: skipped, daysSkipped: skipped.length, dayOfDoseSkipped: dayOfDoseSkipped };
+}
+function fmtMissingList(items) {
+  if (!items || !items.length) return '';
+  if (items.length === 1) return items[0];
+  if (items.length === 2) return items[0] + ' and ' + items[1];
+  return items.slice(0, -1).join(', ') + ', and ' + items[items.length - 1];
 }
 const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -644,6 +669,10 @@ function getSGLT2iResults(ctx, details, selected) {
   let resumption = '';
   let comboFlag = null;
   let nightBefore = null;
+  // A 72/96 h hold is not a night-before instruction. Elderly patients act on
+  // headings, and a multi-day washout read as night-before is about 10 h.
+  let daysBefore = null;
+  let patientDaysBefore = null;
   let morningOf = '';
   let patientNightBefore = null;
   let patientMorning = '';
@@ -712,8 +741,19 @@ function getSGLT2iResults(ctx, details, selected) {
     const overrideTriggers = [];
     if (!isFixedHold) {
       if (details.prolongedFasting === true) {
-        // INSTITUTIONAL threshold (12 h), SOURCE concept (R1/R2 preop-fasting scope; footnote a).
-        overrideTriggers.push({ label: 'anticipated >12 h without carbohydrate', institutional: true });
+        // SOURCE-recommended hold, not an institutional one. The 12 h threshold is
+        // institutional (the source never numerically defines "prolonged fasting"),
+        // but the recommendation to discontinue on anticipated prolonged fasting is
+        // the source's own: Box p.12 R3a for T2DM major noncardiac, R4 for non-T2DM.
+        // Elsewhere the hold follows from exiting R1's scope, which covers patients
+        // NOT expected to fast from carbohydrates >12 h, so no R-number is claimed.
+        const fastingR = (sType === 'majorNoncardiac') ? (dmType === 'T2DM' ? 'R3a' : 'R4') : null;
+        overrideTriggers.push({
+          label: 'anticipated >12 h without carbohydrate',
+          institutional: false,
+          rNumber: fastingR,
+          note: fastingR ? 'Box p.12; the 12 h threshold itself is institutional' : 'outside the scope of R1, which covers patients not expected to fast from carbohydrates >12 h',
+        });
       }
       if (details.surgeryOver3h === true) {
         // INSTITUTIONAL EXTENSION - no R-number. >3 h is an INTRAOPERATIVE MONITORING
@@ -743,7 +783,15 @@ function getSGLT2iResults(ctx, details, selected) {
     // an R1 earned via HF/CKD in a T2DM patient and so stayed silent for the
     // non-diabetic taking an SGLT2i purely for CKD. See CLINICAL-LOGIC-DECISIONS.md,
     // "Source-override notice".
-    const sourceOverrideNotice = baseRecommendation === 'CONTINUE' && overrideTriggers.length > 0;
+    // Split the firing triggers by provenance so the clinician view can say which
+    // holds rest on the guideline and which are ABSMC additions.
+    const sourceTriggers = overrideTriggers.filter(t => t.institutional === false);
+    const institutionalTriggers = overrideTriggers.filter(t => t.institutional !== false);
+    // Announce an institutional departure only when the institution is genuinely
+    // departing -- i.e. no source-backed trigger also applies. Previously this fired
+    // whenever anything held a CONTINUE patient, so a source-recommended fasting hold
+    // was announced as "SPAQI would continue here", which is the opposite of the truth.
+    const sourceOverrideNotice = baseRecommendation === 'CONTINUE' && institutionalTriggers.length > 0 && sourceTriggers.length === 0;
 
     const finalRecommendation = (!isFixedHold && overrideTriggers.length > 0) ? 'HOLD' : baseRecommendation;
 
@@ -753,6 +801,8 @@ function getSGLT2iResults(ctx, details, selected) {
       rNumberSource,
       institutionalBase,
       overrideTriggers,
+      sourceTriggers,
+      institutionalTriggers,
       sourceOverrideNotice,
       timingDeparture,
       a1cSupplied: details.a1cOver8 !== null,
@@ -842,22 +892,30 @@ function getSGLT2iResults(ctx, details, selected) {
   decisions.forEach(({ drug, rec, holdDays }) => {
     const dName = `${drug.name} (${drug.brand})`;
     if (rec === 'hold') {
-      nightBefore = nightBefore || '';
+      daysBefore = daysBefore || '';
       const stop = computeSglt2iStopDate(ctx.surgeryDate, arrivalTime, details.sglt2iDoseTime, holdDays * 24);
-      if (stop) {
-        nightBefore += `HOLD ${dName}: last dose ${fmtDate(stop.lastDose)} (${details.sglt2iDoseTime}). Skips ${stop.daysSkipped} dose${stop.daysSkipped === 1 ? '' : 's'}: ${fmtDayList(stop.skipped)}. At least ${holdDays*24} h before the scheduled arrival time. `;
+      const dosedAt = details.sglt2iDoseTime === 'evening' ? 'evening dosing assumed 20:00' : 'morning dosing assumed 06:00';
+      if (stop && stop.lastDose) {
+        daysBefore += `HOLD ${dName}: last dose ${fmtDate(stop.lastDose)} (${details.sglt2iDoseTime}; ${dosedAt}). ${stop.daysSkipped ? `Skips ${stop.daysSkipped} dose${stop.daysSkipped === 1 ? '' : 's'} beforehand: ${fmtDayList(stop.skipped)}${stop.dayOfDoseSkipped ? ', plus the morning-of-surgery dose' : ''}. ` : (stop.dayOfDoseSkipped ? 'The morning-of-surgery dose is also skipped. ' : '')}At least ${holdDays*24} h (${holdDays} days) before the scheduled arrival time. `;
       } else {
-        nightBefore += `HOLD ${dName}: last dose must be at least ${holdDays*24} hours before the scheduled surgery or arrival time. Counted as a strict clock, not calendar days. Supply the surgery date, arrival time and dose time of day to show exact dates. `;
+        daysBefore += `HOLD ${dName}: last dose must be at least ${holdDays*24} hours before the scheduled arrival time. Counted as a strict clock, not calendar days. `;
+        if (stop && stop.error === 'missing') {
+          daysBefore += `No calendar date is shown because ${fmtMissingList(stop.missing)} ${stop.missing.length === 1 ? 'is' : 'are'} not recorded. `;
+        } else if (stop && stop.error === 'unparseable') {
+          daysBefore += 'No calendar date is shown because the arrival time could not be read as a valid time of day. Re-enter it. ';
+        } else if (stop && stop.error === 'nointerval') {
+          daysBefore += 'No calendar date is shown because no dose occurrence cleared the required interval from the recorded arrival time. Verify the surgery date and arrival time. ';
+        }
       }
-      if (stop) {
-        patientNightBefore = (patientNightBefore || '') + `STOP taking ${dName}. Your last dose is ${fmtDate(stop.lastDose)}. Do NOT take it on ${fmtDayList(stop.skipped)} \u2014 that is ${stop.daysSkipped} day${stop.daysSkipped === 1 ? '' : 's'} without it. Do not take it again until your doctor tells you it is safe to restart. `;
+      if (stop && stop.lastDose) {
+        patientDaysBefore = (patientDaysBefore || '') + `STOP taking ${dName} several days before your surgery. Your last dose is ${fmtDate(stop.lastDose)}. ${stop.daysSkipped ? `Do NOT take it on ${fmtDayList(stop.skipped)}${stop.dayOfDoseSkipped ? ', and do not take it on the morning of surgery' : ''}. ` : (stop.dayOfDoseSkipped ? 'Do not take it on the morning of surgery. ' : '')}Your last dose needs to be at least ${holdDays*24} hours (${holdDays} full days) before you arrive, so if your surgery date changes, call the clinic for new dates. Do not take it again until your doctor tells you it is safe to restart. `;
       } else {
-        patientNightBefore = (patientNightBefore || '') + `STOP taking ${dName}. Your last dose must be at least ${holdDays*24} hours before your surgery. Do not take it again until your doctor tells you it is safe to restart. `;
+        patientDaysBefore = (patientDaysBefore || '') + `STOP taking ${dName} several days before your surgery. Your last dose must be at least ${holdDays*24} hours \u2014 that is ${holdDays} full days \u2014 before you arrive for surgery. Do not take it again until your doctor tells you it is safe to restart. `;
       }
     } else if (rec === 'hold-bariatric') {
-      nightBefore = nightBefore || '';
-      nightBefore += `HOLD ${dName}: stop at the start of your bariatric preoperative diet (typically 2–4 weeks before surgery, as instructed by your bariatric team). `;
-      patientNightBefore = (patientNightBefore || '') + `STOP taking ${dName} when you begin your preoperative diet as instructed by your bariatric surgical team. `;
+      daysBefore = daysBefore || '';
+      daysBefore += `HOLD ${dName}: stop at the start of your bariatric preoperative diet (typically 2–4 weeks before surgery, as instructed by your bariatric team). `;
+      patientDaysBefore = (patientDaysBefore || '') + `STOP taking ${dName} when you begin your preoperative diet as instructed by your bariatric surgical team. `;
     } else if (rec === 'continue') {
       continueText += `CONTINUE ${dName} on your usual schedule. `;
       patientMorning += `Continue taking ${dName} as usual. No changes are needed. `;
@@ -874,7 +932,7 @@ function getSGLT2iResults(ctx, details, selected) {
   });
   morningOf = badge === 'HOLD' || badge === 'CONSIDER CONTINUING'
     ? 'Do NOT take on the morning of surgery.'
-    : 'Continue as usual. No dose on morning of surgery is required only if above hold instructions completed.';
+    : 'Continue as usual, including the morning-of-surgery dose. There is no one-dose hold for SGLT2 inhibitors.';
   patientMorning = patientMorning || (badge === 'HOLD' ? 'Do not take this medication on the morning of surgery.' : 'Continue as usual.');
   // Monitoring
   if (mode === 'SPAQI') {
@@ -943,8 +1001,8 @@ function getSGLT2iResults(ctx, details, selected) {
     drugNames,
     badge,
     badgeType,
-    clinician: { nightBefore, morningOf, dietary: carbClinician, monitoring, resumption, evidence: evidenceNote },
-    patient: { nightBefore: patientNightBefore, morningOf: patientMorning, dietary: carbPatient },
+    clinician: { daysBefore, nightBefore, morningOf, dietary: carbClinician, monitoring, resumption, evidence: evidenceNote },
+    patient: { daysBefore: patientDaysBefore, nightBefore: patientNightBefore, morningOf: patientMorning, dietary: carbPatient },
     flags,
     comboFlag,
     provenance: spaqiProvenance,
@@ -1568,6 +1626,13 @@ class PerioperativeDMApp {
       alert('Answer the question about more than 12 hours without carbohydrate intake before generating instructions. It determines whether the SGLT2 inhibitor is held.');
       return;
     }
+    // Dose time of day is what makes a stop DATE computable. Without it a held
+    // patient falls back to interval-only wording, which is the failure mode that
+    // made the explicit-date feature effectively dead.
+    if (hasAnySGLT2i(this.state.selected) && !this.state.details.sglt2iDoseTime) {
+      alert('Select when the patient takes their SGLT2 inhibitor (morning or evening) before generating instructions. It determines the last permissible dose date if the medication is held.');
+      return;
+    }
     // NPH dosing frequency must be chosen before generating (peak-related dosing differs).
     const basal = getSelectedDrugsByClass(this.state.selected, 'basalInsulin');
     for (const drug of basal) {
@@ -1653,7 +1718,7 @@ class PerioperativeDMApp {
         </div>
         <div class="field-group">
           <label class="field-label">Planned Arrival Time <span style="font-size:11px;color:var(--dim2);font-weight:400;text-transform:none;">(optional — used in patient instructions)</span></label>
-          <input type="text" value="${p.arrivalTime}" placeholder="e.g., 7:30 AM on Monday June 16, 2026" oninput="window.app.updatePatient('arrivalTime', this.value)">
+          <input type="time" value="${p.arrivalTime}" oninput="window.app.updatePatient('arrivalTime', this.value)">
         </div>
         <div class="field-group">
           <label class="field-label">Surgery Date</label>
@@ -2069,15 +2134,28 @@ class PerioperativeDMApp {
     } else {
       rows.push(`<div><span class="prov-key">SPAQI</span> <span class="prov-dim">does not cover type 1 diabetes. Held per FDA labeling, cited in the SPAQI Limitations section. No recommendation number, no evidence grade.</span></div>`);
     }
-    // 2. Institutional override. Announced every time it fires, per decision record.
+    // 2. Firing triggers, split by provenance: what the guideline held, and what
+    //    ABSMC added on top. Each group renders only when non-empty.
+    const srcT = p.sourceTriggers || [];
+    const instT = p.institutionalTriggers || [];
+    if (srcT.length > 0) {
+      const items = srcT.map(t => {
+        const rn = t.rNumber ? ` <span class="mono-data">${esc(t.rNumber)}</span>` : '';
+        const nt = t.note ? ` <span class="prov-dim">(${esc(t.note)})</span>` : '';
+        return `<strong>${esc(t.label)}</strong>${rn}${nt}`;
+      }).join('; ');
+      rows.push(`<div><span class="prov-key">Held per SPAQI</span> ${items}</div>`);
+    }
+    if (instT.length > 0) {
+      const labels = instT.map(t => `<strong>${esc(t.label)}</strong>`).join(', ');
+      const many = instT.length > 1;
+      rows.push(`<div class="prov-override"><span class="prov-key">Held on ABSMC criteria</span> ${labels}. ${many ? 'These are institutional criteria' : 'This is an institutional criterion'} with no SPAQI recommendation number.</div>`);
+    }
+    // 3. Departure notice: only where the institution overrode a source CONTINUE
+    //    and no source-backed trigger applied.
     if (p.sourceOverrideNotice) {
-      const labels = p.overrideTriggers.map(t => esc(t.label)).join(', ');
-      const many = p.overrideTriggers.length > 1;
-      rows.push(`<div class="prov-override"><span class="prov-key">Institutional override</span> SPAQI would continue here (${p.rNumber}). Held on: <strong>${labels}</strong>. ${many ? 'These are ABSMC criteria' : 'This is an ABSMC criterion'} with no SPAQI recommendation number.</div>`);
+      rows.push(`<div class="prov-override"><span class="prov-key">Institutional override</span> SPAQI would continue here (${p.rNumber}). The hold above rests on institutional criteria alone.</div>`);
       rows.push(`<div class="prov-dim">Perioperative eDKA monitoring is an alternative to holding where monitoring capability exists.</div>`);
-    } else if (p.overrideTriggers.length > 0) {
-      const labels = p.overrideTriggers.map(t => esc(t.label)).join(', ');
-      rows.push(`<div><span class="prov-key">Also present</span> ${labels} <span class="prov-dim">(institutional criteria; the hold above is already source-recommended)</span></div>`);
     }
     // 3. Timing departure on the T2DM keto/bariatric limb.
     if (p.timingDeparture) {
@@ -2117,6 +2195,7 @@ class PerioperativeDMApp {
           ${this.renderProvenance(r)}
           ${comboHtml}
           ${flagsHtml}
+          ${sectionHtml('Days Before Surgery - Stop This Medication Early', r.clinician.daysBefore)}
           ${sectionHtml('Night Before Surgery', r.clinician.nightBefore)}
           ${sectionHtml('Morning of Surgery', r.clinician.morningOf)}
           ${sectionHtml('Dietary Instructions', r.clinician.dietary)}
@@ -2154,6 +2233,7 @@ class PerioperativeDMApp {
       return `
         <div class="patient-drug-card">
           <div class="patient-drug-name">${r.drugClass}: ${r.drugNames.join(', ')}</div>
+          ${sec('Days Before Surgery - Stop This Medication Early', r.patient.daysBefore)}
           ${sec('The Night Before Surgery', r.patient.nightBefore)}
           ${sec('The Morning of Surgery', r.patient.morningOf)}
           ${dietaryHtml}
