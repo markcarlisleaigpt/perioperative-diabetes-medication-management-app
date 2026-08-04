@@ -1,9 +1,9 @@
 # Clinical Logic — Decision Record
 
 **Scope of this document:** SGLT2 inhibitor pathway, WEB app. Extensible to other drug classes later.
-**Status:** decisions settled, implementation not yet started.
+**Status:** implemented on branch `design-mission-mcc`; not promoted to production.
 **Decision-maker:** Mark Carlisle, MD. Every entry below was decided by him; nothing here is an assistant inference unless explicitly marked.
-**Last updated:** 2026-07-31
+**Last updated:** 2026-08-04
 
 ## How to read this
 
@@ -97,6 +97,22 @@ Source support for the concept and the number: R1 and R2 are scoped to *"patient
 
 **Why this is not computed.** Postoperative resumption timing is clinical judgment — two cases finishing at 1 p.m. can resume carbohydrate three hours apart, and nothing in the app knows which is which.
 
+#### Provenance of this trigger is branch-dependent (revised 2026-08-04)
+
+This rule was originally tagged INSTITUTIONAL throughout. That was wrong in one branch and right in the others, and the app now distinguishes them:
+
+| Branch | Provenance | Printed as |
+|---|---|---|
+| Major noncardiac, T2DM | **SOURCE** — Box p.12 **R3a** | "Held per SPAQI", R-number shown |
+| Major noncardiac, no T2DM | **SOURCE** — Box p.12 **R4** | "Held per SPAQI", R-number shown |
+| Minor procedure, colonoscopy, cardiac | **INSTITUTIONAL** — no R-number | "Held on ABSMC criteria", announces a departure |
+
+R3a and R4 recommend discontinuing on anticipated prolonged fasting, so calling that hold institutional understated the source. But outside major noncardiac the source has **no fasting-keyed stop branch at all** — panel a contains no stop branch, and panel d stops only T2DM without HF/CKD, unconditioned on fasting. Exiting R1's scope means R1 does not apply; it does **not** mean SPAQI recommends holding. Claiming otherwise both misattributes the hold and suppresses the departure notice §7 requires.
+
+**Caveat printed with the R-number.** R3a and R4 are keyed to anticipated *postoperative* fasting. This app deliberately asks one combined pre- plus postoperative question (above). A patient tripping the question on the preoperative limb alone — midnight NPO plus an afternoon case, normal postoperative diet — is not who R3a describes. The clinician view therefore prints the R-number together with a note that the question combines both windows, rather than a bare R-number.
+
+The 12-hour threshold itself remains INSTITUTIONAL in every branch.
+
 **Computed aid (display only, decides nothing):** for GLP-1 co-treated patients only, show the preoperative half — NPO cutoff plus arrival time — so the clinician isn't doing that arithmetic while estimating the postoperative side. Not shown for other patients, whose cutoff is typically 2 h before arrival and whose preoperative fast therefore never approaches 12 h on its own.
 
 **Cross-class coupling, deliberate:** a GLP-1 patient's NPO cutoff (default midnight; options 8/6/4/2 h) feeds the SGLT2i hold decision. Midnight cutoff plus an afternoon case already exceeds 12 h before any postoperative time is added, so co-treated patients trip this rule far more often.
@@ -159,6 +175,18 @@ Note the day count is counterintuitive: 72 h before a Thursday case means skippi
 **Source gap:** the paper does not state whether "3 days" means 72 h or 3 missed doses. 72 h is our operational definition.
 
 **Inputs required:** surgery date; arrival/surgery time (already collected); dose time-of-day (morning/evening — new, precision beyond that buys nothing).
+
+### Assumed dosing hours: morning 06:00, evening 20:00 (decided 2026-08-04)
+
+The worked example above requires an assumed clock hour, and the app now uses **06:00** for morning dosers and 20:00 for evening dosers.
+
+At the previously assumed 08:00, a Monday dose is 71 h before a Thursday 07:00 arrival, so the strict clock pushed the last dose back to Sunday and the table above was internally inconsistent with its own rule. 06:00 makes the table hold as written.
+
+> **Rationale for accepting the earliest plausible hour.** A clinical review raised that 06:00 is the *least* conservative choice: a patient who really takes the pill at 09:00 on that Monday gets 70 h, not 72. **Considered and accepted**, because the clock is anchored to **arrival**, not to incision. Arrival is roughly two hours before the operation and incision is rarely before 08:00, so a late morning doser still clears ~72 h to incision. The arrival anchor supplies the margin the assumed hour gives up. There is always a balance of risk between holding and continuing, and an extra skipped day is not free.
+
+**Known residual:** the same slack exists for evening dosers assumed at 20:00 (a 22:00 doser loses two hours). Not addressed; the arrival anchor covers it by the same argument.
+
+The assumed hour is disclosed on the clinician card ("morning dosing assumed 06:00"). It is deliberately **not** printed on the patient sheet, which names calendar days rather than clock hours.
 
 ### Surgery date — optional
 
@@ -243,7 +271,13 @@ Per `SGLT2I-SPEC.md` §5.2, the clinician view shows: base recommendation with R
 
 Whenever an institutional trigger (§2b, §2c) overrides a source CONTINUE, the clinician view must say so and name the trigger that did it. **This applies to every override, not a subset** — R1 or R2, T2DM or non-diabetic, any of the five triggers.
 
-Fires when `baseRecommendation === 'CONTINUE'` and `overrideTriggers.length > 0`. The notice carries the source recommendation with its R-number, and every firing trigger.
+Fires when `baseRecommendation === 'CONTINUE'` and at least one **institutional** trigger fired and **no source-backed trigger** did. The notice carries the source recommendation with its R-number.
+
+**Narrowed 2026-08-04.** The original condition was `overrideTriggers.length > 0` with no provenance test, which announced "SPAQI would continue here" over holds the source itself recommends (§2a, R3a/R4) — the opposite of the truth. The narrowing is only safe because the fasting trigger is now correctly classified per branch; when it is institutional, as it is outside major noncardiac, the notice still fires.
+
+**Two labeled groups.** Firing triggers render as "Held per SPAQI" (with R-numbers) and "Held on ABSMC criteria", each shown only when non-empty. Where the base recommendation is *already* HOLD, institutional triggers render as "Also present ... the hold above is already source-recommended" — calling them the basis would frame a grade B recommendation to discontinue as an institutional add-on a clinician might reasonably override.
+
+**The eDKA-monitoring alternative renders on every hold**, not only alongside an override notice.
 
 > **Rationale.** Five institutional rules override a published guideline. Each is defensible and each is recorded here. The honest behavior is to disclose the departure every time rather than only in one branch. It also makes the clinician override control meaningful — the reviewing clinician sees what the source said and what the institutional rule did to it.
 
