@@ -830,6 +830,7 @@ function getSGLT2iResults(ctx, details, selected) {
       a1cSupplied: details.a1cOver8 !== null,
       ctSurgeryConfirmPending,
       finalRecommendation,
+      isFixedHold,
     };
   }
   // Determine recommendation per drug
@@ -848,16 +849,30 @@ function getSGLT2iResults(ctx, details, selected) {
     }
     return { drug, rec, holdDays };
   });
+  // Does the non-SGLT2i component of a combination pill actually hold in this
+  // scenario? Metformin and DPP-4 inhibitors are continued for minor procedures
+  // and colonoscopy (the DPP-4 card continues at usual dose there), so a
+  // combination pill has no conflict to resolve and must not be held.
+  const comboComponentHolds = (combo) => {
+    if (ctx.surgeryType === 'minor' || ctx.surgeryType === 'colonoscopy') return false;
+    return combo.some(c => c !== 'sglt2i');
+  };
   // Check for combo conflicts
   drugs.forEach(drug => {
     if (drug.combo) {
       const d = decisions.find(x => x.drug.id === drug.id);
-      if (d && d.rec === 'continue') {
+      if (d && d.rec === 'continue' && comboComponentHolds(drug.combo)) {
         // SGLT2i continues but combo pill also has metformin/DPP4i which would hold
         comboFlags.push(`COMBINATION PRODUCT: ${drug.name} (${drug.brand}) contains both ${drug.name} and ${drug.combo.filter(c => c !== 'sglt2i').join(' and ')}. Although the SGLT2 inhibitor component would normally continue in this scenario, the other component(s) should be held on the day of surgery. Since these cannot be separated, HOLD the entire ${drug.brand} pill on the morning of surgery. Discuss with the prescribing physician — they may wish to prescribe the components separately for the perioperative period.`);
         d.rec = 'combo-continue-hold';
       } else if (d && drug.combo.includes('dpp4i')) {
-        comboFlags.push(`COMBINATION PRODUCT: ${drug.brand} also contains a DPP-4 inhibitor (${drug.name.split('/')[1]}). The components cannot be separated, so the DPP-4 component is held on the SGLT2 inhibitor schedule above rather than the morning-of hold a DPP-4 inhibitor would receive on its own. No separate DPP-4 inhibitor instruction is issued for this patient. Discuss with the prescribing physician if separate components are wanted for the perioperative period.`);
+        // SGLT2i+DPP-4 combination products are excluded from the DPP-4 card, so the
+        // component's disposition is stated here. It must match this card's actual
+        // recommendation, not assume a hold.
+        const held = d.rec === 'hold' || d.rec === 'hold-bariatric';
+        comboFlags.push(held
+          ? `COMBINATION PRODUCT: ${drug.brand} also contains a DPP-4 inhibitor (${drug.name.split('/')[1]}). The components cannot be separated, so the DPP-4 component is held on the SGLT2 inhibitor schedule above rather than the morning-of hold a DPP-4 inhibitor would receive on its own. No separate DPP-4 inhibitor instruction is issued for this patient. Discuss with the prescribing physician if separate components are wanted for the perioperative period.`
+          : `COMBINATION PRODUCT: ${drug.brand} also contains a DPP-4 inhibitor (${drug.name.split('/')[1]}). Both components continue in this scenario, so the pill is taken as usual and no separate DPP-4 inhibitor instruction is issued for this patient.`);
       }
     }
   });
@@ -951,7 +966,7 @@ function getSGLT2iResults(ctx, details, selected) {
       // already says "Do NOT take on the morning of surgery", and comboFlag
       // explains why to the clinician. Writing it to nightBefore as well put a
       // morning-of instruction under a night-before heading.
-      patientMorning += `Do not take ${dName} on the morning of surgery. `;
+      patientMorning += `Take ${dName} as usual up to and including the night before surgery. Do not take it on the morning of surgery. Resume it when your care team tells you that you may eat and drink normally. `;
     }
   });
   morningOf = badge === 'HOLD' || badge === 'CONSIDER CONTINUING'
@@ -2126,10 +2141,10 @@ class PerioperativeDMApp {
         ${results.map(r => this.renderClinicianCard(r)).join('')}
         <div class="card" style="font-size:12px;color:var(--dim2);line-height:1.7;">
           <div style="font-weight:700;color:var(--accent);margin-bottom:8px;">ABSMC PERIOPERATIVE GLYCEMIC GOALS</div>
-          <div>• Perioperative blood glucose target: <span class="mono-data">100–180 mg/dL</span> (ADA 2026, Rec 16.5b, grade B)</div>
+          <div>• Perioperative blood glucose target: <span class="mono-data">100–180 mg/dL</span> before, during and after surgery (ADA 2026, Rec 16.15, grade E)</div>
           <div>• Stricter targets are NOT recommended — increase hypoglycemia without improving outcomes (ADA 2026)</div>
           <div>• HbA1c alone is NOT a reason to postpone elective surgery (ADA 2026)</div>
-          <div>• CGM may be continued during hospitalization if clinically appropriate, with confirmatory point-of-care glucose for insulin dosing and hypoglycemia assessment (ADA 2026, Rec 16.6, grade B)</div>
+          <div>• CGM must NOT be used alone for glucose monitoring during surgery (ADA 2026, perioperative recommendations). A personal CGM may be continued in hospital where appropriate, with confirmatory point-of-care glucose for insulin dosing and hypoglycemia assessment, per institutional protocol (ADA 2026, Rec 16.6, grade B)</div>
           <div style="margin-top:8px;font-style:italic;">ABSMC Preoperative Clinic</div>
         </div>
         <div class="btn-row no-print" style="margin-top:8px;">
@@ -2173,7 +2188,7 @@ class PerioperativeDMApp {
     if (instT.length > 0) {
       const labels = instT.map(t => `<strong>${esc(t.label)}</strong>`).join(', ');
       const many = instT.length > 1;
-      if (p.baseRecommendation === 'HOLD') {
+      if (p.baseRecommendation === 'HOLD' || (p.sourceTriggers || []).length > 0) {
         // The hold is already source-recommended; these criteria are additional,
         // not the basis. Calling them the basis invites an override of a graded
         // recommendation to discontinue.
@@ -2188,8 +2203,10 @@ class PerioperativeDMApp {
       rows.push(`<div class="prov-override"><span class="prov-key">Institutional override</span> SPAQI would continue here (${p.rNumber}). The hold above rests on institutional criteria alone.</div>`);
     }
     // Standing element of the clinician view per decision record section 7, shown
-    // for every hold rather than only alongside an override notice.
-    if (p.finalRecommendation === 'HOLD') {
+    // for every hold EXCEPT the fixed-hold limbs. T1DM is held per the FDA deferral
+    // "irrespective of preoperative fasting and type of surgery" and SPAQI offers no
+    // monitoring alternative there; ketogenic/bariatric is held for the diet itself.
+    if (p.finalRecommendation === 'HOLD' && !p.isFixedHold) {
       rows.push(`<div class="prov-dim">Perioperative eDKA monitoring is an alternative to holding where monitoring capability exists.</div>`);
     }
     // 3. Timing departure on the T2DM keto/bariatric limb.
@@ -2207,8 +2224,16 @@ class PerioperativeDMApp {
     // 6. Box/Figure discrepancy footnote, shown wherever an affected R-number is
     //    printed -- as the base recommendation OR as a source-backed trigger.
     const affected = n => n === 'R3a' || n === 'R3b';
-    if (affected(p.rNumber) || (p.sourceTriggers || []).some(t => affected(t.rNumber))) {
+    // Two different Box-vs-Figure discrepancies, so two different footnotes.
+    // Bariatric/VLCD (panel c) and cardiac T2DM without HF/CKD (panel d) print a
+    // bare (R3) where the Box splits 3a and 3b.
+    if (affected(p.rNumber)) {
       rows.push(`<div class="prov-dim">Note: Figure 2 prints a bare (R3) where the recommendation Box splits 3a and 3b. The Box governs here.</div>`);
+    }
+    // Major noncardiac fasting (panel b) prints (R4) in the T2DM column where the
+    // Box assigns R3a and reserves R4 for patients without T2DM.
+    if ((p.sourceTriggers || []).some(t => affected(t.rNumber))) {
+      rows.push(`<div class="prov-dim">Note: Figure 2 panel b prints (R4) in the T2DM column for this limb, where the recommendation Box assigns R3a and reserves R4 for patients without T2DM. The Box governs here.</div>`);
     }
     return `<div class="provenance"><div class="result-section-label">Why this recommendation</div>${rows.join('')}</div>`;
   }
