@@ -574,6 +574,20 @@ function fmtMissingList(items) {
   if (items.length === 2) return items[0] + ' and ' + items[1];
   return items.slice(0, -1).join(', ') + ', and ' + items[items.length - 1];
 }
+// Patient-facing times are 12-hour with AM/PM. The arrival field is an
+// <input type="time">, which stores 24-hour "HH:MM"; printing that verbatim to a
+// patient invites reading 14:30 as half past two in the morning. Internal date
+// arithmetic continues to use the 24-hour value.
+function fmtTime12(t) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(t || '').trim());
+  if (!m) return t;
+  let h = +m[1];
+  const min = +m[2];
+  if (h > 23 || min > 59) return t;
+  const ampm = h < 12 ? 'AM' : 'PM';
+  h = h % 12; if (h === 0) h = 12;
+  return h + ':' + String(min).padStart(2, '0') + ' ' + ampm;
+}
 const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 function fmtDate(d) { return DAY_NAMES[d.getDay()] + ', ' + MONTH_NAMES[d.getMonth()] + ' ' + d.getDate(); }
@@ -667,7 +681,9 @@ function getSGLT2iResults(ctx, details, selected) {
   let continueText = '';
   let monitoring = '';
   let resumption = '';
-  let comboFlag = null;
+  // Accumulated: one entry per combination product. A single variable dropped all
+  // but the last, and the DPP-4 card no longer backstops SGLT2i combos.
+  const comboFlags = [];
   let nightBefore = null;
   // A 72/96 h hold is not a night-before instruction. Elderly patients act on
   // headings, and a multi-day washout read as night-before is about 10 h.
@@ -741,18 +757,24 @@ function getSGLT2iResults(ctx, details, selected) {
     const overrideTriggers = [];
     if (!isFixedHold) {
       if (details.prolongedFasting === true) {
-        // SOURCE-recommended hold, not an institutional one. The 12 h threshold is
-        // institutional (the source never numerically defines "prolonged fasting"),
-        // but the recommendation to discontinue on anticipated prolonged fasting is
-        // the source's own: Box p.12 R3a for T2DM major noncardiac, R4 for non-T2DM.
-        // Elsewhere the hold follows from exiting R1's scope, which covers patients
-        // NOT expected to fast from carbohydrates >12 h, so no R-number is claimed.
+        // Provenance depends on the branch. In MAJOR NONCARDIAC the source itself
+        // recommends discontinuing on anticipated prolonged fasting: Box p.12 R3a
+        // (T2DM), R4 (no T2DM). ELSEWHERE -- minor procedure, colonoscopy, cardiac --
+        // the source has no stop branch keyed to fasting at all (panel a has none;
+        // panel d stops only T2DM without HF/CKD, unconditioned on fasting).
+        // Exiting R1's scope means R1 does not apply; it does NOT mean SPAQI
+        // recommends a hold. That hold is ours, so it is tagged institutional and
+        // announces itself as a departure like any other institutional trigger.
         const fastingR = (sType === 'majorNoncardiac') ? (dmType === 'T2DM' ? 'R3a' : 'R4') : null;
         overrideTriggers.push({
-          label: 'anticipated >12 h without carbohydrate',
-          institutional: false,
+          label: fastingR ? 'anticipated >12 h without carbohydrate' : 'anticipated >12 h without carbohydrate (guideline silent for this procedure type)',
+          institutional: !fastingR,
           rNumber: fastingR,
-          note: fastingR ? 'Box p.12; the 12 h threshold itself is institutional' : 'outside the scope of R1, which covers patients not expected to fast from carbohydrates >12 h',
+          // FINDING 2 [HIGH]: R3a/R4 are keyed to anticipated POSTOPERATIVE fasting,
+          // while this app deliberately asks one combined pre- plus postoperative
+          // question (decision record section 2a). Say so rather than printing a bare
+          // R-number against a question that does not distinguish the two.
+          note: fastingR ? 'Box p.12. R3a/R4 address anticipated postoperative fasting; this app asks one combined pre- and postoperative question, and the 12 h threshold is institutional' : null,
         });
       }
       if (details.surgeryOver3h === true) {
@@ -832,10 +854,10 @@ function getSGLT2iResults(ctx, details, selected) {
       const d = decisions.find(x => x.drug.id === drug.id);
       if (d && d.rec === 'continue') {
         // SGLT2i continues but combo pill also has metformin/DPP4i which would hold
-        comboFlag = `COMBINATION PRODUCT: ${drug.name} (${drug.brand}) contains both ${drug.name} and ${drug.combo.filter(c => c !== 'sglt2i').join(' and ')}. Although the SGLT2 inhibitor component would normally continue in this scenario, the other component(s) should be held on the day of surgery. Since these cannot be separated, HOLD the entire ${drug.brand} pill on the morning of surgery. Discuss with the prescribing physician — they may wish to prescribe the components separately for the perioperative period.`;
+        comboFlags.push(`COMBINATION PRODUCT: ${drug.name} (${drug.brand}) contains both ${drug.name} and ${drug.combo.filter(c => c !== 'sglt2i').join(' and ')}. Although the SGLT2 inhibitor component would normally continue in this scenario, the other component(s) should be held on the day of surgery. Since these cannot be separated, HOLD the entire ${drug.brand} pill on the morning of surgery. Discuss with the prescribing physician — they may wish to prescribe the components separately for the perioperative period.`);
         d.rec = 'combo-continue-hold';
       } else if (d && drug.combo.includes('dpp4i')) {
-        comboFlag = `COMBINATION PRODUCT: ${drug.brand} also contains a DPP-4 inhibitor (${drug.name.split('/')[1]}). The components cannot be separated, so the DPP-4 component is held on the SGLT2 inhibitor schedule above rather than the morning-of hold a DPP-4 inhibitor would receive on its own. No separate DPP-4 inhibitor instruction is issued for this patient. Discuss with the prescribing physician if separate components are wanted for the perioperative period.`;
+        comboFlags.push(`COMBINATION PRODUCT: ${drug.brand} also contains a DPP-4 inhibitor (${drug.name.split('/')[1]}). The components cannot be separated, so the DPP-4 component is held on the SGLT2 inhibitor schedule above rather than the morning-of hold a DPP-4 inhibitor would receive on its own. No separate DPP-4 inhibitor instruction is issued for this patient. Discuss with the prescribing physician if separate components are wanted for the perioperative period.`);
       }
     }
   });
@@ -925,9 +947,11 @@ function getSGLT2iResults(ctx, details, selected) {
       flags.push({ type: 'info', text: `SPAQI mode: HbA1c ≤8% — eDKA risk is lower. Continuation of ${drug.name} is a supported option for major noncardiac surgery. Enhanced monitoring required if continuing.` });
       patientMorning += `Regarding ${dName}: your doctor will advise you whether to take this medication before surgery. Please confirm with your surgical team. `;
     } else if (rec === 'combo-continue-hold') {
-      nightBefore = nightBefore || '';
-      nightBefore += `HOLD ${dName} (combination product): although the SGLT2i component would continue in this scenario, HOLD the entire pill on the day of surgery since the components cannot be separated. See clinician note. `;
-      patientNightBefore = (patientNightBefore || '') + `STOP taking ${dName} on the morning of surgery. `;
+      // Morning-of hold only. The badge is HOLD, so the morning-of slot below
+      // already says "Do NOT take on the morning of surgery", and comboFlag
+      // explains why to the clinician. Writing it to nightBefore as well put a
+      // morning-of instruction under a night-before heading.
+      patientMorning += `Do not take ${dName} on the morning of surgery. `;
     }
   });
   morningOf = badge === 'HOLD' || badge === 'CONSIDER CONTINUING'
@@ -1004,7 +1028,7 @@ function getSGLT2iResults(ctx, details, selected) {
     clinician: { daysBefore, nightBefore, morningOf, dietary: carbClinician, monitoring, resumption, evidence: evidenceNote },
     patient: { daysBefore: patientDaysBefore, nightBefore: patientNightBefore, morningOf: patientMorning, dietary: carbPatient },
     flags,
-    comboFlag,
+    comboFlag: comboFlags.length ? comboFlags.join(' ') : null,
     provenance: spaqiProvenance,
   };
 }
@@ -1038,7 +1062,7 @@ function getGLP1Results(ctx, details, selected) {
     ? 'then strict NPO after midnight — nothing to eat or drink'
     : `then strict NPO starting ${npoCutoff.replace('h', '')} hours before the scheduled arrival time \u2014 nothing to eat or drink`;
   const dietary24h = arrivalTime
-    ? `Start a clear liquid diet 24 hours before your planned arrival time. If your planned arrival time is ${arrivalTime}, begin clear liquids at that same time the day before. ${npoPatient} ${verifyText}`
+    ? `Start a clear liquid diet 24 hours before your planned arrival time. If your planned arrival time is ${fmtTime12(arrivalTime)}, begin clear liquids at that same time the day before. ${npoPatient} ${verifyText}`
     : `Start a clear liquid diet 24 hours before your planned arrival time for surgery. ${npoPatient} ${verifyText}`;
   const dietaryClinician = `Universal dietary modification required for all GLP-1 RA and tirzepatide patients. Clear liquid diet starting 24 hours before planned arrival time (arrival is typically ~2 hours before surgery; effective window ≈26 hours before surgery start), ${npoClinician}.${arrivalTime ? ` Patient's planned arrival: ${arrivalTime}.` : ''}`;
   const morningOf = giSymptoms === true
@@ -2105,7 +2129,7 @@ class PerioperativeDMApp {
           <div>• Perioperative blood glucose target: <span class="mono-data">100–180 mg/dL</span></div>
           <div>• Stricter targets are NOT recommended — increase hypoglycemia without improving outcomes (ADA 2026)</div>
           <div>• HbA1c alone is NOT a reason to postpone elective surgery (ADA 2026)</div>
-          <div>• CGM may be used as adjunct but NOT sole monitoring modality intraoperatively (ADA 2026)</div>
+          <div>• CGM may be used as adjunct but NOT sole monitoring modality intraoperatively (ABSMC institutional)</div>
           <div style="margin-top:8px;font-style:italic;">ABSMC Preoperative Clinic</div>
         </div>
         <div class="btn-row no-print" style="margin-top:8px;">
@@ -2149,12 +2173,23 @@ class PerioperativeDMApp {
     if (instT.length > 0) {
       const labels = instT.map(t => `<strong>${esc(t.label)}</strong>`).join(', ');
       const many = instT.length > 1;
-      rows.push(`<div class="prov-override"><span class="prov-key">Held on ABSMC criteria</span> ${labels}. ${many ? 'These are institutional criteria' : 'This is an institutional criterion'} with no SPAQI recommendation number.</div>`);
+      if (p.baseRecommendation === 'HOLD') {
+        // The hold is already source-recommended; these criteria are additional,
+        // not the basis. Calling them the basis invites an override of a graded
+        // recommendation to discontinue.
+        rows.push(`<div><span class="prov-key">Also present</span> ${labels} <span class="prov-dim">(institutional ${many ? 'criteria' : 'criterion'}; the hold above is already source-recommended)</span></div>`);
+      } else {
+        rows.push(`<div class="prov-override"><span class="prov-key">Held on ABSMC criteria</span> ${labels}. ${many ? 'These are institutional criteria' : 'This is an institutional criterion'} with no SPAQI recommendation number.</div>`);
+      }
     }
     // 3. Departure notice: only where the institution overrode a source CONTINUE
     //    and no source-backed trigger applied.
     if (p.sourceOverrideNotice) {
       rows.push(`<div class="prov-override"><span class="prov-key">Institutional override</span> SPAQI would continue here (${p.rNumber}). The hold above rests on institutional criteria alone.</div>`);
+    }
+    // Standing element of the clinician view per decision record section 7, shown
+    // for every hold rather than only alongside an override notice.
+    if (p.finalRecommendation === 'HOLD') {
       rows.push(`<div class="prov-dim">Perioperative eDKA monitoring is an alternative to holding where monitoring capability exists.</div>`);
     }
     // 3. Timing departure on the T2DM keto/bariatric limb.
@@ -2169,8 +2204,10 @@ class PerioperativeDMApp {
     if (!p.a1cSupplied) {
       rows.push(`<div class="prov-dim">A1c was not supplied. An unavailable A1c does not trigger a hold.</div>`);
     }
-    // 6. Box/Figure discrepancy footnote, shown only where an affected R-number is printed.
-    if (p.rNumber === 'R3a' || p.rNumber === 'R3b') {
+    // 6. Box/Figure discrepancy footnote, shown wherever an affected R-number is
+    //    printed -- as the base recommendation OR as a source-backed trigger.
+    const affected = n => n === 'R3a' || n === 'R3b';
+    if (affected(p.rNumber) || (p.sourceTriggers || []).some(t => affected(t.rNumber))) {
       rows.push(`<div class="prov-dim">Note: Figure 2 prints a bare (R3) where the recommendation Box splits 3a and 3b. The Box governs here.</div>`);
     }
     return `<div class="provenance"><div class="result-section-label">Why this recommendation</div>${rows.join('')}</div>`;
@@ -2214,7 +2251,7 @@ class PerioperativeDMApp {
         <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:var(--accent);margin-bottom:8px;">ALTA BATES SUMMIT MEDICAL CENTER<br>PREOPERATIVE CLINIC</div>
         <h2>Diabetes Medication Instructions</h2>
         <div class="patient-meta">
-          ${patientName}${p.dob ? ` · DOB: ${p.dob}` : ''}${p.arrivalTime ? ` · Arrival: ${p.arrivalTime}` : ''}<br>
+          ${patientName}${p.dob ? ` · DOB: ${p.dob}` : ''}${p.arrivalTime ? ` · Arrival: ${fmtTime12(p.arrivalTime)}` : ''}<br>
           ${ctx.surgeryTiming === 'AM' ? 'AM Surgery' : 'PM Surgery'} · ${SURGERY_TYPE_LABELS[ctx.surgeryType] || ''}
         </div>
       </div>`;
