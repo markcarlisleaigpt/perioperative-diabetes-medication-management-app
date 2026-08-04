@@ -784,6 +784,8 @@ function getSGLT2iResults(ctx, details, selected) {
         // SGLT2i continues but combo pill also has metformin/DPP4i which would hold
         comboFlag = `COMBINATION PRODUCT: ${drug.name} (${drug.brand}) contains both ${drug.name} and ${drug.combo.filter(c => c !== 'sglt2i').join(' and ')}. Although the SGLT2 inhibitor component would normally continue in this scenario, the other component(s) should be held on the day of surgery. Since these cannot be separated, HOLD the entire ${drug.brand} pill on the morning of surgery. Discuss with the prescribing physician — they may wish to prescribe the components separately for the perioperative period.`;
         d.rec = 'combo-continue-hold';
+      } else if (d && drug.combo.includes('dpp4i')) {
+        comboFlag = `COMBINATION PRODUCT: ${drug.brand} also contains a DPP-4 inhibitor (${drug.name.split('/')[1]}). The components cannot be separated, so the DPP-4 component is held on the SGLT2 inhibitor schedule above rather than the morning-of hold a DPP-4 inhibitor would receive on its own. No separate DPP-4 inhibitor instruction is issued for this patient. Discuss with the prescribing physician if separate components are wanted for the perioperative period.`;
       }
     }
   });
@@ -1006,7 +1008,7 @@ function getDPP4iResults(ctx, details, selected) {
   const drugs = getSelectedDrugsByClass(selected, 'dpp4i');
   // also check combo dpp4i in other classes
   const comboDPP4i = [...DRUG_DB.sglt2i.drugs, ...DRUG_DB.tzd.drugs]
-    .filter(d => selected.has(d.id) && d.combo && d.combo.includes('dpp4i'));
+    .filter(d => selected.has(d.id) && d.combo && d.combo.includes('dpp4i') && !d.combo.includes('sglt2i'));
   const allDrugs = [...drugs, ...comboDPP4i];
   if (!allDrugs.length) return null;
   const sType = ctx.surgeryType;
