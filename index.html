@@ -1018,7 +1018,7 @@ function getSGLT2iResults(ctx, details, selected) {
   const drugNames = drugs.map(d => `${d.name} (${d.brand})`);
   const evidenceNote = mode === 'FDA'
     ? 'Source: ADA Standards of Care 2026 and AHA/ACC Perioperative Guideline 2024 (Class 1, LOE C-LD): hold SGLT2 inhibitors before scheduled surgery (3 days for canagliflozin/dapagliflozin/empagliflozin; 4 days for ertugliflozin). SPAQI BJA 2026 provides the separate risk-stratified pathway.'
-    : 'Source: SPAQI Multidisciplinary Consensus (Oprea et al., BJA 2026); 2025 HbA1c-stratified DKA meta-analysis (Lee et al., Diabetes Obes Metab).';
+    : 'Source: SPAQI Multidisciplinary Consensus (Oprea et al., BJA 2026); HbA1c-stratified eDKA meta-analysis (Wang et al., Clin Pharmacol Ther 2025;117:1661-9), as reported in SPAQI: across 22 trials and 80,235 patients, eDKA risk was increased at HbA1c >7.9% but not at 7.9% or below.';
   return {
     id: 'sglt2i',
     drugClass: 'SGLT2 Inhibitors',
