@@ -832,6 +832,10 @@ function getSGLT2iResults(ctx, details, selected) {
     }
     if (note) flags.push({ type: 'info', text: note });
   }
+  // ctx.arrivalTime is needed for the strict-clock stop-date computation below.
+  // It was previously only defined inside getGLP1Results, so every SGLT2i HOLD
+  // threw a ReferenceError.
+  const arrivalTime = ctx.arrivalTime || '';
   // Generate instruction text
   decisions.forEach(({ drug, rec, holdDays }) => {
     const dName = `${drug.name} (${drug.brand})`;
@@ -899,6 +903,34 @@ function getSGLT2iResults(ctx, details, selected) {
   if (hasHF || hasCKD) resumption += ' For HF or CKD indication: may restart in hospital setting when tolerating oral intake per ADA 2026.';
   if (sType === 'bariatric') resumption = 'Bariatric surgery: individualized — consult prescribing physician. Typically hold until tolerating regular diet long-term. Confirm with bariatric surgeon.';
   resumption += ' Verify with surgeon before restarting.';
+  // ---- Carbohydrate-containing clear liquids -------------------------------
+  // Applies to every SGLT2i patient, held or continuing, with stronger wording
+  // for those continuing. No group is suppressed - see
+  // CLINICAL-LOGIC-DECISIONS.md section 5, including why the reviewer's
+  // recommendation to suppress it for bariatric/VLCD and T1DM was overruled.
+  // Bounded by the strictest NPO cutoff applying to this patient across all
+  // their medications: a GLP-1 or tirzepatide cutoff wins where one is set,
+  // otherwise clear liquids run to 2 h before arrival.
+  const onIncretin = hasMedClass(selected, 'glp1') || hasMedClass(selected, 'tirzepatide');
+  const carbCutoff = details.glp1NpoCutoff || 'midnight';
+  let carbUntilPatient, carbUntilClinician;
+  if (onIncretin && carbCutoff === 'midnight') {
+    carbUntilPatient = 'up until midnight the night before your surgery';
+    carbUntilClinician = 'until midnight (GLP-1/tirzepatide cutoff governs)';
+  } else if (onIncretin) {
+    const h = carbCutoff.replace('h', '');
+    carbUntilPatient = `up until ${h} hours before your scheduled procedure time`;
+    carbUntilClinician = `until ${h} h before the procedure (GLP-1/tirzepatide cutoff governs)`;
+  } else {
+    carbUntilPatient = 'up until 2 hours before your arrival time';
+    carbUntilClinician = 'until 2 h before arrival';
+  }
+  const carbWhy = spaqiProvenance && spaqiProvenance.finalRecommendation === 'CONTINUE'
+    ? 'This is especially important because you are staying on this medicine. '
+    : 'This is important even though you are stopping this medicine. ';
+  const carbPatient = `Drink clear liquids that contain sugar ${carbUntilPatient}. Good choices: apple juice or cranberry juice without pulp, a sports drink, or regular (non-diet) soda. Do NOT use diet, zero-sugar, or sugar-free versions - they contain no carbohydrate and will not help. Nothing milky or creamy, no juice with pulp, and no alcohol. ${carbWhy}Going without carbohydrate while taking an SGLT2 inhibitor can cause a dangerous build-up of acid in the blood, and it can happen even when your blood sugar looks normal.`;
+  const carbClinician = `Carbohydrate-containing clear liquids ${carbUntilClinician}, volume ad lib. Sugar-free and zero-carbohydrate products are excluded: the purpose is carbohydrate delivery, and a zero-carbohydrate drink is a silent no-op in a population conditioned to choose it. INSTITUTIONAL on three points - ASA 2023 Recommendation 1 (Strong recommendation, Moderate evidence) permits carbohydrate-containing clear liquids until 2 h before anesthesia but defines its population as excluding diabetes mellitus, gastroparesis and obesity; it cites up to 400 mL as the volume tested at the 2 h mark; and its only diabetes-specific comment suggests home glucometer readings guide the choice between a carbohydrate and a noncaloric liquid. Beverage examples and the milk, pulp and alcohol exclusions follow ASA 2017 Practice Guidelines for Preoperative Fasting, which the 2023 modular update leaves in force.`;
+
   const drugNames = drugs.map(d => `${d.name} (${d.brand})`);
   const evidenceNote = mode === 'FDA'
     ? 'Source: ADA Standards of Care 2026 and AHA/ACC Perioperative Guideline 2024: hold SGLT2 inhibitors before scheduled surgery (3 days for canagliflozin/dapagliflozin/empagliflozin; 4 days for ertugliflozin). SPAQI BJA 2026 provides the separate risk-stratified pathway.'
@@ -909,8 +941,8 @@ function getSGLT2iResults(ctx, details, selected) {
     drugNames,
     badge,
     badgeType,
-    clinician: { nightBefore, morningOf, monitoring, resumption, evidence: evidenceNote },
-    patient: { nightBefore: patientNightBefore, morningOf: patientMorning, dietary: null },
+    clinician: { nightBefore, morningOf, dietary: carbClinician, monitoring, resumption, evidence: evidenceNote },
+    patient: { nightBefore: patientNightBefore, morningOf: patientMorning, dietary: carbPatient },
     flags,
     comboFlag,
     provenance: spaqiProvenance,
