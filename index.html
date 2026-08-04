@@ -979,8 +979,8 @@ function getSGLT2iResults(ctx, details, selected) {
     carbUntilClinician = 'until midnight (GLP-1/tirzepatide cutoff governs)';
   } else if (onIncretin) {
     const h = carbCutoff.replace('h', '');
-    carbUntilPatient = `up until ${h} hours before your scheduled procedure time`;
-    carbUntilClinician = `until ${h} h before the procedure (GLP-1/tirzepatide cutoff governs)`;
+    carbUntilPatient = `up until ${h} hours before your arrival time`;
+    carbUntilClinician = `until ${h} h before arrival (GLP-1/tirzepatide cutoff governs)`;
   } else {
     carbUntilPatient = 'up until 2 hours before your arrival time';
     carbUntilClinician = 'until 2 h before arrival';
@@ -1027,16 +1027,16 @@ function getGLP1Results(ctx, details, selected) {
   if (giSymptoms === null) {
     flags.push({ type: 'warn', text: 'GI symptom screen not completed. Continue per ABSMC protocol with dietary modification. Screen patient for GI symptoms at preoperative visit.' });
   }
-  flags.push({ type: 'info', text: 'Higher delayed gastric-emptying risk may occur during dose escalation, at higher doses, or in patients with known gastroparesis/dysmotility or Parkinson\'s disease. This does not change the patient instructions: continue the medication plan and clear liquid diet unless the clinical team advises otherwise. Consider point-of-care gastric ultrasound on the day of procedure if aspiration risk remains a concern.' });
+  flags.push({ type: 'info', text: 'The risk of delayed gastric emptying is greater during dose escalation, at higher doses, or in patients with known gastroparesis/dysmotility or Parkinson\'s disease. This does not change the patient instructions: continue the medication plan and clear liquid diet unless the clinical team advises otherwise. Consider point-of-care gastric ultrasound on the day of procedure if aspiration risk remains a concern.' });
   const npoPatient = npoCutoff === 'midnight'
     ? 'Then have NOTHING to eat or drink (including water) after midnight the night before your surgery.'
-    : `Then have NOTHING to eat or drink (including water) starting ${npoCutoff.replace('h', '')} hours before your scheduled procedure time.`;
+    : `Then have NOTHING to eat or drink (including water) starting ${npoCutoff.replace('h', '')} hours before your arrival time.`;
   const verifyText = npoCutoff === 'midnight'
     ? 'Please verify your exact arrival time with your surgeon\'s office.'
-    : 'Please verify your exact arrival time and procedure time with your surgeon\'s office.';
+    : 'Please verify your exact arrival time with your surgeon\'s office.';
   const npoClinician = npoCutoff === 'midnight'
     ? 'then strict NPO after midnight — nothing to eat or drink'
-    : `then strict NPO starting ${npoCutoff.replace('h', '')} hours before the scheduled procedure — nothing to eat or drink`;
+    : `then strict NPO starting ${npoCutoff.replace('h', '')} hours before the scheduled arrival time \u2014 nothing to eat or drink`;
   const dietary24h = arrivalTime
     ? `Start a clear liquid diet 24 hours before your planned arrival time. If your planned arrival time is ${arrivalTime}, begin clear liquids at that same time the day before. ${npoPatient} ${verifyText}`
     : `Start a clear liquid diet 24 hours before your planned arrival time for surgery. ${npoPatient} ${verifyText}`;
@@ -1758,7 +1758,7 @@ class PerioperativeDMApp {
         <div class="question">Diabetes Type</div>
         ${btn('Type 1 Diabetes (T1DM)', 'dmType', 'T1DM', ctx.dmType, 'No endogenous insulin — stricter dose reductions')}
         ${btn('Type 2 Diabetes (T2DM)', 'dmType', 'T2DM', ctx.dmType, 'Retains some endogenous insulin')}
-        ${btn('No diabetes (on medication for HF or obesity)', 'dmType', 'noDM', ctx.dmType, 'SGLT2i for heart failure/CKD; GLP-1 for obesity')}
+        ${btn('No diabetes (on medication for CKD, heart failure, or obesity)', 'dmType', 'noDM', ctx.dmType, 'SGLT2i for heart failure/CKD; GLP-1 for obesity')}
       </div>
       <div class="card">
         <div class="question">Surgery Type</div>
@@ -1942,11 +1942,11 @@ class PerioperativeDMApp {
           </div>
           <hr class="divider">
           <div class="question" style="font-size:14px;">Strict NPO cutoff</div>
-          <p class="helper-text">Default is NPO after midnight. Use an hour-based cutoff only if the perioperative team gives procedure-time instructions.</p>
+          <p class="helper-text">Default is NPO after midnight. Use an hour-based cutoff only if the perioperative team gives an hour-based instruction. All cutoffs are counted back from the patient's arrival time.</p>
           <div class="btn-row">
             ${[
               ['midnight', 'After midnight'],
-              ['8h', '8 h before procedure'],
+              ['8h', '8 h before arrival'],
               ['6h', '6 h'],
               ['4h', '4 h'],
               ['2h', '2 h'],
@@ -2101,12 +2101,12 @@ class PerioperativeDMApp {
       <div id="clinician-tab" class="tab-content ${this.outputTab==='clinician'?'active':''} no-print">
         ${results.map(r => this.renderClinicianCard(r)).join('')}
         <div class="card" style="font-size:12px;color:var(--dim2);line-height:1.7;">
-          <div style="font-weight:700;color:var(--accent);margin-bottom:8px;">ABSMC PREOPERATIVE GLYCEMIC GOALS</div>
+          <div style="font-weight:700;color:var(--accent);margin-bottom:8px;">ABSMC PERIOPERATIVE GLYCEMIC GOALS</div>
           <div>• Perioperative blood glucose target: <span class="mono-data">100–180 mg/dL</span></div>
           <div>• Stricter targets are NOT recommended — increase hypoglycemia without improving outcomes (ADA 2026)</div>
           <div>• HbA1c alone is NOT a reason to postpone elective surgery (ADA 2026)</div>
-          <div>• CGM may be used as adjunct but NOT sole monitoring modality intraoperatively</div>
-          <div style="margin-top:8px;font-style:italic;">ADA Standards of Care 2026 · ABSMC Preoperative Clinic</div>
+          <div>• CGM may be used as adjunct but NOT sole monitoring modality intraoperatively (ADA 2026)</div>
+          <div style="margin-top:8px;font-style:italic;">ABSMC Preoperative Clinic</div>
         </div>
         <div class="btn-row no-print" style="margin-top:8px;">
           <button class="btn-primary" onclick="window.app.startOver()">New Assessment</button>
