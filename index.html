@@ -1017,7 +1017,7 @@ function getSGLT2iResults(ctx, details, selected) {
 
   const drugNames = drugs.map(d => `${d.name} (${d.brand})`);
   const evidenceNote = mode === 'FDA'
-    ? 'Source: ADA Standards of Care 2026 and AHA/ACC Perioperative Guideline 2024: hold SGLT2 inhibitors before scheduled surgery (3 days for canagliflozin/dapagliflozin/empagliflozin; 4 days for ertugliflozin). SPAQI BJA 2026 provides the separate risk-stratified pathway.'
+    ? 'Source: ADA Standards of Care 2026 and AHA/ACC Perioperative Guideline 2024 (Class 1, LOE C-LD): hold SGLT2 inhibitors before scheduled surgery (3 days for canagliflozin/dapagliflozin/empagliflozin; 4 days for ertugliflozin). SPAQI BJA 2026 provides the separate risk-stratified pathway.'
     : 'Source: SPAQI Multidisciplinary Consensus (Oprea et al., BJA 2026); 2025 HbA1c-stratified DKA meta-analysis (Lee et al., Diabetes Obes Metab).';
   return {
     id: 'sglt2i',
@@ -1109,11 +1109,11 @@ function getDPP4iResults(ctx, details, selected) {
     flags.push({ type: 'info', text: 'PM surgery: If patient is eating a light breakfast, DPP-4 inhibitor may be taken with breakfast given very low hypoglycemia risk. Clinical judgment applies.' });
   } else {
     badge = 'HOLD MORNING OF SURGERY'; badgeType = 'hold';
-    morningOf = 'HOLD morning of surgery. Do not administer. Note: AHA/ACC 2024 and SAMBA 2024 consider continuation reasonable given low hypoglycemia risk; ABSMC default is HOLD per ADA 2026.';
+    morningOf = 'HOLD morning of surgery. Do not administer. Note: SAMBA 2024 considers continuation reasonable given low hypoglycemia risk; ABSMC default is HOLD per ADA 2026.';
     patientMorning = 'Do NOT take this medication on the morning of surgery.';
   }
   const drugNames = allDrugs.map(d => `${d.name} (${d.brand})`);
-  const evidence = 'Source: ADA Standards of Care 2026; AHA/ACC 2024 and SAMBA Updated Consensus 2024 note continuation reasonable given low hypoglycemia risk. ABSMC default is a conservative institutional hold, not a universal guideline mandate.';
+  const evidence = 'Source: ADA Standards of Care 2026; SAMBA Updated Consensus 2024 notes continuation reasonable given low hypoglycemia risk (not yet verified against the source document). The AHA/ACC 2024 perioperative guideline does not address DPP-4 inhibitors. ABSMC default is a conservative institutional hold, not a universal guideline mandate.';
   const resumption = 'Resume when tolerating oral intake postoperatively. No monitoring required.';
   return {
     id: 'dpp4i',
@@ -1163,7 +1163,7 @@ function getMetforminResults(ctx, details, selected) {
       patientMorning = 'Do NOT take this medication. You are receiving contrast dye within 48 hours of surgery.';
     } else {
       badge = 'HOLD MORNING OF SURGERY'; badgeType = 'hold';
-      morningOf = `HOLD morning of surgery (eGFR ${eGFR} mL/min/1.73m²). ABSMC uses a conservative institutional hold on the day of surgery; AHA/ACC 2024 Class 2a states continuation is reasonable for normal renal function. Clinician may use judgment.`;
+      morningOf = `HOLD morning of surgery (eGFR ${eGFR} mL/min/1.73m²). ABSMC uses a conservative institutional hold on the day of surgery; AHA/ACC 2024 Class 2a states perioperative continuation is reasonable in patients with diabetes or impaired glucose tolerance, without a renal-function qualifier. The eGFR limits below are FDA labeling. Clinician may use judgment.`;
       patientMorning = 'Do NOT take this medication on the morning of surgery.';
       if (contrast === null) {
         flags.push({ type: 'warn', text: 'Contrast exposure status not confirmed. If patient is receiving iodinated contrast within 48h of surgery, hold metformin regardless of eGFR.' });
@@ -1171,7 +1171,7 @@ function getMetforminResults(ctx, details, selected) {
     }
   }
   const drugNames = directMet.map(d => `${d.name} (${d.brand})`);
-  const evidence = `Source: ADA Standards of Care 2026; AHA/ACC 2024 Class 2a: continuation reasonable with normal renal function. ABSMC default is a conservative day-of-surgery hold. Perioperative metformin review 2025: lactic acidosis risk not well-supported by evidence. FDA labeling: contraindicated below eGFR 30; do not initiate at eGFR 30-45.`;
+  const evidence = `Source: ADA Standards of Care 2026; AHA/ACC 2024 Class 2a (LOE C-LD): perioperative continuation is reasonable in patients with diabetes or impaired glucose tolerance; the guideline states no renal-function condition. ABSMC default is a conservative day-of-surgery hold. Perioperative metformin review 2025: lactic acidosis risk not well-supported by evidence. FDA labeling: contraindicated below eGFR 30; do not initiate at eGFR 30-45.`;
   const resumption = 'Hold 48 hours postoperatively if any concern about renal function or hemodynamic instability. If contrast used: hold 48h post-contrast, reassess eGFR before restarting. Resume when oral intake established and renal function stable. Verify with surgeon.';
   return {
     id: 'metformin',
