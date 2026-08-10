@@ -285,12 +285,6 @@ Fires when `baseRecommendation === 'CONTINUE'` and at least one **institutional*
 
 **"Also present" applies whenever the hold is source-backed**, whether via the base branch or via a source-backed trigger. Otherwise an institutional criterion is framed as the basis for a hold that R3a independently requires.
 
-## 8. Combination products
-
-A combination pill is held only when a component actually holds **in this scenario**. Testing merely whether the pill contains a non-SGLT2i component held minor-procedure and colonoscopy patients unnecessarily — both metformin and DPP-4 inhibitors continue there — and contradicted the DPP-4 card on the same sheet.
-
-SGLT2i + DPP-4 products (Qtern, Glyxambi) are excluded from the DPP-4 card entirely; the component's disposition is stated in the SGLT2i card's clinician note, which follows that card's actual recommendation. **Patient-sheet decision (Mark, 2026-08-04): the patient sheet names the pill and its instruction only, with no component breakdown.**
-
 > **Rationale.** Five institutional rules override a published guideline. Each is defensible and each is recorded here. The honest behavior is to disclose the departure every time rather than only in one branch. It also makes the clinician override control meaningful — the reviewing clinician sees what the source said and what the institutional rule did to it.
 
 **This supersedes the earlier `overridesR1Continue` flag**, which fired only when the overridden continue was an R1 earned via HF or CKD in a T2DM patient. That definition produced a confusing asymmetry: a non-diabetic taking an SGLT2i purely for CKD, held because their case is expected to exceed 3 h, is arguably the clearest conflict in the pathway and received no notice at all. Meanwhile a T2DM patient whose R2 "consider continuing" was overridden by the same rule also received none.
@@ -298,6 +292,30 @@ SGLT2i + DPP-4 products (Qtern, Glyxambi) are excluded from the DPP-4 card entir
 Accepted cost: the notice appears often, because these triggers fire often. It therefore reads as "here is the departure," not "here is an unusual conflict."
 
 **R-numbers are printed.** Box governs over Figure 2 where they conflict; the discrepancy is footnoted, which also flags a real inconsistency to residents practicing from the paper.
+
+---
+
+## 8. Combination products
+
+A combination pill is held only when a component **actually holds in this scenario**, determined per component class from the same rules the individual drug cards apply.
+
+**Do not encode this as a surgery-type list.** The first attempt exempted minor procedures and colonoscopy on the assumption that metformin and DPP-4 inhibitors both continue there. That assumption is wrong, and the app's own behavior is the authority:
+
+| Component | Actual behavior in this app |
+|---|---|
+| **Metformin** | **HOLDS in every scenario.** `getMetforminResults` has no surgery-type branch at all — minor, colonoscopy and major all hold. |
+| **DPP-4 inhibitor** | Continues **only** for `minor`. Colonoscopy and everything else hold the morning of surgery. |
+| Anything unrecognized | Holds. Conservative default. |
+
+> **Why this matters.** Under the surgery-type version, a colonoscopy patient on Synjardy with an eGFR of 33 was told *"Continue taking Empagliflozin/Metformin (Synjardy) as usual. No changes are needed"* — while a patient on plain Glucophage, same eGFR, same procedure, was correctly told to hold. Bowel prep, volume depletion and a possible eGFR change are the classic metformin-hold setting. Caught by clinical review 2026-08-04 before it left the preview branch.
+
+SGLT2i + DPP-4 products (Qtern, Glyxambi) are excluded from the DPP-4 card entirely; the component's disposition is stated in the SGLT2i card's clinician note, which follows that card's actual recommendation rather than assuming a hold.
+
+**Patient-sheet decision (Mark, 2026-08-04):** the patient sheet names the pill and its instruction only, with no component breakdown.
+
+### Known gap — combination metformin bypasses the renal and contrast logic
+
+`getMetforminResults` returns early when metformin is present only inside a combination product, so the eGFR <30, eGFR 30–45 and contrast-within-48 h branches never run for those patients — even though the eGFR field is shown to them and their answer is recorded. The combination pill's instruction and its resumption wording therefore come from the SGLT2i card, which is less strict than the metformin card's own rule (*hold 48 h postoperatively if any concern about renal function or hemodynamic instability; if contrast used, hold 48 h post-contrast and reassess eGFR*). **Not yet resolved — needs a decision from Mark.**
 
 Every output string derived from the source carries its R-number. Every output that does not is marked as an institutional extension.
 

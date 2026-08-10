@@ -850,13 +850,19 @@ function getSGLT2iResults(ctx, details, selected) {
     return { drug, rec, holdDays };
   });
   // Does the non-SGLT2i component of a combination pill actually hold in this
-  // scenario? Metformin and DPP-4 inhibitors are continued for minor procedures
-  // and colonoscopy (the DPP-4 card continues at usual dose there), so a
-  // combination pill has no conflict to resolve and must not be held.
-  const comboComponentHolds = (combo) => {
-    if (ctx.surgeryType === 'minor' || ctx.surgeryType === 'colonoscopy') return false;
-    return combo.some(c => c !== 'sglt2i');
+  // scenario? Derived per class from the same rules the individual cards apply,
+  // NOT from a surgery-type list - an earlier version assumed metformin and DPP-4
+  // both continue for minor procedures and colonoscopy, which is false for
+  // metformin in every scenario and false for DPP-4 outside minor procedures.
+  const componentHolds = (cls) => {
+    // getDPP4iResults continues at usual dose only for minor procedures; every
+    // other surgery type, colonoscopy included, holds the morning of surgery.
+    if (cls === 'dpp4i') return ctx.surgeryType !== 'minor';
+    // getMetforminResults has no surgery-type branch and holds in every scenario.
+    // Anything unrecognized holds too: conservative default.
+    return true;
   };
+  const comboComponentHolds = (combo) => combo.some(c => c !== 'sglt2i' && componentHolds(c));
   // Check for combo conflicts
   drugs.forEach(drug => {
     if (drug.combo) {
@@ -1024,8 +1030,13 @@ function getSGLT2iResults(ctx, details, selected) {
     carbUntilPatient = 'up until 2 hours before your arrival time';
     carbUntilClinician = 'until 2 h before arrival';
   }
-  const carbWhy = spaqiProvenance && spaqiProvenance.finalRecommendation === 'CONTINUE'
-    ? 'This is especially important because you are staying on this medicine. '
+  // The combination limb continues the SGLT2i except for the morning-of dose, so
+  // neither the plain "staying on" nor the plain "stopping" sentence is true.
+  const comboMorningHold = decisions.some(d => d.rec === 'combo-continue-hold');
+  const carbWhy = (spaqiProvenance && spaqiProvenance.finalRecommendation === 'CONTINUE')
+    ? (comboMorningHold
+        ? 'This is important because you are staying on this medicine apart from the dose on the morning of surgery. '
+        : 'This is especially important because you are staying on this medicine. ')
     : 'This is important even though you are stopping this medicine. ';
   const carbPatient = `Drink clear liquids that contain carbohydrate, including sugary drinks, ${carbUntilPatient}. Good choices: apple juice or cranberry juice, a sports drink, or regular (non-diet) soda. A carbohydrate drink from a clinic or pharmacy also counts. Do NOT use diet, zero-sugar, or sugar-free versions of these drinks - they contain limited carbohydrate and will not help. Nothing milky or creamy, no juice with pulp, and no alcohol. ${carbWhy}Going without carbohydrate while taking an SGLT2 inhibitor can cause a build-up of acid in the blood, and it can happen even when your blood sugar looks normal.`;
   const carbClinician = `Carbohydrate-containing clear liquids ${carbUntilClinician}, volume ad lib. Sugar-free and zero-carbohydrate products are excluded: the purpose is carbohydrate delivery, and a zero-carbohydrate drink is a silent no-op in a population conditioned to choose it. INSTITUTIONAL on three points - ASA 2023 Recommendation 1 (Strong recommendation, Moderate evidence) permits carbohydrate-containing clear liquids until 2 h before anesthesia but defines its population as excluding diabetes mellitus, gastroparesis and obesity; it cites up to 400 mL as the volume tested at the 2 h mark; and its only diabetes-specific comment suggests home glucometer readings guide the choice between a carbohydrate and a noncaloric liquid. Beverage examples and the milk, pulp and alcohol exclusions follow ASA 2017 Practice Guidelines for Preoperative Fasting, which the 2023 modular update leaves in force.`;
@@ -2144,7 +2155,7 @@ class PerioperativeDMApp {
           <div>• Perioperative blood glucose target: <span class="mono-data">100–180 mg/dL</span> before, during and after surgery (ADA 2026, Rec 16.15, grade E)</div>
           <div>• Stricter targets are NOT recommended — increase hypoglycemia without improving outcomes (ADA 2026)</div>
           <div>• HbA1c alone is NOT a reason to postpone elective surgery (ADA 2026)</div>
-          <div>• CGM must NOT be used alone for glucose monitoring during surgery (ADA 2026, perioperative recommendations). A personal CGM may be continued in hospital where appropriate, with confirmatory point-of-care glucose for insulin dosing and hypoglycemia assessment, per institutional protocol (ADA 2026, Rec 16.6, grade B)</div>
+          <div>• CGM should NOT be used alone for glucose monitoring during surgery (ADA 2026 S16, perioperative practice points; narrative, ungraded). A personal CGM may be continued in hospital where appropriate, with confirmatory point-of-care glucose for insulin dosing and hypoglycemia assessment, per institutional protocol (ADA 2026, Rec 16.6, grade B)</div>
           <div style="margin-top:8px;font-style:italic;">ABSMC Preoperative Clinic</div>
         </div>
         <div class="btn-row no-print" style="margin-top:8px;">
