@@ -356,6 +356,48 @@ gets a split instruction naming each pill, plus a clinician warning to check for
 DPP-4 therapy. The card-level badge reads HOLD in that case, which is the same card-level
 versus per-drug mismatch already recorded as a MEDIUM finding for SGLT2i.
 
+### Fourth clinical review 2026-08-11 - five findings fixed
+
+Run over the fix above. Each finding was reproduced in the browser before it was acted on.
+
+**[CRITICAL] Oseni was reported by two cards with opposite instructions.** `getDPP4iResults`
+pulled TZD+DPP-4 combinations in through `comboDPP4i`, so a minor procedure produced
+"Take this medication as usual" on the DPP-4 card while the TZD card, which also reports
+Oseni, said "Do NOT take this medication." Pre-existing, not introduced by this work, but
+the split instruction added above made it print the brand name in both. **Oseni is now
+reported by the TZD card only**, which holds it, and that card states the DPP-4
+component's disposition the way the SGLT2i card does for Qtern and Glyxambi. Every
+combination pill now has exactly one owning card: SGLT2i+anything on the SGLT2i card,
+TZD+DPP-4 on the TZD card, DPP-4+metformin on the DPP-4 card.
+
+**[HIGH] The appended metformin resumption softened a stricter rule.** For Synjardy in
+bariatric surgery the card says hold until tolerating a regular diet long-term, and for
+Actoplus Met in heart failure it requires cardiology or endocrinology review; metformin's
+looser "resume when oral intake established" then printed after both, and the last sentence
+is the one that gets read. The metformin rule is now explicitly subordinated: *"In addition,
+and not sooner than the rule above."*
+
+**[HIGH] The component note borrowed metformin's hold interval.** It pasted metformin's
+own "HOLD morning of surgery" sentence onto pills the SGLT2i card holds for 72 or 96 hours.
+The note now gives the renal or contrast reason only and says the hold instruction on that
+card governs the timing.
+
+**[MEDIUM] `renalRestricted` was inferred from a badge string.** It now comes from a
+`renalReason` set inside each branch of `getMetforminDisposition`, so it cannot drift from
+the decision it describes, and that same reason text is what the note prints.
+
+**[MEDIUM] The DPP-4 evidence text described continuation** after the card was changed to
+hold metformin combinations. When a metformin combination is present it now states the ADA
+basis for the hold and that it is stricter than SAMBA's ambulatory guidance for metformin.
+
+**Not acted on, recorded instead:** a patient on plain metformin plus one or more metformin
+combinations sees the same eGFR alert once per card (LOW, noise not error). `DRUG_DB`
+contains no sulfonylurea/metformin combinations (Glucovance, Metaglip) and no Trijardy XR;
+if any are added, the owning card needs a `getMetforminComboOverlay` call or the renal and
+contrast rules will be bypassed again. The reviewer also reported that the SPAQI `consider`
+limb skips the combination hold - **not reproduced**; `consider` is dead code in SPAQI mode,
+as open item 8 records.
+
 Every output string derived from the source carries its R-number. Every output that does not is marked as an institutional extension.
 
 ---

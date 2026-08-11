@@ -1123,10 +1123,11 @@ function getGLP1Results(ctx, details, selected) {
 }
 function getDPP4iResults(ctx, details, selected) {
   const drugs = getSelectedDrugsByClass(selected, 'dpp4i');
-  // also check combo dpp4i in other classes
-  const comboDPP4i = [...DRUG_DB.sglt2i.drugs, ...DRUG_DB.tzd.drugs]
-    .filter(d => selected.has(d.id) && d.combo && d.combo.includes('dpp4i') && !d.combo.includes('sglt2i'));
-  const allDrugs = [...drugs, ...comboDPP4i];
+  // A DPP-4 combination pill is reported by the card of its other component, so each
+  // pill carries exactly one instruction: SGLT2i+DPP-4 (Qtern, Glyxambi) by the SGLT2i
+  // card, TZD+DPP-4 (Oseni) by the TZD card. Reporting Oseni here produced a CONTINUE
+  // for minor procedures on this card while the TZD card held the same pill.
+  const allDrugs = drugs;
   if (!allDrugs.length) return null;
   const sType = ctx.surgeryType;
   const timing = ctx.surgeryTiming;
@@ -1163,7 +1164,10 @@ function getDPP4iResults(ctx, details, selected) {
     patientMorning = 'Do NOT take this medication on the morning of surgery.';
   }
   const drugNames = allDrugs.map(d => `${d.name} (${d.brand})`);
-  const evidence = 'Source: ADA Standards of Care 2026; SAMBA Updated Consensus 2024 (Anesth Analg 2024;139:459-77) states DPP-4 inhibitors have a low perioperative hypoglycemia risk and may be continued preoperatively; its medication table lists them as "take". The AHA/ACC 2024 perioperative guideline does not address DPP-4 inhibitors. ABSMC default is a conservative institutional hold, not a universal guideline mandate.';
+  let evidence = 'Source: ADA Standards of Care 2026; SAMBA Updated Consensus 2024 (Anesth Analg 2024;139:459-77) states DPP-4 inhibitors have a low perioperative hypoglycemia risk and may be continued preoperatively; its medication table lists them as "take". The AHA/ACC 2024 perioperative guideline does not address DPP-4 inhibitors. ABSMC default is a conservative institutional hold, not a universal guideline mandate.';
+  if (metComboDrugs.length) {
+    evidence += ' This card also reports combination pills containing metformin. ADA Standards of Care 2026 states metformin and other oral glucose-lowering agents should be held on the day of surgery or procedure, and this app holds metformin in every scenario, so those pills are held even where a DPP-4 inhibitor alone would continue. This is stricter than the SAMBA ambulatory-surgery guidance for metformin, which permits it on the day of surgery above an eGFR of 45.';
+  }
   let resumption = 'Resume when tolerating oral intake postoperatively. No monitoring required.';
   const metOverlay = getMetforminComboOverlay(details, metComboDrugs);
   if (metOverlay) {
@@ -1191,26 +1195,34 @@ function getMetforminDisposition(details) {
   const eGFR = parseFloat(details.eGFR);
   const contrast = details.contrastWithin48h;
   let badge, badgeType, morningOf, patientMorning;
+  // Why the metformin component is restricted, if it is. Set by the branch that
+  // makes the decision, so it cannot drift from that decision. Null means no
+  // renal or contrast restriction applies.
+  let renalReason = null;
   if (!details.eGFR || isNaN(eGFR)) {
     flags.push({ type: 'warn', text: 'eGFR not entered. Conservative HOLD applied. Enter eGFR to enable risk-stratified recommendation.' });
     badge = 'HOLD'; badgeType = 'hold';
     morningOf = 'HOLD morning of surgery (eGFR not available — conservative default applied).';
+    renalReason = 'eGFR was not entered, so the conservative default applies';
     patientMorning = 'Do NOT take this medication on the morning of surgery.';
   } else if (eGFR < 30) {
     badge = 'HOLD'; badgeType = 'hold';
     flags.push({ type: 'alert', text: `eGFR ${eGFR} mL/min/1.73m² is below 30. Metformin is contraindicated at this renal function level per FDA labeling. HOLD and reassess before restarting.` });
     morningOf = `HOLD — eGFR ${eGFR} mL/min/1.73m². Metformin is contraindicated below eGFR 30 (FDA labeling).`;
+    renalReason = `eGFR ${eGFR} is below 30, where metformin is contraindicated (FDA labeling)`;
     patientMorning = 'Do NOT take this medication on the morning of surgery. Your kidney function requires that this medication be held.';
   } else if (eGFR < 45) {
     badge = 'HOLD'; badgeType = 'hold';
     flags.push({ type: 'warn', text: `eGFR ${eGFR} mL/min/1.73m² is between 30 and 45. Per FDA labeling, metformin should not be initiated in this range, and for patients already taking it the benefit/risk of continuing should be assessed. Hold perioperatively and reassess renal function before restarting.` });
     morningOf = `HOLD morning of surgery — eGFR ${eGFR} mL/min/1.73m². FDA: do not initiate at eGFR 30–45; for ongoing use assess benefit/risk. Hold and reassess before restarting.`;
+    renalReason = `eGFR ${eGFR} is between 30 and 45; FDA labeling says do not initiate in this range and to assess benefit and risk for ongoing use`;
     patientMorning = 'Do NOT take this medication on the morning of surgery. Your kidney function is reduced, so it should be held and reviewed before restarting.';
   } else {
     if (contrast === true) {
       badge = 'HOLD'; badgeType = 'hold';
       flags.push({ type: 'alert', text: 'Iodinated contrast within 48h of surgery — HOLD metformin regardless of eGFR. Risk of contrast-induced nephropathy and subsequent metformin-associated lactic acidosis.' });
       morningOf = `HOLD — iodinated contrast within 48h. Hold even with eGFR ${eGFR}.`;
+      renalReason = 'iodinated contrast is planned within 48 hours of surgery';
       patientMorning = 'Do NOT take this medication. You are receiving contrast dye within 48 hours of surgery.';
     } else {
       badge = 'HOLD MORNING OF SURGERY'; badgeType = 'hold';
@@ -1221,12 +1233,10 @@ function getMetforminDisposition(details) {
       }
     }
   }
-  // Only the normal-renal-function, no-contrast branch carries this badge, so it
-  // is the branch's own answer to "did a renal or contrast rule restrict this?".
-  const renalRestricted = badge !== 'HOLD MORNING OF SURGERY';
+  const renalRestricted = renalReason !== null;
   const evidence = `Source: ADA Standards of Care 2026; AHA/ACC 2024 Class 2a (LOE C-LD): perioperative continuation is reasonable in patients with diabetes or impaired glucose tolerance; the guideline states no renal-function condition. ABSMC default is a conservative day-of-surgery hold. Perioperative metformin review 2025: lactic acidosis risk not well-supported by evidence. FDA labeling: contraindicated below eGFR 30; do not initiate at eGFR 30-45.`;
   const resumption = 'Hold 48 hours postoperatively if any concern about renal function or hemodynamic instability. If contrast used: hold 48h post-contrast, reassess eGFR before restarting. Resume when oral intake established and renal function stable. Verify with surgeon.';
-  return { badge, badgeType, morningOf, patientMorning, flags, evidence, resumption, renalRestricted };
+  return { badge, badgeType, morningOf, patientMorning, flags, evidence, resumption, renalRestricted, renalReason };
 }
 // A combination pill stays on its owning class card so the patient sees one
 // instruction per pill. That card calls this to pick up the metformin component's
@@ -1234,15 +1244,21 @@ function getMetforminDisposition(details) {
 function getMetforminComboOverlay(details, comboDrugs) {
   if (!comboDrugs || !comboDrugs.length) return null;
   const dispo = getMetforminDisposition(details);
-  const names = comboDrugs.map(d => `${d.name} (${d.brand})`).join('; ');
+  const names = comboDrugs.map(d => d.brand).join('; ');
   return {
     dispo,
     names,
     flags: dispo.flags,
+    // Deliberately does NOT restate metformin's own hold interval. This pill may be
+    // held 72 or 96 hours by the card it sits on, and a borrowed "hold morning of
+    // surgery" sentence would read as the shorter hold.
     note: dispo.renalRestricted
-      ? `METFORMIN COMPONENT: ${names} contains metformin, so the metformin renal and contrast rules apply to this pill. ${dispo.morningOf}`
+      ? `METFORMIN COMPONENT: ${names} contains metformin, so the metformin renal and contrast rules apply to this pill: ${dispo.renalReason}. Follow the hold instruction on this card, which governs the timing.`
       : `METFORMIN COMPONENT: ${names} contains metformin. Renal function and contrast exposure were checked and impose no additional preoperative restriction; the metformin component is held with the pill. Its postoperative resumption rule is stated below.`,
-    resumption: ` Metformin component (${names}): ${dispo.resumption}`,
+    // Subordinated, not appended as a peer: the owning card's rule can be stricter
+    // (bariatric SGLT2i, TZD in heart failure) and must not be softened by a looser
+    // sentence printed after it.
+    resumption: ` In addition, and not sooner than the rule above - metformin component (${names}): ${dispo.resumption}`,
   };
 }
 function getMetforminResults(ctx, details, selected) {
@@ -1355,6 +1371,10 @@ function getTZDResults(ctx, details, selected) {
   }
   const evidence = 'Source: ADA Standards of Care 2026. SAMBA 2024 and CCJM guideline comparison (2025) note continuation is reasonable given low hypoglycemia risk and slow offset; ABSMC default is a conservative institutional hold. Fluid retention risk: caution in HF per prescribing information.';
   let resumption = 'Resume when tolerating oral intake. Monitor for fluid retention, edema, and worsening HF symptoms. Verify with surgeon.' + (hasHF ? ' Formal cardiology/endocrinology review recommended before restarting in HF patients.' : '');
+  const dpp4Combo = drugs.filter(d => d.combo && d.combo.includes('dpp4i'));
+  if (dpp4Combo.length) {
+    flags.push({ type: 'info', text: `COMBINATION PRODUCT: ${dpp4Combo.map(d => d.brand).join('; ')} also contains a DPP-4 inhibitor. The components cannot be separated, so the DPP-4 component is held with this pill on the schedule above rather than receiving its own instruction. No separate DPP-4 inhibitor instruction is issued for this patient.` });
+  }
   const metOverlay = getMetforminComboOverlay(details, drugs.filter(d => d.combo && d.combo.includes('metformin')));
   if (metOverlay) {
     metOverlay.flags.forEach(f => flags.push(f));
