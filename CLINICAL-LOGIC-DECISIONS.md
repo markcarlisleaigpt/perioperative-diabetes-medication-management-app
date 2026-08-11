@@ -398,6 +398,61 @@ contrast rules will be bypassed again. The reviewer also reported that the SPAQI
 limb skips the combination hold - **not reproduced**; `consider` is dead code in SPAQI mode,
 as open item 8 records.
 
+### Fifth clinical review 2026-08-11 - three findings fixed, one rejected on the evidence
+
+**[HIGH] The SAMBA metformin claim was wrong in two ways.** The evidence paragraph added
+above said SAMBA "permits metformin on the day of surgery above an eGFR of 45". SAMBA 2024
+Table 2, Biguanides row, actually reads: *"Take unless eGFR <45 mL/min and/or procedure
+includes nephrotoxic agents (eg, contrast dye)"*. The paraphrase dropped the contrast
+condition - the very condition this app enforces - and moved the boundary, since SAMBA
+permits metformin AT 45. Verified directly in the PDF and corrected to quote both halves.
+
+**[HIGH] "Follow the hold instruction on this card" was ambiguous on the split-instruction
+path.** On the DPP-4 card a patient taking both Januvia and Janumet gets a hold and a
+continue on one card, and the metformin note did not say which pill it was deferring to.
+The sentence now names the pill.
+
+**[MEDIUM] The TZD combination note asserted what another card had done** - "no separate
+DPP-4 inhibitor instruction is issued for this patient" - which is false for a patient also
+taking a plain DPP-4 inhibitor, who does get one on the DPP-4 card. It now says the
+component travels with the pill and flags a separate DPP-4 inhibitor as duplicate therapy
+worth confirming. Same defect exists in the SGLT2i version of this note (Qtern plus
+Januvia); left alone as pre-existing and out of scope.
+
+**[REJECTED - CRITICAL as filed] "The note defers to a card rule that permits taking the
+pill the night before."** The reviewer read the deferral sentence as loosening metformin at
+eGFR <30. Checked in the browser: at eGFR 22, plain Glucophage produces *"Do NOT take this
+medication on the morning of surgery"* and no night-before instruction, and Invokamet on the
+same patient produces a morning-of hold as well. The card the note defers to is never looser
+than metformin's own rule - metformin is the strictest input to every card that carries it.
+No change made.
+
+The finding did surface a real question, which is **not** about combination products and is
+therefore not settled here: **this app never holds metformin earlier than the morning of
+surgery, even at eGFR <30 where FDA labeling calls it contraindicated, or when iodinated
+contrast is planned within 48 h.** Plain metformin behaves the same way. Whether a
+contraindicated patient should be told to stop earlier than the morning of surgery is a
+clinical decision for Mark. Recorded, not acted on.
+
+**Also raised, needs Mark, not acted on:** ADA Standards of Care 2026 perioperative practice
+point 4 reads *"Metformin and other oral glucose-lowering agents should be held on the day of
+surgery or procedure"* - verified verbatim. The app continues plain DPP-4 inhibitors for
+minor procedures, which is a departure from that sentence, and the DPP-4 card now quotes the
+sentence. The quote was narrowed to metformin so the card does not print a guideline
+statement against its own recommendation, but the underlying departure is unresolved and
+undeclared. This is the same ground as the recorded LOW finding that the DPP-4 and metformin
+strips understate ADA.
+
+**Confirmed clean by this pass:** every DPP-4-containing product has exactly one owning card
+(Qtern and Glyxambi on the SGLT2i card, Janumet/Kombiglyze XR/Kazano/Jentadueto on the DPP-4
+card, Oseni on the TZD card); the subordinated resumption reads correctly whether the card's
+own rule is stricter or looser; `renalReason` is set in all four restricting branches and
+null only in the unrestricted one; the ADA metformin quote is verbatim.
+
+**Pre-existing, logged not fixed:** the contrast check sits inside the eGFR >=45 branch, so a
+patient with eGFR 25 AND contrast within 48 h gets the eGFR alert but never the contrast one.
+Both hold, so no dosing error, but the post-contrast reassessment rationale is not surfaced.
+
 Every output string derived from the source carries its R-number. Every output that does not is marked as an institutional extension.
 
 ---

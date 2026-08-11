@@ -1166,7 +1166,7 @@ function getDPP4iResults(ctx, details, selected) {
   const drugNames = allDrugs.map(d => `${d.name} (${d.brand})`);
   let evidence = 'Source: ADA Standards of Care 2026; SAMBA Updated Consensus 2024 (Anesth Analg 2024;139:459-77) states DPP-4 inhibitors have a low perioperative hypoglycemia risk and may be continued preoperatively; its medication table lists them as "take". The AHA/ACC 2024 perioperative guideline does not address DPP-4 inhibitors. ABSMC default is a conservative institutional hold, not a universal guideline mandate.';
   if (metComboDrugs.length) {
-    evidence += ' This card also reports combination pills containing metformin. ADA Standards of Care 2026 states metformin and other oral glucose-lowering agents should be held on the day of surgery or procedure, and this app holds metformin in every scenario, so those pills are held even where a DPP-4 inhibitor alone would continue. This is stricter than the SAMBA ambulatory-surgery guidance for metformin, which permits it on the day of surgery above an eGFR of 45.';
+    evidence += ' This card also reports combination pills containing metformin. ADA Standards of Care 2026 (perioperative practice points, item 4) states that metformin should be held on the day of surgery or procedure, and this app holds metformin in every scenario, so those pills are held even where a DPP-4 inhibitor alone would continue. SAMBA 2024 is more permissive for metformin specifically: its Table 2 says take unless eGFR is below 45 mL/min and/or the procedure includes nephrotoxic agents such as contrast dye. The ABSMC hold is the conservative choice between them.';
   }
   let resumption = 'Resume when tolerating oral intake postoperatively. No monitoring required.';
   const metOverlay = getMetforminComboOverlay(details, metComboDrugs);
@@ -1253,7 +1253,7 @@ function getMetforminComboOverlay(details, comboDrugs) {
     // held 72 or 96 hours by the card it sits on, and a borrowed "hold morning of
     // surgery" sentence would read as the shorter hold.
     note: dispo.renalRestricted
-      ? `METFORMIN COMPONENT: ${names} contains metformin, so the metformin renal and contrast rules apply to this pill: ${dispo.renalReason}. Follow the hold instruction on this card, which governs the timing.`
+      ? `METFORMIN COMPONENT: ${names} contains metformin, so the metformin renal and contrast rules apply to this pill: ${dispo.renalReason}. Follow the hold instruction for ${names} on this card, which governs the timing.`
       : `METFORMIN COMPONENT: ${names} contains metformin. Renal function and contrast exposure were checked and impose no additional preoperative restriction; the metformin component is held with the pill. Its postoperative resumption rule is stated below.`,
     // Subordinated, not appended as a peer: the owning card's rule can be stricter
     // (bariatric SGLT2i, TZD in heart failure) and must not be softened by a looser
@@ -1373,7 +1373,7 @@ function getTZDResults(ctx, details, selected) {
   let resumption = 'Resume when tolerating oral intake. Monitor for fluid retention, edema, and worsening HF symptoms. Verify with surgeon.' + (hasHF ? ' Formal cardiology/endocrinology review recommended before restarting in HF patients.' : '');
   const dpp4Combo = drugs.filter(d => d.combo && d.combo.includes('dpp4i'));
   if (dpp4Combo.length) {
-    flags.push({ type: 'info', text: `COMBINATION PRODUCT: ${dpp4Combo.map(d => d.brand).join('; ')} also contains a DPP-4 inhibitor. The components cannot be separated, so the DPP-4 component is held with this pill on the schedule above rather than receiving its own instruction. No separate DPP-4 inhibitor instruction is issued for this patient.` });
+    flags.push({ type: 'info', text: `COMBINATION PRODUCT: ${dpp4Combo.map(d => d.brand).join('; ')} also contains a DPP-4 inhibitor. The components cannot be separated, so the DPP-4 component is held with this pill on the schedule above rather than receiving its own instruction. If this patient also takes a separate DPP-4 inhibitor, that drug has its own card and this is duplicate therapy worth confirming with the prescriber.` });
   }
   const metOverlay = getMetforminComboOverlay(details, drugs.filter(d => d.combo && d.combo.includes('metformin')));
   if (metOverlay) {
