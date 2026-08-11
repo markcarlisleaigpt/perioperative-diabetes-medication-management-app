@@ -3,7 +3,7 @@
 **Scope of this document:** SGLT2 inhibitor pathway, WEB app. Extensible to other drug classes later.
 **Status:** implemented on branch `design-mission-mcc`; not promoted to production.
 **Decision-maker:** Mark Carlisle, MD. Every entry below was decided by him; nothing here is an assistant inference unless explicitly marked.
-**Last updated:** 2026-08-04
+**Last updated:** 2026-08-11
 
 ## How to read this
 
@@ -313,9 +313,48 @@ SGLT2i + DPP-4 products (Qtern, Glyxambi) are excluded from the DPP-4 card entir
 
 **Patient-sheet decision (Mark, 2026-08-04):** the patient sheet names the pill and its instruction only, with no component breakdown.
 
-### Known gap — combination metformin bypasses the renal and contrast logic
+### Combination metformin follows the metformin renal and contrast rules (resolved 2026-08-11)
 
-`getMetforminResults` returns early when metformin is present only inside a combination product, so the eGFR <30, eGFR 30–45 and contrast-within-48 h branches never run for those patients — even though the eGFR field is shown to them and their answer is recorded. The combination pill's instruction and its resumption wording therefore come from the SGLT2i card, which is less strict than the metformin card's own rule (*hold 48 h postoperatively if any concern about renal function or hemodynamic instability; if contrast used, hold 48 h post-contrast and reassess eGFR*). **Not yet resolved — needs a decision from Mark.**
+`getMetforminResults` used to return early when metformin was present only inside a
+combination product, so the eGFR <30, eGFR 30-45 and contrast-within-48 h branches never
+ran for those patients - even though the eGFR field is shown to them and their answer is
+recorded. The pill took its instruction and its resumption wording from whichever card
+reported it, which is looser than metformin's own postoperative rule.
+
+**Fix.** The eGFR and contrast branches now live in `getMetforminDisposition(details)`.
+`getMetforminResults` calls it for plain metformin, and every card that reports a
+metformin-containing combination pill calls `getMetforminComboOverlay(details, comboDrugs)`,
+which returns the same flags, the same day-of-surgery wording and metformin's resumption
+rule. One helper, one set of rules, no card restating another card's behavior.
+
+The pill still appears on exactly one card, so the patient sheet still names the pill and
+its instruction only (the decision above). What the combination patient now gains is the
+renal or contrast alert, and metformin's 48-hour postoperative rule appended to the card's
+resumption text. Where renal function is normal and no contrast is planned, the note says
+the check ran and found no additional restriction rather than repeating metformin's
+"continuation is reasonable" paragraph onto a pill that is being held.
+
+Cards carrying metformin combinations: SGLT2i (Invokamet, Xigduo XR, Synjardy), DPP-4
+(Janumet, Kombiglyze XR, Kazano, Jentadueto), TZD (Actoplus Met).
+
+### DPP-4 metformin combinations hold for minor procedures (Mark, 2026-08-11)
+
+Fixing the above surfaced the same defect shape as the CRITICAL caught on 2026-08-04, on a
+different card. `getDPP4iResults` continued at usual dose for minor procedures, and it
+reports the metformin combinations, so a Janumet patient having a minor procedure with an
+eGFR of 25 was told *"Take this medication as usual"* while plain Glucophage at the same
+eGFR correctly held.
+
+This contradicted the rule at the top of this section - a combination pill holds when a
+component actually holds, and metformin holds in every scenario. **Decision: hold.**
+Metformin-containing DPP-4 combinations are held the morning of surgery in every scenario,
+including minor procedures. Plain DPP-4 inhibitors keep their minor-procedure continuation
+unchanged.
+
+A patient on both a plain DPP-4 inhibitor and a metformin combination for a minor procedure
+gets a split instruction naming each pill, plus a clinician warning to check for duplicate
+DPP-4 therapy. The card-level badge reads HOLD in that case, which is the same card-level
+versus per-drug mismatch already recorded as a MEDIUM finding for SGLT2i.
 
 Every output string derived from the source carries its R-number. Every output that does not is marked as an institutional extension.
 
