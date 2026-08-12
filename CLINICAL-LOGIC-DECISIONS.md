@@ -515,6 +515,76 @@ Every output string derived from the source carries its R-number. Every output t
 
 ---
 
+## 9. ADA Standards of Care 2026 citation sweep (2026-08-12)
+
+Every "per ADA 2026" assertion in the app was checked against
+`ADA Standards of Care 2026 - S16 Diabetes Care in the Hospital.pdf` directly. This section
+is outside the SGLT2i scope of the rest of this document, but the verdicts belong somewhere
+durable.
+
+### Verified correct, no change
+
+| Claim | Verdict |
+|---|---|
+| Glucose target 100-180 mg/dL before, during and after surgery, Rec 16.15 grade E | **Verbatim.** "Blood glucose before, during, and after surgery should be monitored and maintained between 100 and 180 mg/dL." |
+| Stricter targets not advised | **Verbatim**, perioperative practice point 1 |
+| CGM should not be used alone during surgery | **Verbatim**, practice point 3 |
+| HbA1c alone is not a reason to postpone | **Supported by prose**: postponing based on A1C or glucose management indicator alone is not recommended |
+| SGLT2i held 3-4 days before elective surgery | **Verbatim** |
+| Do not hold all basal insulin in T1DM | **Supported**: an insulin schedule with basal and correction components is necessary for all hospitalized individuals with type 1 diabetes, even those taking nothing by mouth |
+| Basal analogs to 75-80%, NPH to one-half | **Verbatim** |
+| Pump may continue during surgery | **Verbatim**, practice point 5 |
+| Metformin and other oral agents held on the day of surgery | **Verbatim**, practice point 4 (already fixed 2026-08-12) |
+
+### Corrected
+
+**[HIGH] The SGLT2i restart line claimed ADA covers a CKD indication. It does not.** ADA:
+*"The medication may be restarted in the hospital setting for heart failure indication when
+nutritional intake is resumed."* Heart failure only. The app printed "For HF or CKD
+indication: may restart in hospital setting ... per ADA 2026" for either. A CKD patient now
+gets a note saying ADA makes that statement for heart failure only and does not extend it to
+CKD, so restart follows the criteria already on the card. A heart failure patient gets the
+ADA sentence, accurately scoped.
+
+**[MEDIUM] The bolus insulin card said "Universal rule: hold all prandial/bolus insulin while
+NPO. No exceptions."** Two problems: ADA pairs prandial insulin with eating rather than
+stating a universal rule, and **the card contradicted itself** - its own PM-surgery branch
+permits the usual breakfast dose with a full breakfast. The evidence now states the rule as
+ADA does and names the PM-surgery case explicitly.
+
+**[MEDIUM] The premixed insulin card led with ADA for numbers ADA does not give.** ADA S16
+does not address premixed insulin in the perioperative period at all. The evening/morning
+split is JBDS and Demma; those now lead the citation, with ADA credited for what it does
+supply - the 100-180 target and the principle of preoperative insulin reduction.
+
+**[LOW] The basal insulin card attributed two things to ADA that are not ADA.** Applying the
+same percentage to each injection of a twice-daily regimen is an ABSMC extension, now labeled
+as one. And "T1DM: reduce 20% - never more" implied an ADA cap; ADA sets none, saying the
+decision must be individualized and the reduction may not be appropriate for some people with
+type 1 diabetes. The 20% and 25% figures are ABSMC choices within the ADA band and are now
+described that way. **No dose changed.** ADA's own "25% reduction of the basal dose given the
+evening before surgery" is now cited, which independently supports the T2DM figure.
+
+**[LOW] The pump card now quotes practice point 5 in substance**, including the alternative
+plan ADA requires when the pump cannot be used. It also notes that ADA lists adjustment of
+pump basal rates, if not in automated mode, among perioperative reductions, while ABSMC
+continues the current rate and relies on monitoring - **a behavioral difference from ADA that
+was previously undisclosed. Left as behavior, disclosed as text. Mark may want to revisit.**
+
+**Sulfonylurea, meglitinide and alpha-glucosidase inhibitor cards** carried a bare "Source:
+ADA Standards of Care 2026" with no locator. All three now cite practice point 4, which is
+what actually supports their hold. The sulfonylurea card additionally quotes SAMBA properly:
+*"Sulfonylureas carry the risk of asymptomatic hypoglycemia, and thus should be held the day
+of surgery."*
+
+**No badge, dose, or patient instruction changed anywhere in this sweep.** All eight affected
+cards were re-rendered and checked.
+
+### Still unchecked
+
+The Endocrine Society 2022 (Korytkowski) citation on the insulin pump card. The PDF is on
+disk; the claim has never been verified.
+
 ## Open items
 
 1. Institutional definition of "minor procedure" vs "major noncardiac". The source defines neither.

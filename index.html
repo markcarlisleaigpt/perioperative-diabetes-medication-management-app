@@ -1005,7 +1005,9 @@ function getSGLT2iResults(ctx, details, selected) {
   }
   // Resumption
   resumption = 'Restart when: (1) patient tolerating oral intake; (2) no active ketosis; (3) no perioperative AKI, active infection, or hemodynamic instability.';
-  if (hasHF || hasCKD) resumption += ' For HF or CKD indication: may restart in hospital setting when tolerating oral intake per ADA 2026.';
+  if (hasHF || hasCKD) resumption += hasHF
+    ? ' ADA 2026: for a heart failure indication the medication may be restarted in the hospital setting when nutritional intake is resumed.'
+    : ' Note: ADA 2026 makes its in-hospital restart statement for a heart failure indication only and does not extend it to a CKD indication, so restart on the criteria above.';
   if (sType === 'bariatric') resumption = 'Bariatric surgery: individualized — consult prescribing physician. Typically hold until tolerating regular diet long-term. Confirm with bariatric surgeon.';
   resumption += ' Verify with surgeon before restarting.';
   // ---- Carbohydrate-containing clear liquids -------------------------------
@@ -1325,7 +1327,7 @@ function getSulfonylureResults(ctx, details, selected) {
     flags.push({ type: 'warn', text: `PM surgery: ${morningAgents.map(d=>d.name).join(', ')} (short-acting sulfonylurea) — hold on morning of surgery regardless of breakfast. Risk of hypoglycemia if taken while eating less than usual.` });
   }
   const drugNames = drugs.map(d => `${d.name} (${d.brand})`);
-  const evidence = 'Source: ADA Standards of Care 2026. SAMBA Updated Consensus 2024. Sulfonylureas carry the highest perioperative hypoglycemia risk among oral antidiabetic agents.';
+  const evidence = 'Source: ADA Standards of Care 2026, section 16 perioperative practice point 4: metformin and other oral glucose-lowering agents should be held on the day of surgery or procedure. SAMBA Updated Consensus 2024 states sulfonylureas carry the risk of asymptomatic hypoglycemia and should be held the day of surgery; they carry the highest perioperative hypoglycemia risk among oral antidiabetic agents.';
   const resumption = 'Resume when tolerating regular meals postoperatively and blood glucose is stable. Not appropriate during hospitalization with variable oral intake. Verify with surgeon.';
   const monitoring = 'Monitor for hypoglycemia perioperatively. Blood glucose checks on admission and per institutional protocol.';
   return {
@@ -1355,7 +1357,7 @@ function getMeglitinideResults(ctx, details, selected) {
     morningOf = 'HOLD morning of surgery. Patient is NPO — no meal with which to pair dose.';
     patientMorning = 'Do NOT take this medication on the morning of surgery.';
   }
-  const evidence = 'Source: ADA Standards of Care 2026. SAMBA Updated Consensus 2024. Short half-life (~1h) means lower hypoglycemia risk than sulfonylureas, but hold while NPO.';
+  const evidence = 'Source: ADA Standards of Care 2026, section 16 perioperative practice point 4: metformin and other oral glucose-lowering agents should be held on the day of surgery or procedure. SAMBA Updated Consensus 2024. Short half-life (~1h) means lower hypoglycemia risk than sulfonylureas, but hold while NPO.';
   const resumption = 'Resume with first full meal postoperatively. No monitoring required for resumption.';
   return {
     id: 'meglitinide',
@@ -1419,7 +1421,7 @@ function getAGIResults(ctx, details, selected) {
     patientMorning = 'Do NOT take this medication on the morning of surgery.';
   }
   flags.push({ type: 'info', text: 'IMPORTANT: If patient takes an alpha-glucosidase inhibitor AND another agent that can cause hypoglycemia (e.g., insulin, sulfonylurea), treat hypoglycemia with GLUCOSE TABLETS or IV dextrose — NOT sucrose or complex carbohydrates, which are less effective due to this drug\'s mechanism.' });
-  const evidence = 'Source: ADA Standards of Care 2026. Mechanism requires dietary carbohydrate — irrelevant during NPO.';
+  const evidence = 'Source: ADA Standards of Care 2026, section 16 perioperative practice point 4: metformin and other oral glucose-lowering agents should be held on the day of surgery or procedure. The mechanism requires dietary carbohydrate, so the drug has no effect during NPO.';
   const resumption = 'Resume with first carbohydrate-containing meal postoperatively.';
   return {
     id: 'agi',
@@ -1444,7 +1446,8 @@ function getBasalInsulinResults(ctx, details, selected) {
     flags.push({ type: 'warn', text: 'Diabetes type not entered — T1DM-conservative (smaller) dose reductions applied. Verify diabetes type with patient.' });
   }
   const isT1 = dmType === 'T1DM' || !dmType;
-  // ADA 2026 band: basal analogs to 75–80% of dose (T1D never reduce more than 20%).
+  // ADA 2026 band: basal analogs to 75-80% of dose. ADA sets no T1D cap - it says
+  // individualize, and that reduction may not suit some type 1 patients.
   // Patients get ONE specific dose — the largest reduction in the band (user decision
   // 2026-07-05): T1D 20% (→80%), T2D 25% (→75%). NPH handled separately at 50%.
   const minReduct = isT1 ? 20 : 25;
@@ -1537,7 +1540,7 @@ function getBasalInsulinResults(ctx, details, selected) {
         morningOf,
         monitoring: `Check blood glucose on admission. Target perioperative glucose 100–180 mg/dL. Do not hold ALL basal insulin in T1DM — dose reduction required but some basal must be maintained.`,
         resumption: 'Resume usual dose when tolerating oral intake and blood glucose is stable. Verify with prescriber.',
-        evidence: `Source: ADA Standards of Care 2026 — long-acting basal analogs given at 75–80% of the usual dose perioperatively, NPH reduced to 50%; the same percentage applies to each injection in twice-daily regimens. ${drug.isNPH ? 'NPH: reduce each dose to 50% (pronounced peak raises fasting hypoglycemia risk).' : (isT1 ? 'T1DM: reduce 20% (to 80%) as the conservative default — never more; some need their full unreduced dose.' : 'T2DM: reduce 25% (to 75%) — largest of the 20–25% guideline band, giving the patient one specific dose.')} Target perioperative glucose 100–180 mg/dL.`
+        evidence: `Source: ADA Standards of Care 2026, perioperative section: long-acting basal analogs to 75-80% of the usual dose, NPH to one-half, and a 25% reduction of the basal dose given the evening before surgery. ADA states the decision must be individualized and that the reduction may not be appropriate for some people with type 1 diabetes; it sets no cap. Applying the same percentage to each injection of a twice-daily regimen is an ABSMC extension, not ADA text. ${drug.isNPH ? 'NPH: reduce each dose to 50% (pronounced peak raises fasting hypoglycemia risk).' : (isT1 ? 'T1DM: ABSMC applies a 20% reduction (to 80%), the conservative end of the ADA band; some patients need their full unreduced dose.' : 'T2DM: ABSMC applies a 25% reduction (to 75%), the larger end of the ADA band, so the patient receives one specific dose.')} Target perioperative glucose 100-180 mg/dL (ADA Rec 16.15, grade E).`
       },
       patient: { nightBefore: patientNight, morningOf: patientMorning, dietary: null },
       flags: drugFlags,
@@ -1589,7 +1592,7 @@ function getBolusInsulinResults(ctx, details, selected) {
         morningOf,
         monitoring: 'Do not administer prandial insulin without food. If blood glucose is >180 mg/dL while NPO, use a correctional insulin protocol per anesthesia/hospitalist team — do not use the patient\'s prandial doses.',
         resumption: 'Resume with first regular meal postoperatively. Dose as usual per meal size.',
-        evidence: 'Source: ADA Standards of Care 2026. Universal rule: hold all prandial/bolus insulin while NPO. No exceptions.'
+        evidence: 'Source: ADA Standards of Care 2026: prandial insulin is paired with eating (ADA adds prandial insulin when individuals are eating), so it is held whenever the patient is not eating - including the PM-surgery case, where a breakfast dose is permitted with a full breakfast and every later dose is held. ADA also states that basal insulin must NOT be held in type 1 diabetes even when the patient is taking nothing by mouth. Hyperglycemia while NPO is covered by a correctional protocol rather than the usual prandial doses.'
       },
       patient: { nightBefore: patientNight, morningOf: patientMorning, dietary: null },
       flags,
@@ -1645,7 +1648,7 @@ function getPremixedInsulinResults(ctx, details, selected) {
         morningOf,
         monitoring: 'Check blood glucose before morning dose. Target 100–180 mg/dL perioperatively. Hold entirely if BG <120 mg/dL (ABSMC institutional safety threshold).',
         resumption: 'Resume usual premixed regimen when tolerating regular meals. Verify with prescriber.',
-        evidence: `Source: ADA Standards of Care 2026. Demma et al., J Clin Anesth 2017. JBDS Insulin Table. Evening: reduce ${reductPct} (largest of the guideline band: T1 10–20%, T2 20–25%). Morning: reduce 50%; BG <120 mg/dL hold threshold is an ABSMC institutional safety threshold.`
+        evidence: `Source for the premixed split: JBDS Insulin Table and Demma et al., J Clin Anesth 2017. Evening: reduce ${reductPct} (guideline band T1 10-20%, T2 20-25%). Morning: reduce 50%. ADA Standards of Care 2026 does not address premixed insulin in the perioperative period; it supplies the perioperative target of 100-180 mg/dL (Rec 16.15, grade E) and the principle of reducing insulin before surgery. BG <120 mg/dL hold threshold is an ABSMC institutional safety threshold.`
       },
       patient: { nightBefore: `REDUCE your evening ${drug.brand}: ${nightEvLabel}.`, morningOf: patientMorning, dietary: null },
       flags,
@@ -1684,7 +1687,7 @@ function getPumpResult(ctx, details, selected) {
       morningOf,
       monitoring: 'Check blood glucose on admission and per institutional protocol. Target 100–180 mg/dL perioperatively. Ensure anesthesia team aware of CSII/AID status and has plan for intraoperative management. Use point-of-care blood glucose for treatment decisions; CGM is adjunctive.',
       resumption: 'Resume pump bolus dosing when patient is alert, able to manage device, and tolerating oral intake. Resume usual settings.',
-      evidence: 'Source: ADA Standards of Care 2026; Endocrine Society inpatient hyperglycemia guideline. Continue pump at current basal rate when appropriate; hold bolus while NPO; AID/manual-mode or IV-insulin plan should be coordinated with anesthesia/endocrinology.'
+      evidence: 'Source: ADA Standards of Care 2026, section 16 perioperative practice point 5: individuals using an insulin pump may continue pump use during surgery if this is consistent with institutional policies and surgical procedures, and if the pump cannot be used, an alternative plan (insulin infusion, or basal plus correctional insulin) should be initiated before surgery. ADA also lists adjustment of pump basal rates, if not in automated mode, among perioperative insulin dose reductions; ABSMC continues the current basal rate and relies on perioperative monitoring. Endocrine Society inpatient hyperglycemia guideline also applies. Hold bolus while NPO; AID/manual-mode or IV-insulin planning should be coordinated with anesthesia/endocrinology.'
     },
     patient: { nightBefore: patientNight, morningOf: patientMorning, dietary: null },
     flags,
