@@ -453,6 +453,64 @@ null only in the unrestricted one; the ADA metformin quote is verbatim.
 patient with eGFR 25 AND contrast within 48 h gets the eGFR alert but never the contrast one.
 Both hold, so no dosing error, but the post-contrast reassessment rationale is not surfaced.
 
+### Contrast timing and the ADA quotation (Mark, 2026-08-12)
+
+**Q1 as originally posed was withdrawn.** The proposal was that a patient with eGFR <30
+should be told to stop metformin outright rather than hold the morning dose. **Mark: no.**
+If someone is prescribing metformin below an eGFR of 30, the app does not interfere with
+that decision, and it does not dictate postoperative management either. The eGFR <30 branch
+is unchanged: the clinician card flags the contraindication and says reassess, the patient
+instruction remains the day-of hold. Scope discipline, not an evidence disagreement.
+
+**Contrast timing gets a clinician flag, and nothing else changes.** The intake question is
+"iodinated contrast within 48 h of *surgery*", which includes a study done a day or two
+before the case. FDA labeling asks for metformin to be stopped at or before the contrast
+study itself in the eGFR 30-60 band (also for intra-arterial contrast at any eGFR, and for
+hepatic impairment, alcoholism or heart failure). A day-of-surgery hold does not accomplish
+that when the study precedes the operation: an eGFR 45 patient having a CTA on Tuesday for a
+Thursday case takes metformin right through the study.
+
+KDIGO 2024 does **not** ask for a pre-emptive stop above eGFR 30 with no AKI and intravenous
+contrast, which is where most of this clinic's contrast patients sit. So the gap is narrow
+and the response is proportionate:
+
+| | Behavior |
+|---|---|
+| Badge, patient instruction, resumption text | **Unchanged in every scenario** |
+| Contrast flagged AND eGFR 30-60 | New clinician-facing warn flag naming the FDA timing and the pre-surgery-study case |
+| Contrast flagged, eGFR >=60 or <30 | No new flag |
+
+The flag also names intra-arterial contrast and AKI as warranting the same approach at any
+eGFR, because **the app collects neither contrast route nor AKI status**. Adding those two
+intake fields was offered and not taken; the flag states the band it can identify and leaves
+the rest to the clinician. It lives in `getMetforminDisposition`, so plain metformin and
+every combination pill pick it up from one place.
+
+**The ADA quotation is restored whole, and the departure is declared (Mark, 2026-08-12).**
+The DPP-4 evidence strip had quoted ADA 2026 as saying "metformin should be held on the day
+of surgery or procedure". The actual sentence, section 16 perioperative practice point 4, is
+*"Metformin and other oral glucose-lowering agents should be held on the day of surgery or
+procedure."* It had been narrowed to metformin so the card would not print a guideline
+statement contradicting its own plain-DPP-4 continuation for minor procedures.
+
+> **Mark's ruling.** Narrowing the quote to conceal the conflict misrepresents the guideline.
+> The sentence is a single indivisible statement, and truncating it removes the reader's
+> ability to see that the tool is deviating. Quote it accurately and declare the deviation
+> with its rationale.
+
+The strip now opens with the full sentence, and when the card recommends CONTINUE it adds a
+DECLARED DEPARTURE paragraph: the ADA statement covers other oral glucose-lowering agents,
+which includes DPP-4 inhibitors; ABSMC continues one for minor procedures deliberately, on
+minimal hypoglycemia risk, SAMBA 2024 listing them as "take", and ADA's own endorsement of
+DPP-4 inhibitor use for mild to moderate inpatient hyperglycemia.
+
+**Left alone, needs Mark:** the same strip still ends its base text with "ABSMC default is a
+conservative institutional hold, not a universal guideline mandate." Directly beneath a
+quoted guideline mandate that is now printed in full, that clause reads as self-contradictory.
+It is Mark's deliberate institutional framing and the same ground as the recorded LOW finding
+that the DPP-4 and metformin strips understate ADA, so it was not changed unilaterally. One
+sentence, one decision.
+
 Every output string derived from the source carries its R-number. Every output that does not is marked as an institutional extension.
 
 ---

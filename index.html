@@ -1164,9 +1164,12 @@ function getDPP4iResults(ctx, details, selected) {
     patientMorning = 'Do NOT take this medication on the morning of surgery.';
   }
   const drugNames = allDrugs.map(d => `${d.name} (${d.brand})`);
-  let evidence = 'Source: ADA Standards of Care 2026; SAMBA Updated Consensus 2024 (Anesth Analg 2024;139:459-77) states DPP-4 inhibitors have a low perioperative hypoglycemia risk and may be continued preoperatively; its medication table lists them as "take". The AHA/ACC 2024 perioperative guideline does not address DPP-4 inhibitors. ABSMC default is a conservative institutional hold, not a universal guideline mandate.';
+  let evidence = 'ADA Standards of Care 2026, section 16 perioperative practice point 4, states: "Metformin and other oral glucose-lowering agents should be held on the day of surgery or procedure." Other sources: SAMBA Updated Consensus 2024 (Anesth Analg 2024;139:459-77) states DPP-4 inhibitors have a low perioperative hypoglycemia risk and may be continued preoperatively; its medication table lists them as "take". The AHA/ACC 2024 perioperative guideline does not address DPP-4 inhibitors. ABSMC default is a conservative institutional hold, not a universal guideline mandate.';
+  if (badge === 'CONTINUE') {
+    evidence += ' DECLARED DEPARTURE: the ADA statement above covers other oral glucose-lowering agents, which includes DPP-4 inhibitors, so continuing one for a minor procedure departs from it. ABSMC does so deliberately - DPP-4 inhibitors carry minimal hypoglycemia risk, SAMBA 2024 lists them as "take" on the day of surgery, and ADA itself endorses DPP-4 inhibitor use for mild to moderate inpatient hyperglycemia. The departure is recorded in the clinical decision record; the guideline text is not narrowed to hide it.';
+  }
   if (metComboDrugs.length) {
-    evidence += ' This card also reports combination pills containing metformin. ADA Standards of Care 2026 (perioperative practice points, item 4) states that metformin should be held on the day of surgery or procedure, and this app holds metformin in every scenario, so those pills are held even where a DPP-4 inhibitor alone would continue. SAMBA 2024 is more permissive for metformin specifically: its Table 2 says take unless eGFR is below 45 mL/min and/or the procedure includes nephrotoxic agents such as contrast dye. The ABSMC hold is the conservative choice between them.';
+    evidence += ' This card also reports combination pills containing metformin. Metformin is held in every scenario in this app, consistent with the ADA statement above, so those pills are held even where a DPP-4 inhibitor alone would continue. SAMBA 2024 is more permissive for metformin specifically: its Table 2 says take unless eGFR is below 45 mL/min and/or the procedure includes nephrotoxic agents such as contrast dye. The ABSMC hold is the conservative choice between them.';
   }
   let resumption = 'Resume when tolerating oral intake postoperatively. No monitoring required.';
   const metOverlay = getMetforminComboOverlay(details, metComboDrugs);
@@ -1232,6 +1235,14 @@ function getMetforminDisposition(details) {
         flags.push({ type: 'warn', text: 'Contrast exposure status not confirmed. If patient is receiving iodinated contrast within 48h of surgery, hold metformin regardless of eGFR.' });
       }
     }
+  }
+  // Fires alongside whichever branch above already ran. KDIGO 2024 does not ask
+  // for a pre-emptive stop above eGFR 30 with no AKI and intravenous contrast;
+  // FDA labeling does ask for one in the 30-60 band, and for intra-arterial
+  // contrast at any eGFR. The app does not collect contrast route or AKI status,
+  // so this states the band it can identify and leaves the rest to the clinician.
+  if (contrast === true && !isNaN(eGFR) && eGFR >= 30 && eGFR < 60) {
+    flags.push({ type: 'warn', text: `Contrast timing: at eGFR ${eGFR}, FDA labeling calls for metformin to be discontinued at or before the contrast study, not only on the morning of surgery. If the contrast is given before the day of surgery, the day-of hold does not accomplish this. Recheck eGFR 48 h after the study and restart if renal function is stable. An intra-arterial study, or acute kidney injury, warrants the same approach at any eGFR.` });
   }
   const renalRestricted = renalReason !== null;
   const evidence = `Source: ADA Standards of Care 2026; AHA/ACC 2024 Class 2a (LOE C-LD): perioperative continuation is reasonable in patients with diabetes or impaired glucose tolerance; the guideline states no renal-function condition. ABSMC default is a conservative day-of-surgery hold. Perioperative metformin review 2025: lactic acidosis risk not well-supported by evidence. FDA labeling: contraindicated below eGFR 30; do not initiate at eGFR 30-45.`;
