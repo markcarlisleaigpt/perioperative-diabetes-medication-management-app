@@ -1380,7 +1380,7 @@ function getTZDResults(ctx, details, selected) {
   if (hasHF) {
     flags.push({ type: 'alert', text: 'Heart failure present: Thiazolidinediones cause fluid retention and may worsen heart failure. Monitor closely postoperatively. Consult cardiology or endocrinology before restarting. Do not resume if new or worsening edema or fluid overload develops.' });
   }
-  const evidence = 'Source: ADA Standards of Care 2026. SAMBA 2024 and CCJM guideline comparison (2025) note continuation is reasonable given low hypoglycemia risk and slow offset; ABSMC default is a conservative institutional hold. Fluid retention risk: caution in HF per prescribing information.';
+  const evidence = 'Source: ADA Standards of Care 2026, section 16 perioperative practice point 4, states: "Metformin and other oral glucose-lowering agents should be held on the day of surgery or procedure", which covers thiazolidinediones. SAMBA 2024 and the CCJM guideline comparison (2025) note continuation is reasonable given low hypoglycemia risk and slow offset; the day-of-surgery hold is backed by the ADA statement and is also longstanding ABSMC practice. Fluid retention risk: caution in HF per prescribing information.';
   let resumption = 'Resume when tolerating oral intake. Monitor for fluid retention, edema, and worsening HF symptoms. Verify with surgeon.' + (hasHF ? ' Formal cardiology/endocrinology review recommended before restarting in HF patients.' : '');
   const dpp4Combo = drugs.filter(d => d.combo && d.combo.includes('dpp4i'));
   if (dpp4Combo.length) {
