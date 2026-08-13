@@ -178,27 +178,37 @@ Note the DKA-history limb was previously dropped and has been restored; it is th
 | Question | Unknown or blank resolves to | Why |
 |---|---|---|
 | More than 12 h without carbohydrate | **Cannot be left blank — REQUIRED** | Always answerable; it is a clinical judgment about the case, not a lookup. It forces a hold in every branch, so a blank would generate a recommendation from an unanswered question. The app refuses to generate until it is answered. |
-| History of DKA | **HOLD** | Cannot be verified in clinic; conservative default appropriate. **See the gap noted below: this holds for the explicit "Unknown" answer, but a never-answered question does not currently hold.** |
+| History of DKA | **HOLD** | Cannot be verified in clinic; conservative default appropriate. Both the explicit "Unknown" answer and a never-answered question hold - see below. |
 | Ketogenic diet | **NOT ketogenic** | Patients on these diets know it; strict forms are uncommon outside bariatric preparation. |
 | Expected surgery > 3 h | **NO — no trigger** | Not required. A blank permits continuation; the fasting question carries the decision. |
 | Most recent A1c > 8% ("Not available") | **No trigger — permits continuation** | A missing A1c is common. Holding a patient for an absent lab rather than an abnormal one is too costly a default. The clinician view should note that A1c was not supplied, so the omission is visible rather than silent. |
 
 Recorded because the differences will otherwise look like inconsistencies.
 
-#### GAP found 2026-08-13: blank is not the same as Unknown for DKA history
+#### Blank now resolves like Unknown for DKA history (RESOLVED 2026-08-13)
 
-The table above says "Unknown **or blank**" resolves to HOLD for DKA history. The code
-implements the explicit **Unknown** answer only. `dkaHistory` starts as `null`, the question
-is not in the required-field check, and `null` fires no trigger - so a clinician who never
-touches the DKA question gets a CONTINUE where this record says they should get a HOLD.
+The table above has always said "Unknown **or blank**" resolves to HOLD. The code implemented
+the explicit **Unknown** answer only: `dkaHistory` starts as `null`, the question is not in the
+required-field check, and `null` fired no trigger - so a clinician who never touched the DKA
+question got a CONTINUE where this record said HOLD. Found while verifying unrelated work.
 
-Verified in the browser 2026-08-13: minor procedure, T2DM, no other triggers - `unknown`
-holds with the trigger "DKA history unknown", `null` continues with no trigger.
+**Mark 2026-08-13: keep Unknown holding, and make blank hold too.** A skipped question must not
+silently produce a continue. A clinician who actually knows the patient has no DKA history
+answers No and gets the continue; that is what the No answer is for.
 
-**Pre-existing, not introduced by any of the 2026-08 work. Under-holds rather than
-over-holds, so it is the direction that matters. Awaiting Mark: either require the question
-like the fasting one, or treat blank as Unknown.**
+The trigger label distinguishes the two cases, so the clinician view shows which happened:
+"DKA history unknown" versus "DKA history question not answered - treated as unknown".
 
+> **Discussed and not adopted:** letting Unknown continue with a clinician-view note that the
+> history was never established. Considered 2026-08-13 on the initial understanding that the app
+> already behaved that way; it does not, and reversing it would continue an SGLT2 inhibitor in a
+> patient whose status on the most predictive risk factor in the source is unconfirmed. The
+> conservative default stands.
+
+**The asymmetry with the other blanks is deliberate and unchanged.** A missing A1c, an
+unanswered surgical-duration question and an unanswered ketogenic-diet question all still permit
+continuation. Verified 2026-08-13. DKA history is treated differently because it cannot be
+reconstructed later and because the source ranks it highest.
 
 Note on the >3 h rule: it was briefly considered whether >3 h should stop being decisive when the fasting answer is No. Rejected — if a case is expected to exceed 3 h the drug is held, independent of the fasting answer. The two triggers remain independent (§2b).
 

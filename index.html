@@ -815,9 +815,20 @@ function getSGLT2iResults(ctx, details, selected) {
       if (details.dkaHistory === true) {
         // INSTITUTIONAL EXTENSION - no R-number.
         overrideTriggers.push({ label: 'history of DKA', institutional: true });
-      } else if (details.dkaHistory === 'unknown') {
-        // INSTITUTIONAL EXTENSION - no R-number. Unknown DKA history resolves to HOLD (conservative default).
-        overrideTriggers.push({ label: 'DKA history unknown', institutional: true });
+      } else if (details.dkaHistory === 'unknown' || details.dkaHistory === null || details.dkaHistory === undefined) {
+        // INSTITUTIONAL EXTENSION - no R-number. Unknown DKA history resolves to HOLD
+        // (conservative default): it cannot be verified in clinic, and it is the most
+        // predictive item on the source's own risk-factor footnote. A question that was
+        // never answered resolves the same way - decision record section 2c has always
+        // said "Unknown OR BLANK", and treating blank as no-trigger meant a skipped
+        // question silently produced a continue. Mark, 2026-08-13.
+        // The label distinguishes the two so the clinician can see which happened.
+        overrideTriggers.push({
+          label: details.dkaHistory === 'unknown'
+            ? 'DKA history unknown'
+            : 'DKA history question not answered - treated as unknown',
+          institutional: true,
+        });
       }
       if (details.a1cOver8 === true) {
         // INSTITUTIONAL EXTENSION - no R-number.
