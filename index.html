@@ -815,20 +815,17 @@ function getSGLT2iResults(ctx, details, selected) {
       if (details.dkaHistory === true) {
         // INSTITUTIONAL EXTENSION - no R-number.
         overrideTriggers.push({ label: 'history of DKA', institutional: true });
-      } else if (details.dkaHistory === 'unknown' || details.dkaHistory === null || details.dkaHistory === undefined) {
-        // INSTITUTIONAL EXTENSION - no R-number. Unknown DKA history resolves to HOLD
-        // (conservative default): it cannot be verified in clinic, and it is the most
-        // predictive item on the source's own risk-factor footnote. A question that was
-        // never answered resolves the same way - decision record section 2c has always
-        // said "Unknown OR BLANK", and treating blank as no-trigger meant a skipped
-        // question silently produced a continue. Mark, 2026-08-13.
-        // The label distinguishes the two so the clinician can see which happened.
-        overrideTriggers.push({
-          label: details.dkaHistory === 'unknown'
-            ? 'DKA history unknown'
-            : 'DKA history question not answered - treated as unknown',
-          institutional: true,
-        });
+      } else if (details.dkaHistory !== false) {
+        // INSTITUTIONAL EXTENSION - no R-number. A blank DKA question HOLDS, and this is
+        // the one blank that does. The other three - A1c, surgical duration, ketogenic
+        // diet - all permit continuation when blank. The asymmetry is deliberate: those
+        // three fail toward continuing a drug in someone whose risk nobody measured,
+        // while this one fails toward continuing an SGLT2 inhibitor in the patient the
+        // source flags hardest. DKA history is the most predictive item on its
+        // risk-factor footnote and cannot be reconstructed after the fact.
+        // A clinician who knows the patient has no history answers No and gets a
+        // continue; that is what the No answer is for. Mark, 2026-08-13.
+        overrideTriggers.push({ label: 'DKA history not established', institutional: true });
       }
       if (details.a1cOver8 === true) {
         // INSTITUTIONAL EXTENSION - no R-number.
@@ -844,6 +841,13 @@ function getSGLT2iResults(ctx, details, selected) {
     // "Source-override notice".
     // Split the firing triggers by provenance so the clinician view can say which
     // holds rest on the guideline and which are ABSMC additions.
+    // Blank answers and the default each one applied, disclosed once in the clinician
+    // view rather than printed under every intake question.
+    const permissiveBlanks = [];
+    if (details.a1cOver8 === null || details.a1cOver8 === undefined) permissiveBlanks.push('most recent A1c (treated as not over 8%)');
+    if (details.surgeryOver3h === null || details.surgeryOver3h === undefined) permissiveBlanks.push('expected surgical duration (treated as under 3 h)');
+    if (details.ketoDiet === null || details.ketoDiet === undefined) permissiveBlanks.push('ketogenic or very-low-carbohydrate diet (treated as not on one)');
+    const dkaBlank = details.dkaHistory !== true && details.dkaHistory !== false;
     const sourceTriggers = overrideTriggers.filter(t => t.institutional === false);
     const institutionalTriggers = overrideTriggers.filter(t => t.institutional !== false);
     // Announce an institutional departure only when the institution is genuinely
@@ -865,6 +869,8 @@ function getSGLT2iResults(ctx, details, selected) {
       sourceOverrideNotice,
       timingDeparture,
       a1cSupplied: details.a1cOver8 !== null,
+      permissiveBlanks,
+      dkaBlank,
       finalRecommendation,
       isFixedHold,
     };
@@ -2092,10 +2098,6 @@ class PerioperativeDMApp {
               <div class="check-label ${details.dkaHistory===false?'selected':''}" onclick="window.app.updateDetails('dkaHistory',false)">
                 <span class="custom-radio"></span> No
               </div>
-              <div class="check-label ${details.dkaHistory==='unknown'?'selected':''}" onclick="window.app.updateDetails('dkaHistory','unknown')">
-                <span class="custom-radio"></span> Unknown
-              </div>
-            </div>
             <hr class="divider">
             <div class="question" style="font-size:14px;">Is the patient on a ketogenic or very-low-carbohydrate diet (under 50 g carbohydrate per day)?</div>
             <div class="btn-row">
@@ -2361,9 +2363,13 @@ class PerioperativeDMApp {
     if (p.timingDeparture) {
       rows.push(`<div class="prov-override"><span class="prov-key">Timing departure</span> R3b stops the drug at the start of the very-low-carbohydrate diet, potentially about two weeks preoperatively. ABSMC holds the same 72/96 h as any other SGLT2i hold, because the clinic cannot rely on seeing these patients before the diet begins.</div>`);
     }
-    // 5. Note an unsupplied A1c so the omission is visible rather than silent.
-    if (!p.a1cSupplied) {
-      rows.push(`<div class="prov-dim">A1c was not supplied. An unavailable A1c does not trigger a hold.</div>`);
+    // 5. Blank answers, and the default each one applied. Stated here rather than
+    //    under every intake question, and silent when nothing was left blank.
+    if (p.permissiveBlanks && p.permissiveBlanks.length) {
+      rows.push(`<div class="prov-dim">Left blank, and defaulted in the direction that permits continuation: ${p.permissiveBlanks.map(esc).join("; ")}.</div>`);
+    }
+    if (p.dkaBlank) {
+      rows.push(`<div class="prov-override"><span class="prov-key">DKA history not established</span> This question was not answered, so a history of diabetic ketoacidosis has neither been confirmed nor excluded. Unlike the other unanswered questions, this one holds the medication rather than permitting continuation: DKA history is the most predictive risk factor for euglycemic ketoacidosis in the source, and it cannot be reconstructed later. If the patient has no history, answer No and the medication continues.</div>`);
     }
     // 6. Box/Figure discrepancy footnote, shown wherever an affected R-number is
     //    printed -- as the base recommendation OR as a source-backed trigger.
