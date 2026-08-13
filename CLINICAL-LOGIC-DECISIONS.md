@@ -38,7 +38,11 @@ Where the source is silent, that is stated rather than papered over.
 | **No** T2DM | CONTINUE | R1 |
 | T2DM **without** HF or CKD | HOLD | R3a, grade B |
 
-**Interim safeguard:** a clinician-facing flag instructs the NPs to confirm with CT surgery until written confirmation is received that continuing per guideline is acceptable. Message sent to the cardiac team 2026-07-31, read but not yet answered. **Remove this flag once CT surgery confirms.**
+**Adopted 2026-08-12 (Mark).** The interim clinician-facing flag telling the NPs to confirm
+cardiac cases with CT surgery has been **removed from the app**. The three-way cardiac split
+above is now the standing recommendation, with no double-check notice attached. The flag ran
+from 2026-07-31, when the question went to the cardiac team, until Mark elected to adopt the
+guideline pathway rather than keep waiting on a written reply that never came.
 
 Note: this replaced a prior hold-for-all-cardiac-patients rule. The source continues in two of three cardiac sub-populations, and continuation there is grade B — the strongest grade in the Box — because HF/CKD patients derive cardiorenal benefit. The paper cites increased major perioperative complications in patients who withheld (25% vs 7.6%, P=0.04). Holding all cardiac patients carried a real safety cost, not merely patient burden.
 
@@ -235,7 +239,31 @@ Only for SGLT2i patients. This is not general preoperative advice; patients not 
 
 The clinical reviewer recommended suppressing this instruction for bariatric/VLCD patients and for T1DM. **Both recommendations were overruled, on factual grounds:**
 
-- **Bariatric / VLCD.** The reviewer assumed a preoperative very-low-carbohydrate diet forbids carbohydrate liquids and that instructing them would countermand the surgeon's liver-reduction diet. **This is factually incorrect at ABSMC** — bariatric patients are permitted clear carbohydrate drinks preoperatively and in fact receive a carbohydrate-loading drink from this clinic. The reviewer was reasoning from the paper without knowledge of local practice.
+- **Bariatric / VLCD.** The reviewer assumed a preoperative very-low-carbohydrate diet forbids
+  carbohydrate liquids and that instructing them would countermand the liver-reduction diet.
+  That reasoning came from the paper without knowledge of local practice, and the instruction
+  stands - but the local practice was recorded inaccurately here until 2026-08-12 and the
+  correct version matters, because it makes this a deliberate exception rather than a
+  restatement of what the clinic already does.
+
+  **What ABSMC actually does (Mark, 2026-08-12): bariatric patients receive a preoperative
+  carbohydrate drink, EXCEPT those with diabetes.** The earlier entry said only that bariatric
+  patients receive one, which is true of the non-diabetic majority and false for exactly the
+  population this app serves.
+
+  **The app therefore makes an exception to that exception, deliberately.** A bariatric patient
+  who has diabetes AND is on an SGLT2 inhibitor still receives the carbohydrate instruction,
+  because euglycemic ketoacidosis is the governing risk for that patient and it is the reason
+  the instruction exists at all. Mark confirmed on 2026-08-12 that this is the intended
+  behavior. **Verified in the browser the same day:** bariatric with type 2 diabetes, bariatric
+  with type 1 diabetes, and bariatric without diabetes all receive the instruction when an
+  SGLT2 inhibitor is selected, and no patient receives it otherwise.
+
+  Note this narrows what the reviewer was originally overruled on. The instruction is not
+  "what the clinic already gives these patients"; it is a considered departure from the
+  clinic's own diabetes carve-out, made for a drug-specific reason. It sits alongside the
+  Endocrine Society Recommendation 8.1 departure in section 10 and is disclosed for the same
+  reason.
 - **Ketogenic diet, non-bariatric.** Uncommon, and self-selected. A short deviation for perioperative carbohydrate is acceptable and will be recommended.
 - **Type 1 diabetes.** These patients should not be on an SGLT2i, but if one is, the carbohydrate drink is recommended **strongly**, and the instruction states explicitly that it is recommended *because they are on an SGLT2 inhibitor and to mitigate the risk of euglycemic DKA*.
 
@@ -632,7 +660,7 @@ local-practice grounds and are not revisited by this recommendation.
 
 1. Institutional definition of "minor procedure" vs "major noncardiac". The source defines neither.
 2. Whether "3 days" in the source means 72 h or 3 missed doses — unresolvable from the source; 72 h adopted.
-3. CT surgery confirmation on the cardiac change; remove the NP double-check flag when received.
+3. ~~CT surgery confirmation on the cardiac change.~~ **CLOSED 2026-08-12** - Mark adopted the guideline pathway without the written reply; the NP double-check flag is removed from the app.
 4. 2024 AGA/ASA/ASMBS multisociety GLP-1 guidance — cited by the app, **not on disk, not read**.
 5. 2023 ASA modular fasting update — needed to cite carbohydrate clear liquids correctly. **Not on disk.**
 6. Three remaining uncommitted 7/26 edits still need clinical sign-off (the morning-of string is now endorsed; the conservative-hold-when-unanswered default, the citation change, and the toggle relabeling are not).

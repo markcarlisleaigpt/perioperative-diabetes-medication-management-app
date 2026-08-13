@@ -699,7 +699,6 @@ function getSGLT2iResults(ctx, details, selected) {
   let spaqiProvenance = null;
   if (mode === 'SPAQI') {
     let baseRecommendation, rNumber, rNumberSource, institutionalBase;
-    let ctSurgeryConfirmPending = false;
     let timingDeparture = false;
     const isFixedHold = (dmType === 'T1DM') || (details.ketoDiet === true) || (sType === 'bariatric');
     if (dmType === 'T1DM') {
@@ -725,7 +724,6 @@ function getSGLT2iResults(ctx, details, selected) {
       timingDeparture = (dmType === 'T2DM'); // we hold 72/96 h, R3b says stop at diet onset
     } else if (sType === 'cardiac') {
       // Panel d, cardiac surgery — three-way split by diabetes/HF/CKD status.
-      ctSurgeryConfirmPending = true; // interim safeguard pending CT surgery confirmation (see decision doc section 1)
       if (dmType === 'T2DM' && (hasHF || hasCKD)) {
         // T2DM with HF or CKD -> continue (R1, Box p.12, grade B) — cardiorenal benefit.
         baseRecommendation = 'CONTINUE'; rNumber = 'R1'; rNumberSource = 'Box p.12'; institutionalBase = false;
@@ -828,7 +826,6 @@ function getSGLT2iResults(ctx, details, selected) {
       sourceOverrideNotice,
       timingDeparture,
       a1cSupplied: details.a1cOver8 !== null,
-      ctSurgeryConfirmPending,
       finalRecommendation,
       isFixedHold,
     };
@@ -916,8 +913,8 @@ function getSGLT2iResults(ctx, details, selected) {
       }
     } else if (sType === 'cardiac') {
       note = (dmType === 'T2DM')
-        ? `Continuation is recommended (${spaqiProvenance.rNumber}) given HF or CKD (cardiorenal benefit). For cardiac surgery, eDKA monitoring is recommended irrespective of hold or continue. Pending CT surgery confirmation \u2014 see clinician flag.`
-        : `Continuation is recommended (${spaqiProvenance.rNumber}) for cardiac surgery in a patient without diabetes. For cardiac surgery, eDKA monitoring is recommended irrespective of hold or continue. Pending CT surgery confirmation \u2014 see clinician flag.`;
+        ? `Continuation is recommended (${spaqiProvenance.rNumber}) given HF or CKD (cardiorenal benefit). For cardiac surgery, eDKA monitoring is recommended irrespective of hold or continue.`
+        : `Continuation is recommended (${spaqiProvenance.rNumber}) for cardiac surgery in a patient without diabetes. For cardiac surgery, eDKA monitoring is recommended irrespective of hold or continue.`;
     } else if (dmType === 'T2DM' && sType === 'majorNoncardiac') {
       note = (spaqiProvenance.rNumber === 'R1')
         ? 'Continuation is recommended (R1) given HF or CKD (cardiorenal benefit).'
@@ -2321,10 +2318,6 @@ class PerioperativeDMApp {
     // 3. Timing departure on the T2DM keto/bariatric limb.
     if (p.timingDeparture) {
       rows.push(`<div class="prov-override"><span class="prov-key">Timing departure</span> R3b stops the drug at the start of the very-low-carbohydrate diet, potentially about two weeks preoperatively. ABSMC holds the same 72/96 h as any other SGLT2i hold, because the clinic cannot rely on seeing these patients before the diet begins.</div>`);
-    }
-    // 4. Cardiac interim safeguard, removed once CT surgery confirms.
-    if (p.ctSurgeryConfirmPending) {
-      rows.push(`<div class="prov-override"><span class="prov-key">Confirm with CT surgery</span> Cardiac guidance follows the published algorithm and is pending written confirmation from cardiac surgery. Verify before issuing.</div>`);
     }
     // 5. Note an unsupplied A1c so the omission is visible rather than silent.
     if (!p.a1cSupplied) {
