@@ -585,6 +585,49 @@ cards were re-rendered and checked.
 The Endocrine Society 2022 (Korytkowski) citation on the insulin pump card. The PDF is on
 disk; the claim has never been verified.
 
+## 10. Endocrine Society 2022 (Korytkowski) checked (2026-08-12)
+
+The app cited "Endocrine Society inpatient hyperglycemia guideline" once, on the insulin pump
+card, with no recommendation number and no scope. Checked against
+`Endocrine Society 2022 Korytkowski ... JCEM 107-2101.pdf` directly.
+
+**The pump claim is supported, but was cited without its conditions.** Recommendation 3.1
+suggests continuing insulin pump therapy rather than switching to subcutaneous basal-bolus,
+**in hospitals with access to personnel with expertise in insulin pump therapy**; where that
+expertise is not accessible and anticipated length of stay exceeds 1 to 2 days, it suggests
+transitioning to scheduled basal-bolus before the pump is discontinued. Conditional
+recommendation, low-certainty evidence. It is scoped to **admission for noncritical illness,
+not to intraoperative management**, and its remarks exclude patients with impaired
+consciousness, inability to adjust pump settings, critical illness, DKA or a hyperosmolar
+state from inpatient pump use. All of that is now on the card. No behavior change.
+
+### The guideline also contains a direct recommendation against this app's carbohydrate drink
+
+Recommendation 8.1, found while checking the pump citation:
+
+> *"In adult patients with T1D, T2D, and other forms of diabetes undergoing surgical
+> procedures, we suggest not administering CHO-containing oral fluids preoperatively."*
+> Conditional recommendation, very low certainty evidence.
+
+Its stated reasoning: the reduced insulin resistance sought by ERAS carbohydrate loading is
+not expected in diabetes, there is a hyperglycemia and case-cancellation harm, and most
+published trials excluded patients with diabetes.
+
+This is the **third** source pointing away from preoperative carbohydrate in diabetes,
+alongside the ASA 2023 population exclusion (section 5) and the absence of any SPAQI support
+for a day-of-surgery drink. It is also the most explicit of the three.
+
+**Mark's decision 2026-08-12: declare the departure, keep the behavior.** The clinician
+carbohydrate text now quotes Rec 8.1, states its grade and certainty, and gives the reason
+for departing: the recommendation addresses carbohydrate loading for insulin resistance and
+does not address mitigating euglycemic ketoacidosis in a patient on an SGLT2 inhibitor, which
+is the purpose here - and this app gives the instruction only to patients on an SGLT2
+inhibitor. **The patient sheet is unchanged.** Same principle Mark set for the ADA sentence
+the same day: quote the conflict accurately and declare the departure rather than omit it.
+
+This does not reopen section 5. The bariatric and T1DM suppression questions were settled on
+local-practice grounds and are not revisited by this recommendation.
+
 ## Open items
 
 1. Institutional definition of "minor procedure" vs "major noncardiac". The source defines neither.
