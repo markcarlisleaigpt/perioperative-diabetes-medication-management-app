@@ -17,7 +17,7 @@ Where the source is silent, that is stated rather than papered over.
 
 ## Primary source
 
-`G:\My Drive\PCMD\Perioperative Diabetes App - Source Articles\`
+`G:\My Drive\PCMD\Projects\Perioperative-Diabetes-App\Source-Articles\`
 - `British Journal of Anaesthesia - article in press (1).pdf` — Oprea et al., SPAQI consensus. R1–R10 Box on p.12; Figure 2 reproduced p.18.
 - `SGLT2 SPAQI Algorithm Part 1.jpg.pdf` — Figure 2 panels a, b.
 - `SGLT2 SPAQI Algorithm Part 2.jpg.pdf` — Figure 2 panels c, d.
