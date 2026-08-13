@@ -93,13 +93,13 @@ These override **every** branch above, including the unconditional-continue bran
 
 ### 2a. More than 12 hours without carbohydrate — INSTITUTIONAL (threshold), SOURCE (concept)
 
-**One clinician-judgment question**, covering the entire perioperative carbohydrate-free window — from last preoperative carbohydrate through expected *postoperative* resumption. Exceeds 12 h → HOLD.
+**One clinician-judgment question** (with one computed exception, below - a GLP-1 or tirzepatide cutoff earlier than 2 h before arrival satisfies it outright), covering the entire perioperative carbohydrate-free window — from last preoperative carbohydrate through expected *postoperative* resumption. Exceeds 12 h → HOLD.
 
 > **Rationale for a single universal threshold.** The source never numerically defines "prolonged fasting." HF/CKD patients plausibly tolerate a longer carbohydrate-free interval — the continue recommendations are strongest in that group — but no threshold is given for them. Rather than invent an unsourced number (18 h? 24 h?), one 12-hour threshold applies to all patients. **Where the source declines to differentiate, the app does not manufacture a differentiation.**
 
 Source support for the concept and the number: R1 and R2 are scoped to *"patients not expected to fast from carbohydrates >12 h preoperatively"*; footnote a to panels a, b, d uses *">12 h"*. Note the source's 12 h refers to the *preoperative* fast; the hold trigger in R3a/R4 is *anticipated postoperative fasting*, left undefined. We apply one number to the combined window.
 
-**Why this is not computed.** Postoperative resumption timing is clinical judgment — two cases finishing at 1 p.m. can resume carbohydrate three hours apart, and nothing in the app knows which is which.
+**Why this is not computed in general.** Postoperative resumption timing is clinical judgment — two cases finishing at 1 p.m. can resume carbohydrate three hours apart, and nothing in the app knows which is which.
 
 #### Provenance of this trigger is branch-dependent (revised 2026-08-04)
 
@@ -117,9 +117,39 @@ R3a and R4 recommend discontinuing on anticipated prolonged fasting, so calling 
 
 The 12-hour threshold itself remains INSTITUTIONAL in every branch.
 
-**Computed aid (display only, decides nothing):** for GLP-1 co-treated patients only, show the preoperative half — NPO cutoff plus arrival time — so the clinician isn't doing that arithmetic while estimating the postoperative side. Not shown for other patients, whose cutoff is typically 2 h before arrival and whose preoperative fast therefore never approaches 12 h on its own.
+**Computed aid (display only, decides nothing on its own):** for GLP-1 co-treated patients only, show the preoperative half — NPO cutoff plus arrival time — so the clinician isn't doing that arithmetic while estimating the postoperative side. Not shown for other patients, whose cutoff is typically 2 h before arrival and whose preoperative fast therefore never approaches 12 h on its own.
 
-**Cross-class coupling, deliberate:** a GLP-1 patient's NPO cutoff (default midnight; options 8/6/4/2 h) feeds the SGLT2i hold decision. Midnight cutoff plus an afternoon case already exceeds 12 h before any postoperative time is added, so co-treated patients trip this rule far more often.
+**Cross-class coupling is now COMPUTED, not left to the clinician (Mark, 2026-08-13).**
+For a patient co-treated with a GLP-1 RA or tirzepatide, the prolonged carbohydrate-free
+window stops being a judgment call: their own fasting cutoff settles it.
+
+| GLP-1 / tirzepatide cutoff | SGLT2 inhibitor |
+|---|---|
+| After midnight | **Trigger satisfied - HOLD** |
+| 8 h before arrival | **Trigger satisfied - HOLD** |
+| 6 h before arrival | **Trigger satisfied - HOLD** |
+| 4 h before arrival | **Trigger satisfied - HOLD** |
+| 2 h before arrival | No automatic trigger; the clinician's answer decides, as for everyone else |
+
+The 2 h cutoff is the only one that leaves a co-treated patient where every other patient
+sits - clear liquids to 2 h before arrival - so the ordinary judgment applies there and
+nowhere else.
+
+**This overrides an explicit No from the clinician.** The rule exists because the cutoff is
+a fact about the patient's fasting plan, not an opinion about it.
+
+> **The certainty rests on the POSTOPERATIVE half of the window.** Midnight to an 07:30
+> arrival is 7.5 h, not 12. The rule clears 12 h only once time to incision and the
+> postoperative stretch before carbohydrate resumes are added - which is exactly the combined
+> window this section's question asks about. Do not "correct" this rule later by checking the
+> preoperative clock alone; the same caution is written into the code comment.
+
+**Implemented by satisfying the existing trigger, not by adding a parallel one.** The
+provenance already built and reviewed therefore applies unchanged: R3a for T2DM and R4 for
+non-diabetics in major noncardiac surgery, institutional elsewhere with the departure notice
+firing. The trigger label names the cutoff when the cutoff, rather than the clinician, is
+what fired it, so the clinician view never implies they answered a question they did not.
+Verified across all five cutoffs, both diabetes statuses, and both provenance branches.
 
 ### 2b. Expected surgical duration > 3 hours — INSTITUTIONAL EXTENSION
 
@@ -148,12 +178,27 @@ Note the DKA-history limb was previously dropped and has been restored; it is th
 | Question | Unknown or blank resolves to | Why |
 |---|---|---|
 | More than 12 h without carbohydrate | **Cannot be left blank — REQUIRED** | Always answerable; it is a clinical judgment about the case, not a lookup. It forces a hold in every branch, so a blank would generate a recommendation from an unanswered question. The app refuses to generate until it is answered. |
-| History of DKA | **HOLD** | Cannot be verified in clinic; conservative default appropriate. |
+| History of DKA | **HOLD** | Cannot be verified in clinic; conservative default appropriate. **See the gap noted below: this holds for the explicit "Unknown" answer, but a never-answered question does not currently hold.** |
 | Ketogenic diet | **NOT ketogenic** | Patients on these diets know it; strict forms are uncommon outside bariatric preparation. |
 | Expected surgery > 3 h | **NO — no trigger** | Not required. A blank permits continuation; the fasting question carries the decision. |
 | Most recent A1c > 8% ("Not available") | **No trigger — permits continuation** | A missing A1c is common. Holding a patient for an absent lab rather than an abnormal one is too costly a default. The clinician view should note that A1c was not supplied, so the omission is visible rather than silent. |
 
 Recorded because the differences will otherwise look like inconsistencies.
+
+#### GAP found 2026-08-13: blank is not the same as Unknown for DKA history
+
+The table above says "Unknown **or blank**" resolves to HOLD for DKA history. The code
+implements the explicit **Unknown** answer only. `dkaHistory` starts as `null`, the question
+is not in the required-field check, and `null` fires no trigger - so a clinician who never
+touches the DKA question gets a CONTINUE where this record says they should get a HOLD.
+
+Verified in the browser 2026-08-13: minor procedure, T2DM, no other triggers - `unknown`
+holds with the trigger "DKA history unknown", `null` continues with no trigger.
+
+**Pre-existing, not introduced by any of the 2026-08 work. Under-holds rather than
+over-holds, so it is the direction that matters. Awaiting Mark: either require the question
+like the fasting one, or treat blank as Unknown.**
+
 
 Note on the >3 h rule: it was briefly considered whether >3 h should stop being decisive when the fasting answer is No. Rejected — if a case is expected to exceed 3 h the drug is held, independent of the fasting answer. The two triggers remain independent (§2b).
 
@@ -219,19 +264,75 @@ Not a departure: the source says SGLT2i *"can be"* withheld on the day of the pr
 
 Only for SGLT2i patients. This is not general preoperative advice; patients not on an SGLT2i receive no such recommendation.
 
-**Content:** carbohydrate-containing **clear liquids**, patient's choice. Examples: apple juice, cranberry juice, sports drinks, soda. Excluded: anything milky or creamy.
+**Content:** carbohydrate-containing **clear liquids**, patient's choice. Named examples:
+clear juice without pulp, sports drinks, regular (non-diet) soda, and plain gelatin. Water,
+diet drinks, tea or coffee without milk and fat-free broth are permitted clear liquids but
+are named as **not** counting toward the carbohydrate, since broth and diet drinks are the
+two a patient is most likely to believe do.
 
-**Sugar-free exclusion — required wording.** The instruction must explicitly say to avoid **carbohydrate-free / sugar-free versions**. Every named example has a mass-market zero-carbohydrate twin in near-identical packaging (Diet Coke, Coke Zero, Gatorade Zero, G2, diet cranberry, no-sugar-added apple juice), and this population has been conditioned for years to choose exactly those. Without the exclusion, a patient drinks a zero-carbohydrate product, believes they have complied, receives no eDKA mitigation, and the omission is undetectable — the record shows the instruction was given. This is a silent-failure path, which is why the exclusion is mandatory rather than advisory.
+### An instruction at a moment, not a permission window (Mark, 2026-08-13)
 
-**No volume limit — for any patient, including GLP-1 co-treated.** Clear liquids are ad lib up to the applicable cutoff; after the cutoff, nothing. The app states no volume, target, or ceiling.
+The earlier wording - *"drink clear liquids that contain carbohydrate up until 2 hours before
+your arrival time"* - was a permission window, and it read as an invitation to drink sugary
+liquids through the days before surgery. That was never the intent. **Mark's correction: the
+point is to get carbohydrate in at a moment, close to surgery, for SGLT2 inhibitor patients
+specifically.**
 
-> **Rationale.** Existing practice permits clear liquids ad lib to the cutoff and gives no volume instruction to anyone. ASA fasting guidance likewise permits clear liquids to 2 h without imposing a volume ceiling. The clinical reviewer raised unbounded volume as a HIGH finding on gastric-residual grounds in GLP-1 patients; **considered and declined.** Either a patient may drink up to the cutoff or they may not — volume is not the lever being managed, and specifying amounts would depart from how every other patient in the clinic is instructed.
+The sheet now states the clinic's ordinary fasting rules and then adds one step. What each
+group receives:
 
-**Emphasis gradient: stronger for patients CONTINUING than for patients holding.** Consistent with the source's emphasis — the gram targets appear only in boxes whose primary instruction is *continue* (panels a and b), and are absent where the instruction is to stop (panels c and d). The source does not state this gradient in prose; it is inferred from where the targets are placed. Rationale: carbohydrate emphasis rides with the drug still being on board, and p.17 notes a washout of 4–5 half-lives largely mitigates eDKA risk in held patients.
+| Patient | Eating and drinking on this sheet |
+|---|---|
+| **Neither drug** | Nothing. A pointer to the Preoperative Clinic's own instructions, so there is nothing here to contradict Epic. |
+| **SGLT2 inhibitor, no GLP-1** | The clinic rules restated - solids stop 8 h before arrival, clear liquids until 2 h before, with examples - **plus** a carbohydrate-containing clear liquid as the LAST thing they drink, at about 2 h before arrival. |
+| **GLP-1, no SGLT2 inhibitor** | Unchanged rules, plus what counts as a clear liquid. |
+| **Both** | No timed drink. Some of the clear liquids taken across the 24 h diet should contain carbohydrate, and the last drink before the cutoff should be one of them. |
 
-**Do not name the clinic-supplied product.** Bariatric patients receive a carbohydrate drink from the clinic; the app must not issue instructions about that specific product.
+**Intervals only, never computed clock times.** Mark's choice: the lines cannot go stale if
+the surgery time moves, and the patient keeps the rule rather than only the answer.
 
-**Bounded by the strictest NPO cutoff** applying to that patient across all their medications. Midnight cutoff → no morning-of drink instructed. 2 h cutoff → permitted up to 2 h before.
+**The 8-hour solids rule and the 2-hour clear liquid rule are the clinic's, restated here,
+not invented by the app.** They are stated only for SGLT2 inhibitor patients, because those
+patients need the 2 h boundary named in order for the added instruction to make sense.
+
+**Nobody is asked to set an alarm.** For a dual-drug patient the drink is anchored to their
+last drink before the cutoff rather than to a clock, because a named time lands between 1 and
+5 am for several arrival-time and cutoff combinations - a 6 h cutoff before an 07:30 arrival
+is 01:30, an 8 h cutoff before a 12:30 arrival is 04:30. For an SGLT2-only patient the timed
+instruction is kept, with an explicit escape: if 2 h before arrival falls while they are
+asleep - a 05:30 arrival puts it at 03:30 - they drink before bed instead.
+
+**These instructions supersede the general clinic ones where they differ**, stated on the
+sheet for both SGLT2 inhibitor and GLP-1 patients. **Rollout risk Mark flagged:** the clinic
+also issues fasting instructions from Epic, and if both are printed they can disagree. One
+fix is to have Epic defer to this handout for these patients. **Not resolved; owned by Mark.**
+
+**Sugar-free exclusion - required wording.** The instruction must explicitly say that diet,
+zero-sugar and sugar-free versions do not count. Every named example has a mass-market
+zero-carbohydrate twin in near-identical packaging (Diet Coke, Coke Zero, Gatorade Zero, G2,
+diet cranberry, no-sugar-added apple juice), and this population has been conditioned for
+years to choose exactly those. Without the exclusion, a patient drinks a zero-carbohydrate
+product, believes they have complied, receives no eDKA mitigation, and the omission is
+undetectable - the record shows the instruction was given. This is a silent-failure path,
+which is why the exclusion is mandatory rather than advisory.
+
+**No volume limit - for any patient, including GLP-1 co-treated.** Clear liquids are ad lib
+up to the applicable cutoff; after the cutoff, nothing. The app states no volume, target, or
+ceiling. Note this survives the change from a permission window to an instruction: the
+patient is told to have a carbohydrate drink, not how much of one.
+
+**The emphasis gradient is RETIRED (2026-08-13).** The instruction previously read
+*"especially important because you are staying on this medicine"* versus *"important even
+though you are stopping"*, inferred from the source placing its gram targets only in
+continue-limbed panels. Mark's reason sentence replaces both: *"In people who take these
+medicines, going a long stretch without carbohydrate can cause acid to build up in the blood
+... This is true whether or not you are stopping it before surgery."* The gradient was
+dropped because "while taking it" invited a held patient to conclude the instruction did not
+apply to them, which is the opposite of the intent - the instruction has always gone to held
+and continuing patients alike.
+
+**Do not name the clinic-supplied product.** Bariatric patients receive a carbohydrate drink
+from the clinic; the app must not issue instructions about that specific product.
 
 **Explain the rationale** in both the clinician view and the patient sheet.
 
