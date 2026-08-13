@@ -754,7 +754,23 @@ function getSGLT2iResults(ctx, details, selected) {
     // different, source-driven reason and are not "overridden" by these.
     const overrideTriggers = [];
     if (!isFixedHold) {
-      if (details.prolongedFasting === true) {
+      // The prolonged carbohydrate-free window is normally a clinician judgment.
+      // For a patient co-treated with a GLP-1 RA or tirzepatide it stops being a
+      // judgment: their own fasting cutoff decides it. Anything earlier than 2 h
+      // before arrival makes the long carbohydrate-free stretch a certainty, so it
+      // satisfies this trigger regardless of what the clinician answered. Only the
+      // 2 h cutoff leaves them where every other patient sits - clear liquids to 2 h
+      // before arrival - and there the clinician's answer still decides.
+      //
+      // The certainty rests on the POSTOPERATIVE half of the window, not the
+      // preoperative half: midnight to an 07:30 arrival is only 7.5 h, and clears 12 h
+      // once time to incision and the stretch before carbohydrate resumes are added.
+      // Do not "correct" this rule by checking the preoperative clock alone.
+      // Mark, 2026-08-13; decision record section 2a.
+      const coIncretin = hasMedClass(selected, 'glp1') || hasMedClass(selected, 'tirzepatide');
+      const incretinCutoff = details.glp1NpoCutoff || 'midnight';
+      const cutoffForcesFast = coIncretin && incretinCutoff !== '2h';
+      if (details.prolongedFasting === true || cutoffForcesFast) {
         // Provenance depends on the branch. In MAJOR NONCARDIAC the source itself
         // recommends discontinuing on anticipated prolonged fasting: Box p.12 R3a
         // (T2DM), R4 (no T2DM). ELSEWHERE -- minor procedure, colonoscopy, cardiac --
@@ -764,15 +780,27 @@ function getSGLT2iResults(ctx, details, selected) {
         // recommends a hold. That hold is ours, so it is tagged institutional and
         // announces itself as a departure like any other institutional trigger.
         const fastingR = (sType === 'majorNoncardiac') ? (dmType === 'T2DM' ? 'R3a' : 'R4') : null;
+        const baseLabel = fastingR
+          ? 'anticipated >12 h without carbohydrate'
+          : 'anticipated >12 h without carbohydrate (guideline silent for this procedure type)';
+        // Name the cutoff when it, rather than the clinician, is what fired this.
+        const autoFast = cutoffForcesFast && details.prolongedFasting !== true;
+        const cutoffLabel = incretinCutoff === 'midnight'
+          ? 'nothing by mouth after midnight'
+          : `nothing by mouth ${incretinCutoff.replace('h', '')} h before arrival`;
         overrideTriggers.push({
-          label: fastingR ? 'anticipated >12 h without carbohydrate' : 'anticipated >12 h without carbohydrate (guideline silent for this procedure type)',
+          label: autoFast
+            ? `${baseLabel} - satisfied by GLP-1 or tirzepatide co-treatment with ${cutoffLabel}`
+            : baseLabel,
           institutional: !fastingR,
           rNumber: fastingR,
           // FINDING 2 [HIGH]: R3a/R4 are keyed to anticipated POSTOPERATIVE fasting,
           // while this app deliberately asks one combined pre- plus postoperative
           // question (decision record section 2a). Say so rather than printing a bare
           // R-number against a question that does not distinguish the two.
-          note: fastingR ? 'Box p.12. R3a/R4 address anticipated postoperative fasting; this app asks one combined pre- and postoperative question, and the 12 h threshold is institutional' : null,
+          note: (fastingR ? 'Box p.12. R3a/R4 address anticipated postoperative fasting; this app asks one combined pre- and postoperative question, and the 12 h threshold is institutional' : '')
+            + (autoFast ? `${fastingR ? '. ' : ''}Fired by the fasting cutoff rather than by the clinician's answer: only a 2 h cutoff leaves a co-treated patient in the same position as everyone else` : '')
+            || null,
         });
       }
       if (details.surgeryOver3h === true) {
