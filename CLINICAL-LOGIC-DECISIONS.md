@@ -188,7 +188,7 @@ Generated text must **never** cite R7 for a hold.
 | Trigger | Behavior | Notes |
 |---|---|---|
 | Any current insulin use | HOLD | **Derived from the medication list already selected** — not asked again. Adding/removing an insulin elsewhere changes the SGLT2i output; the clinician view must name insulin use as the trigger. |
-| History of DKA | HOLD | **Yes / No only.** A blank answer holds - see the blank-answer defaults below. |
+| History of DKA | HOLD | **Yes / No only**, and only an explicit **Yes** holds. A blank permits continuation, like the other three - reversed 2026-08-13, see below. |
 | Most recent A1c > 8% | HOLD | Existing boolean, relabeled **"Most recent A1c >8%?"**. Deliberately not a numeric field — avoids implying a staleness judgment the source explicitly declines to make. |
 
 Note the DKA-history limb was previously dropped and has been restored; it is the most predictive item on the footnote's list.
@@ -198,7 +198,7 @@ Note the DKA-history limb was previously dropped and has been restored; it is th
 | Question | Unknown or blank resolves to | Why |
 |---|---|---|
 | More than 12 h without carbohydrate | **Cannot be left blank — REQUIRED** | Always answerable; it is a clinical judgment about the case, not a lookup. It forces a hold in every branch, so a blank would generate a recommendation from an unanswered question. The app refuses to generate until it is answered. |
-| History of DKA | **HOLD when blank** | Cannot be verified in clinic and cannot be reconstructed later; conservative default appropriate. The only blank that holds - see below. |
+| History of DKA | **No trigger - permits continuation** | Reversed 2026-08-13. The rule that made it hold rested on a claim the source does not support. |
 | Ketogenic diet | **NOT ketogenic** | Patients on these diets know it; strict forms are uncommon outside bariatric preparation. |
 | Expected surgery > 3 h | **NO — no trigger** | Not required. A blank permits continuation; the fasting question carries the decision. |
 | Most recent A1c > 8% ("Not available") | **No trigger — permits continuation** | A missing A1c is common. Holding a patient for an absent lab rather than an abnormal one is too costly a default. The clinician view should note that A1c was not supplied, so the omission is visible rather than silent. |
@@ -214,11 +214,40 @@ Four questions can be left blank. Three default toward continuation; one does no
 | Most recent A1c >8% | treated as not over 8% | permits continuation |
 | Expected surgical duration >3 h | treated as under 3 h | permits continuation |
 | Ketogenic / very-low-carbohydrate diet | treated as not on one | permits continuation |
-| **History of DKA** | **treated as not established** | **HOLDS** |
+| **History of DKA** | **treated as no history** | **permits continuation** |
 
-**The asymmetry is deliberate.** The first three fail toward continuing a drug in someone whose
-risk nobody measured. The fourth fails toward continuing an SGLT2 inhibitor in the patient the
-source flags hardest. **Corrected 2026-08-13:** footnote a lists four risk factors - prolonged
+### REVERSED 2026-08-13: all four blanks now permit continuation (Mark)
+
+For most of 2026-08-13 a blank DKA question HELD, and it was the only blank that did. **That
+rule is withdrawn.** All four blanks now default toward continuation and are disclosed the same
+way, in one dim line in the clinician view. There is no longer any question in the pathway
+where leaving the intake untouched changes the recommendation.
+
+**Why it was withdrawn.** The rule rested entirely on the claim that DKA history was the most
+predictive item on the source's risk-factor footnote. **The source does not say that** (section
+11). It names an HbA1c >8%, insulin use and a prior DKA history together, unranked, and gives
+an effect size for none of them - and the only one of the three it quantifies anywhere is
+HbA1c. With no magnitude to justify singling DKA history out, there is nothing left to support
+treating its blank differently from an A1c blank. Mark: *we don't have a magnitude of risk
+here.*
+
+**Note the direction this cuts.** Had the evidence gone the other way it would have argued for
+making A1c blanks hold too, not for keeping the DKA exception. The consistent position is the
+one now implemented: absent a measured magnitude, an unanswered risk-factor question does not
+generate a hold.
+
+**Why not force an answer instead.** The clinical review proposed making the question required,
+as the >12 h question is. Mark declined: the question's importance would have to be explained
+inside the question to make a forced answer meaningful, which bloats the intake. A clinician
+who skips it now reaches the clinician view, sees what was assumed, and can either go back and
+answer it or accept the default.
+
+**Insulin use is not in this set** because it is derived from the selected medication list and
+can never be blank.
+
+> **Superseded reasoning, kept for the record.** The withdrawn rule argued: the first three
+> blanks fail toward continuing a drug in someone whose risk nobody measured, while the fourth
+> fails toward continuing an SGLT2 inhibitor in the patient the source flags hardest. **Corrected 2026-08-13:** footnote a lists four risk factors - prolonged
 carbohydrate fasting, a <50 g carbohydrate diet, history of insulin use or DKA, and HbA1c >8% -
 as an unranked disjunctive list, and does NOT designate DKA history the most predictive of
 them. The app and this record both said it did; the claim has been removed from the clinician
@@ -226,10 +255,14 @@ view. What survives is institutional and is stated as such: unlike an A1c, a DKA
 be reconstructed after the fact. A clinician who knows the patient
 has no history answers No and gets a continue - that is what the No answer is for.
 
-**The "Unknown" option is REMOVED from the DKA question.** It is now Yes / No, and blank carries
-the meaning Unknown used to: nobody has established the history, so the drug is held. Keeping
-both was a distinction without a difference, since both held. The app has no persistence layer,
-so there was nothing stored to migrate.
+**The "Unknown" option is REMOVED from the DKA question**, and stays removed after the reversal.
+It is Yes / No. An Unknown button would now do exactly what a blank does, so it would be a
+control that changes nothing. The app has no persistence layer, so there was nothing to migrate.
+
+> **Not built, worth knowing.** There is now no way to record *"I tried and could not establish
+> this"* as distinct from *"I did not ask."* The A1c question has exactly that, as its explicit
+> "Not available" button, and both resolve to continuation there too. Raise it if the
+> distinction is ever wanted for DKA.
 
 **Disclosure lives in the clinician view, not under every intake question.** Printing each
 default beneath its question would bloat the intake, and the people who need to know are
@@ -243,7 +276,10 @@ clinicians reading the output. The clinician view prints, only when something wa
 Both are silent when every question was answered. Verified 2026-08-13 across all four fields
 individually and together.
 
-> **Flagged for clinical review.** Mark asked that the reviewer specifically weigh whether a
+> **ANSWERED 2026-08-13 - the reviewer weighed it, and the rule was subsequently withdrawn on
+> the evidence (above). The reviewer's own recommendation was to keep the hold but make the
+> question required; Mark took neither horn and removed the hold instead.** Original flag:
+> Mark asked that the reviewer specifically weigh whether a
 > blank DKA question should hold, given it is the single place where an unanswered question
 > changes the recommendation. The counter-argument is that a clinician who skipped it probably
 > had no reason to suspect DKA, and the hold costs those patients three days of their drug.
