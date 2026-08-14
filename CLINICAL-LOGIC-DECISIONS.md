@@ -353,10 +353,99 @@ Not a departure: the source says SGLT2i *"can be"* withheld on the day of the pr
 Only for SGLT2i patients. This is not general preoperative advice; patients not on an SGLT2i receive no such recommendation.
 
 **Content:** carbohydrate-containing **clear liquids**, patient's choice. Named examples:
-clear juice without pulp, sports drinks, regular (non-diet) soda, and plain gelatin. Water,
-diet drinks, tea or coffee without milk and fat-free broth are permitted clear liquids but
-are named as **not** counting toward the carbohydrate, since broth and diet drinks are the
-two a patient is most likely to believe do.
+clear juice without pulp, sports drinks, and regular (non-diet) soda. Water, diet drinks,
+tea or coffee without milk and fat-free broth are permitted clear liquids but are named as
+**not** counting toward the carbohydrate, since broth and diet drinks are the two a patient
+is most likely to believe do.
+
+#### Two lists, deliberately different (Mark, 2026-08-14)
+
+The sheet carries a GENERAL clear-liquid list and a CARBOHYDRATE list, and they no longer
+match. Both departures are intentional.
+
+| | General clear-liquid list | Carbohydrate step |
+|---|---|---|
+| Soda | **"soda"**, unqualified | **"regular (non-diet) soda"** |
+| Gelatin | permitted | **not named** on the TIMED drink |
+
+- **Diet soda is fine as an ordinary clear liquid** (Mark). ASA 2017 defines clear liquids to
+  include "carbonated beverages" without qualification, so nothing is being stretched. The
+  "(non-diet)" qualifier is kept - and was newly ADDED - on the carbohydrate step, where the
+  whole purpose is carbohydrate delivery and a diet drink is a silent no-op in a population
+  conditioned to reach for it.
+- **Gelatin is out of the TIMED 8-12 oz drink only.** It remains in the general clear-liquid
+  list, and it remains in the two co-treated branches, which carry no timed drink and only ask
+  that some of the 24 h clear liquid diet contain carbohydrate. The colonoscopy branch already
+  excluded it. **The reason to cite is dose and unit.** The step is specified as "8 to 12
+  ounces", which is a volume for a drink and has no clear meaning for gelatin, and a standard
+  serving delivers roughly a third of the carbohydrate of the same volume of juice. A patient
+  substituting gelatin gets a fraction of the intended load - the same silent-underdose failure
+  the "(non-diet)" qualifier exists to prevent.
+  **Two other rationales were considered and neither supports the change**, so neither is cited:
+  faster absorption of a liquid than a gel is unverified - no source on disk addresses gastric
+  emptying of gels, and gelatin liquefies at body temperature anyway; and the protein content of
+  gelatin is not disqualifying, because **ASA 2023 studied exactly this** and found that "the
+  addition of protein to preoperative carbohydrate-containing clear liquids did not seem to
+  either benefit or harm healthy patients" (Highlights box).
+- **Jell-O is NOT named as excluded** on the carbohydrate step, though it is offered as a clear
+  liquid earlier in the same paragraph. The clinical review argued it should be, since the
+  exclusion clause is the only place a patient learns what does not count. **Mark declined
+  (2026-08-14):** leave it absent and say nothing. Recorded because it was raised and settled,
+  not overlooked.
+
+#### The GLP-1 / tirzepatide checklist line names the diet (Mark, 2026-08-14)
+
+The medication continues, so a bare "keep taking as usual" is true but hides what actually
+burdens this patient. The checklist row reads:
+
+> keep taking as usual - clear liquid diet starts 24 hours before arrival
+
+The timing is included because it is the part patients get wrong. Wording was chosen against a
+measured render: the longer "...24 hours before you arrive" wrapped to THREE lines at the
+Comfortable scale; "before arrival" brings it to two.
+
+**Applied on colonoscopy too**, although the dietary block below defers entirely to bowel
+preparation there. Mark, 2026-08-14: a colonoscopy prep is largely clear liquids for about that
+long anyway, so the line does not conflict with the prep in practice, and the block below still
+states that the prep instructions govern.
+
+The clause is appended OUTSIDE the disposition rules so it survives every branch, including the
+multi-drug rule - the 24 h diet applies whichever GLP-1 agents are listed. Tirzepatide shares
+the same card.
+
+### No resumption instructions on the patient sheet, for any drug (Mark, 2026-08-14)
+
+**The patient sheet says NOTHING about restarting any medication.** Verified by sweeping 720
+scenarios - every surgery type against every diabetes type, sixteen drug selections and three
+eGFR bands - for any mention of resuming or restarting in the four printed patient fields.
+Zero hits.
+
+Removed: the SGLT2i "Do not take it again until your doctor tells you it is safe to restart"
+on both multi-day hold limbs; "Resume it when your care team tells you that you may eat and
+drink normally" on the combination limb; and "held and reviewed before restarting" on the
+metformin eGFR 30-45 limb. The metformin renal caution itself is kept - only the gate went.
+
+**The argument this decision overrides, recorded because it is a real one.** Restarting an
+SGLT2 inhibitor during poor oral intake is the euglycemic-DKA setting the 72-96 h hold exists
+to prevent, and bariatric patients go home on a staged liquid diet by protocol - they are the
+one group that reliably does not eat normally after discharge.
+
+**Mark's counter, which governs:** a resumption line on ONE drug while eight others say
+nothing reads as a rule being withheld for the rest, and generates the "when do I restart my
+metformin?" calls it would be trying to prevent. The app gives no restart instruction for any
+other medication and does not generally instruct on resumption at all.
+
+**What carries the risk instead:** the clinician view keeps its full resumption criteria on
+every card, including the three-part SGLT2i rule (tolerating oral intake AND no active ketosis
+AND no perioperative AKI, active infection or hemodynamic instability) and the bariatric
+"hold until tolerating regular diet long-term". The sheet footer already routes the patient to
+the surgeon's office with questions about resuming medications.
+
+**Two of the removed lines were found by clinical review, not by the original edit**, and one
+of them was **clinically looser than this app's own clinician rule** - the combination limb
+cleared restart on oral intake alone, and silently restarted the metformin component against
+that card's 48 h and renal-reassessment rule. A partial removal was worse than either
+extreme: silent on the 72-96 h hold, permissive on the combination pill.
 
 ### An instruction at a moment, not a permission window (Mark, 2026-08-13)
 
@@ -1115,6 +1204,92 @@ the 3-4 day hold is explicitly precautionary: *"until further prospective studie
 conducted, as an abundance of caution."*
 
 ---
+
+## 12. Patient sheet is time-ordered (Option B, 2026-08-14)
+
+**Mark chose Option B, chronological ordering, over Option A.** The sheet was one card per
+drug, each holding up to four time sections. It is now ordered by TIME, because a patient
+reads it to answer "what do I do now", not "what does each of my drugs do".
+
+Order, and why: **medication checklist, eating and drinking, days before, night before,
+morning of.**
+
+- The **checklist is first** because it is a table of contents, not a summary, and because its
+  one unique safety function - catching a medication the patient takes that is not on the
+  sheet at all - only helps BEFORE they act.
+- **Eating and drinking is above the timeline** (Mark, 2026-08-14). It is chronologically
+  first: the 24 h clear liquid diet starts about 26 h before surgery.
+- Each eating-and-drinking paragraph prints **WHOLE and unedited**. Every branch of the
+  section 5 matrix spans the entire timeline inside one paragraph. Slicing them into time
+  buckets would rewrite signed-off wording and break the branches that deliberately carry no
+  clock anchor (co-treated, cutoff earlier than 2 h) or no timed instruction at all
+  (colonoscopy). **No patient instruction string was altered by the restructure.**
+- GLP-1 prints before SGLT2i where both exist - the 24 h diet precedes the 2 h drink.
+- Two HEADINGS changed, which are not instructions: "Days Before Surgery - Stop This
+  Medication Early" became "Stop These Early" (it now covers several drugs), and "Important
+  Dietary Instruction" became "Eating and Drinking Before Surgery".
+
+### The checklist disposition is derived from the time buckets, NOT the badge
+
+This is the safety-critical part of the restructure and it took three attempts.
+
+**The badge is not a reliable summary of what a patient must do**, because the same badge
+string means different things on different cards:
+
+| Signal | On this card | Actually means |
+|---|---|---|
+| `HOLD` badge | SGLT2i | stop 72-96 h early |
+| `HOLD` badge | metformin (eGFR/contrast), sulfonylurea | stop on the day of surgery |
+| night-before text | basal insulin | REDUCE the dose |
+| night-before text | sulfonylurea | SKIP the dose |
+| night-before text | pump | change NOTHING |
+| night-before text | bolus insulin | PERMISSION to take the dinner dose |
+
+**The worst of these was caught by clinical review and reproduced in the browser before it was
+fixed:** a T1DM patient on Humalog with a dinner dose entered was told, in the checklist,
+"stop the night before" - directly over an instruction below that permits that dinner bolus.
+Skipping it leaves a type 1 patient uncovered overnight after a full meal.
+
+**Rules now applied, in order:**
+
+1. **A card covering more than one drug states nothing** and points below. A card can carry a
+   split instruction - Janumet held while Januvia continues, Synjardy morning-held while
+   Jardiance continues outright - and no single disposition is true for both. Deliberately
+   conservative: it costs a summary line on multi-drug cards whose drugs do agree, and it is
+   the only rule here that cannot be wrong.
+2. `daysBefore` present gives **"stop early"**, NOT "stop several days early": the bariatric
+   limb stops at the start of the preoperative diet, typically 2-4 weeks out.
+3. `nightBefore` present takes its direction from the badge, with bolus insulin
+   (`HOLD WHILE NPO`) suppressed to a pointer because its night-before text is a conditional
+   permission rather than an instruction.
+4. Otherwise the badge, with **a "see below" pointer on every hold**, because the AGI and
+   meglitinide morning-of strings are conditional on whether breakfast is permitted.
+
+**This is a restatement, never a new rule.** Anything the checklist cannot state without
+qualification points at the instructions rather than guessing.
+
+### Type scale (Mark, 2026-08-14)
+
+The colleague's original request was **legibility for older patients and patients with vision
+problems**. Body text printed at 14px and section headings at 10px wide-tracked monospace;
+the print stylesheet changed colors only and never raised a font size.
+
+Three reader-selected scales, **CSS only** - no clinical logic reads the class and no patient
+string changes with it. Per-session, resets with New Assessment, never printed on the sheet.
+
+| Scale | Body | Note |
+|---|---|---|
+| Condensed | 14px | the pre-2026-08-14 body size |
+| **Comfortable (default)** | **16px** | about 12pt |
+| Large Print | 22px | about 16.5pt, inside the recognized 16-18pt large-print range |
+
+The 10px wide-tracked monospace headings are **replaced at every size**, including Condensed -
+they were the least legible element on the page. Mark wants to reconsider making Large Print
+the default once he has seen it in use.
+
+Rendered samples of all three, with the builder that regenerates them, are committed at
+`Patient-Sheet-Samples\`. They are in the project deliberately: session scratchpads do not
+persist and these samples were lost twice.
 
 ## Open items
 

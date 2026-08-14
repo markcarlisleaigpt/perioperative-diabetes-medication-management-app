@@ -257,6 +257,44 @@ input[type="checkbox"], input[type="radio"] { width:16px; height:16px; cursor:po
 .patient-dietary { background:var(--accent-dim); border:1px solid rgba(255,180,84,.35); border-radius:2px; padding:12px; margin-top:10px; }
 .patient-dietary-label { font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:500; color:var(--accent); text-transform:uppercase; letter-spacing:.16em; padding-bottom:5px; border-bottom:1px solid rgba(255,180,84,.35); margin-bottom:7px; }
 .patient-footer { border:1px solid var(--line); border-radius:2px; padding:16px; margin-top:8px; font-size:12px; color:var(--dim); line-height:1.7; background:var(--surface); }
+/* ===== PATIENT SHEET SIZE SCALE =====
+   Three reader-selected type scales for the printed patient sheet (Mark,
+   2026-08-14). CSS ONLY - no clinical logic reads this class, and no patient
+   string changes with it. Condensed restores the pre-2026-08-14 BODY size of
+   14px, but not the old 10px wide-tracked monospace section headings - those
+   are replaced at every size, because they were the least legible element on
+   the page and legibility is the whole point of the exercise. Large is a
+   genuine large-print step: 22px is about 16.5pt,
+   inside the 16-18pt large-print range, where 18px (13.5pt) was not. */
+.patient-sheet { --ps-body:16px; --ps-head:15px; --ps-drug:16px; --ps-meta:14px; --ps-foot:13px; --ps-title:23px; }
+.patient-sheet.ps-condensed { --ps-body:14px; --ps-head:13px; --ps-drug:15px; --ps-meta:13px; --ps-foot:12px; --ps-title:21px; }
+.patient-sheet.ps-large { --ps-body:22px; --ps-head:20px; --ps-drug:22px; --ps-meta:18px; --ps-foot:17px; --ps-title:30px; }
+.patient-sheet .patient-sheet-header h2 { font-size:var(--ps-title); }
+.patient-sheet .patient-meta { font-size:var(--ps-meta); }
+.patient-sheet .patient-section-text { font-size:var(--ps-body); }
+.patient-sheet .patient-footer { font-size:var(--ps-foot); }
+/* Section labels lose the 10px wide-tracked monospace treatment on the patient
+   sheet: it was the least legible element on the page and the original
+   complaint was legibility. Clinician view keeps it. */
+.patient-sheet .patient-section-label,
+.patient-sheet .patient-dietary-label {
+  font-family:'Barlow',sans-serif; font-size:var(--ps-head); font-weight:700; letter-spacing:.04em;
+}
+.ps-item { margin-bottom:14px; }
+.ps-item:last-child { margin-bottom:0; }
+.ps-item-drug { font-family:'Rajdhani',sans-serif; font-size:var(--ps-drug); font-weight:700; color:var(--accent); letter-spacing:.02em; margin-bottom:3px; }
+.ps-block { border:1px solid var(--line); border-radius:2px; padding:16px; margin-bottom:14px; background:var(--surface); }
+.ps-list-row { display:flex; justify-content:space-between; gap:14px; font-size:var(--ps-body); line-height:1.7; padding:4px 0; border-bottom:1px dotted var(--line); }
+.ps-list-row:last-child { border-bottom:none; }
+.ps-list-drug { font-weight:700; color:#DDE4F0; }
+.ps-list-dispo { color:#C3CCDE; text-align:right; flex-shrink:0; }
+/* At the large scale a long brand list wraps and leaves the disposition
+   stranded beside the first line, so the row stacks instead of sitting in two
+   columns. Only the large scale needs this - the other two fit on one line. */
+.patient-sheet.ps-large .ps-list-row { flex-direction:column; gap:2px; }
+.patient-sheet.ps-large .ps-list-dispo { text-align:left; }
+.ps-size-bar { display:flex; align-items:center; gap:8px; margin-top:8px; flex-wrap:wrap; }
+.ps-size-bar .ps-size-label { font-size:12px; color:var(--dim2); }
 /* ===== DOSE INPUT ===== */
 .dose-group { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
 .dose-group label { font-size:13px; color:#C3CCDE; flex:1; }
@@ -290,6 +328,11 @@ input[type="checkbox"], input[type="radio"] { width:16px; height:16px; cursor:po
   .patient-section-text { color:#111 !important; }
   .patient-meta { color:#333 !important; }
   .patient-dietary { background:#ecf8f4 !important; border-color:#9ed4c5 !important; }
+  .ps-block { border-color:#ccc !important; background:#f9f9f9 !important; }
+  .ps-item-drug { color:#00614C !important; }
+  .ps-list-drug { color:#111 !important; }
+  .ps-list-dispo { color:#333 !important; }
+  .ps-list-row { border-bottom-color:#bbb !important; }
   .patient-dietary-label { color:#00614C !important; }
   .patient-footer { color:#555 !important; border-color:#ccc !important; background:#f9f9f9 !important; }
   .tab-bar, .btn-row, button { display:none !important; }
@@ -1016,9 +1059,9 @@ function getSGLT2iResults(ctx, details, selected) {
         }
       }
       if (stop && stop.lastDose) {
-        patientDaysBefore = (patientDaysBefore || '') + `STOP taking ${dName} several days before your surgery. Your last dose is ${fmtDate(stop.lastDose)}. ${stop.daysSkipped ? `Do NOT take it on ${fmtDayList(stop.skipped)}${stop.dayOfDoseSkipped ? ', and do not take it on the morning of surgery' : ''}. ` : (stop.dayOfDoseSkipped ? 'Do not take it on the morning of surgery. ' : '')}Your last dose needs to be at least ${holdDays*24} hours (${holdDays} full days) before you arrive, so if your surgery date changes, call the clinic for new dates. Do not take it again until your doctor tells you it is safe to restart. `;
+        patientDaysBefore = (patientDaysBefore || '') + `STOP taking ${dName} several days before your surgery. Your last dose is ${fmtDate(stop.lastDose)}. ${stop.daysSkipped ? `Do NOT take it on ${fmtDayList(stop.skipped)}${stop.dayOfDoseSkipped ? ', and do not take it on the morning of surgery' : ''}. ` : (stop.dayOfDoseSkipped ? 'Do not take it on the morning of surgery. ' : '')}Your last dose needs to be at least ${holdDays*24} hours (${holdDays} full days) before you arrive, so if your surgery date changes, call the clinic for new dates. `;
       } else {
-        patientDaysBefore = (patientDaysBefore || '') + `STOP taking ${dName} several days before your surgery. Your last dose must be at least ${holdDays*24} hours \u2014 that is ${holdDays} full days \u2014 before you arrive for surgery. Do not take it again until your doctor tells you it is safe to restart. `;
+        patientDaysBefore = (patientDaysBefore || '') + `STOP taking ${dName} several days before your surgery. Your last dose must be at least ${holdDays*24} hours \u2014 that is ${holdDays} full days \u2014 before you arrive for surgery. `;
       }
     } else if (rec === 'hold-bariatric') {
       daysBefore = daysBefore || '';
@@ -1037,7 +1080,7 @@ function getSGLT2iResults(ctx, details, selected) {
       // already says "Do NOT take on the morning of surgery", and comboFlag
       // explains why to the clinician. Writing it to nightBefore as well put a
       // morning-of instruction under a night-before heading.
-      patientMorning += `Take ${dName} as usual up to and including the night before surgery. Do not take it on the morning of surgery. Resume it when your care team tells you that you may eat and drink normally. `;
+      patientMorning += `Take ${dName} as usual up to and including the night before surgery. Do not take it on the morning of surgery. `;
     }
   });
   morningOf = badge === 'HOLD' || badge === 'CONSIDER CONTINUING'
@@ -1129,8 +1172,8 @@ function getSGLT2iResults(ctx, details, selected) {
     : sType === 'colonoscopy'
       ? `Follow the preparation instructions from the doctor doing your colonoscopy. Those instructions decide what you may eat and drink and when, and you should follow them. One extra step, because you take an SGLT2 medicine: make the last drink you have before your cut-off time a clear liquid that contains carbohydrate - apple or white grape juice, a sports drink, or regular (non-diet) soda all count; diet or zero-sugar versions and fat-free broth do not. Avoid anything red, purple or orange, nothing milky or creamy, no juice with pulp, and no alcohol. If your preparation instructions do not allow a drink like this, follow them instead and let the Preoperative Clinic know. This matters because of your SGLT2 medicine. In people who take these medicines, going a long stretch without carbohydrate can cause acid to build up in the blood, and that can happen even when blood sugar looks normal. This is true whether or not you are stopping it before surgery.`
     : onIncretin
-      ? `You may keep drinking clear liquids until 2 hours before your arrival time. Nothing milky or creamy, no juice with pulp, and no alcohol. One extra step, because you take an SGLT2 medicine: at about 2 hours before you arrive, as the last thing you drink, have 8 to 12 ounces of a clear liquid that contains carbohydrate - juice, a sports drink, regular soda, and gelatin all do; diet or zero-sugar versions and fat-free broth do not. If that time falls while you are asleep, then instead make this the very first thing you do when you wake up - drink it as soon as you are up, and in any case before you leave home for the hospital - even if that is less than 2 hours before you arrive. Do not set an alarm for it. This matters because of your SGLT2 medicine. In people who take these medicines, going a long stretch without carbohydrate can cause acid to build up in the blood, and that can happen even when blood sugar looks normal. This is true whether or not you are stopping it before surgery. If you have been given bowel preparation instructions for your procedure, follow those instructions for eating and drinking - they replace what is written here.`
-      : `Follow the eating and drinking instructions from the Preoperative Clinic: stop all solid food 8 hours before your arrival time, and you may keep drinking clear liquids until 2 hours before your arrival time - water, clear juice without pulp, sports drinks, regular (non-diet) soda, tea or coffee without milk, plain gelatin (Jell-O), or fat-free broth. Nothing milky or creamy, no juice with pulp, and no alcohol. One extra step, because you take an SGLT2 medicine: at about 2 hours before you arrive, as the last thing you drink, have 8 to 12 ounces of a clear liquid that contains carbohydrate - juice, a sports drink, regular soda, and gelatin all do; diet or zero-sugar versions and fat-free broth do not. If that time falls while you are asleep, then instead make this the very first thing you do when you wake up - drink it as soon as you are up, and in any case before you leave home for the hospital - even if that is less than 2 hours before you arrive. Do not set an alarm for it. This matters because of your SGLT2 medicine. In people who take these medicines, going a long stretch without carbohydrate can cause acid to build up in the blood, and that can happen even when blood sugar looks normal. This is true whether or not you are stopping it before surgery. If anything here differs from your other preoperative instructions from the Preoperative Clinic, follow these. The one exception: if you have been given bowel preparation instructions for your procedure, follow those for eating and drinking - they replace what is written here.`;
+      ? `You may keep drinking clear liquids until 2 hours before your arrival time. Nothing milky or creamy, no juice with pulp, and no alcohol. One extra step, because you take an SGLT2 medicine: at about 2 hours before you arrive, as the last thing you drink, have 8 to 12 ounces of a clear liquid that contains carbohydrate - juice, a sports drink, or regular (non-diet) soda all do; diet or zero-sugar versions and fat-free broth do not. If that time falls while you are asleep, then instead make this the very first thing you do when you wake up - drink it as soon as you are up, and in any case before you leave home for the hospital - even if that is less than 2 hours before you arrive. Do not set an alarm for it. This matters because of your SGLT2 medicine. In people who take these medicines, going a long stretch without carbohydrate can cause acid to build up in the blood, and that can happen even when blood sugar looks normal. This is true whether or not you are stopping it before surgery. If you have been given bowel preparation instructions for your procedure, follow those instructions for eating and drinking - they replace what is written here.`
+      : `Follow the eating and drinking instructions from the Preoperative Clinic: stop all solid food 8 hours before your arrival time, and you may keep drinking clear liquids until 2 hours before your arrival time - water, clear juice without pulp, sports drinks, soda, tea or coffee without milk, plain gelatin (Jell-O), or fat-free broth. Nothing milky or creamy, no juice with pulp, and no alcohol. One extra step, because you take an SGLT2 medicine: at about 2 hours before you arrive, as the last thing you drink, have 8 to 12 ounces of a clear liquid that contains carbohydrate - juice, a sports drink, or regular (non-diet) soda all do; diet or zero-sugar versions and fat-free broth do not. If that time falls while you are asleep, then instead make this the very first thing you do when you wake up - drink it as soon as you are up, and in any case before you leave home for the hospital - even if that is less than 2 hours before you arrive. Do not set an alarm for it. This matters because of your SGLT2 medicine. In people who take these medicines, going a long stretch without carbohydrate can cause acid to build up in the blood, and that can happen even when blood sugar looks normal. This is true whether or not you are stopping it before surgery. If anything here differs from your other preoperative instructions from the Preoperative Clinic, follow these. The one exception: if you have been given bowel preparation instructions for your procedure, follow those for eating and drinking - they replace what is written here.`;
   const carbClinicianLead = (onIncretin && !ordinaryCutoff)
     ? `Co-treated with a GLP-1 RA or tirzepatide; clear liquids run ${carbUntilClinician}. The carbohydrate drink is anchored to the patient's LAST drink before that cutoff rather than to a clock time, and the sheet tells them not to set an alarm for it. Reason: the cutoff lands between 1 and 5 am for several arrival-time and cutoff combinations - a 6 h cutoff before an 07:30 arrival is 01:30, an 8 h cutoff before a 12:30 arrival is 04:30 - and a named time would be either ignored or obeyed at 3 am. The sheet also directs that some of the clear liquids taken across the 24 h clear liquid diet contain carbohydrate, so the carbohydrate-free window is shortened without touching the cutoff.`
     : (onIncretin && !sglt2iContinuing)
@@ -1207,8 +1250,8 @@ function getGLP1Results(ctx, details, selected) {
   const dietary24h = ctx.surgeryType === 'colonoscopy'
     ? `Follow the preparation instructions from the doctor doing your colonoscopy. Those instructions decide what you may eat and drink and when, and you should follow them. ${verifyText}`
     : arrivalTime
-    ? `Start a clear liquid diet 24 hours before your planned arrival time. If your planned arrival time is ${fmtTime12(arrivalTime)}, begin clear liquids at that same time the day before. Clear liquids include water, clear juice without pulp, sports drinks, regular (non-diet) soda, tea or coffee without milk, plain gelatin (Jell-O), or fat-free broth. ${npoPatient} ${verifyText} If anything here differs from your other preoperative instructions, follow these. The one exception: if you have been given bowel preparation instructions for your procedure, follow those for eating and drinking - they replace what is written here.`
-    : `Start a clear liquid diet 24 hours before your planned arrival time for surgery. Clear liquids include water, clear juice without pulp, sports drinks, regular (non-diet) soda, tea or coffee without milk, plain gelatin (Jell-O), or fat-free broth. ${npoPatient} ${verifyText} If anything here differs from your other preoperative instructions, follow these. The one exception: if you have been given bowel preparation instructions for your procedure, follow those for eating and drinking - they replace what is written here.`;
+    ? `Start a clear liquid diet 24 hours before your planned arrival time. If your planned arrival time is ${fmtTime12(arrivalTime)}, begin clear liquids at that same time the day before. Clear liquids include water, clear juice without pulp, sports drinks, soda, tea or coffee without milk, plain gelatin (Jell-O), or fat-free broth. ${npoPatient} ${verifyText} If anything here differs from your other preoperative instructions, follow these. The one exception: if you have been given bowel preparation instructions for your procedure, follow those for eating and drinking - they replace what is written here.`
+    : `Start a clear liquid diet 24 hours before your planned arrival time for surgery. Clear liquids include water, clear juice without pulp, sports drinks, soda, tea or coffee without milk, plain gelatin (Jell-O), or fat-free broth. ${npoPatient} ${verifyText} If anything here differs from your other preoperative instructions, follow these. The one exception: if you have been given bowel preparation instructions for your procedure, follow those for eating and drinking - they replace what is written here.`;
   const dietaryClinician = `${ctx.surgeryType === 'colonoscopy' ? 'COLONOSCOPY: the patient sheet defers entirely to bowel preparation and issues NO dietary instruction from this app (Mark, 2026-08-14), because prep governs intake and a morning split-dose prep is incompatible with a midnight NPO cutoff. THE COST, STATED SO IT IS NOT LOST: the 24 h clear liquid diet and the NPO cutoff below exist for delayed gastric emptying, not bowel cleanliness. Prep supplies the clear liquids; it does not necessarily supply the cutoff. If aspiration risk is a concern in this patient, set the fasting instruction explicitly and reconcile it with the prep. The requirement that would otherwise apply: ' : ''}Universal dietary modification required for all GLP-1 RA and tirzepatide patients. Clear liquid diet starting 24 hours before planned arrival time (arrival is typically ~2 hours before surgery; effective window ≈26 hours before surgery start), ${npoClinician}.${arrivalTime ? ` Patient's planned arrival: ${arrivalTime}.` : ''}${gastroparesisCaveat}`;
   const morningOf = giSymptoms === true
     ? 'CONSIDER HOLDING per GI symptom screen (see flags). Notify anesthesia team. Continue dietary modification regardless of medication decision.'
@@ -1329,7 +1372,7 @@ function getMetforminDisposition(details) {
     flags.push({ type: 'warn', text: `eGFR ${eGFR} mL/min/1.73m² is between 30 and 45. Per FDA labeling, metformin should not be initiated in this range, and for patients already taking it the benefit/risk of continuing should be assessed. Hold perioperatively and reassess renal function before restarting.` });
     morningOf = `HOLD morning of surgery — eGFR ${eGFR} mL/min/1.73m². FDA: do not initiate at eGFR 30–45; for ongoing use assess benefit/risk. Hold and reassess before restarting.`;
     renalReason = `eGFR ${eGFR} is between 30 and 45; FDA labeling says do not initiate in this range and to assess benefit and risk for ongoing use`;
-    patientMorning = 'Do NOT take this medication on the morning of surgery. Your kidney function is reduced, so it should be held and reviewed before restarting.';
+    patientMorning = 'Do NOT take this medication on the morning of surgery. Your kidney function is reduced.';
   } else {
     if (contrast === true) {
       badge = 'HOLD'; badgeType = 'hold';
@@ -1851,6 +1894,7 @@ class PerioperativeDMApp {
   constructor() {
     this.step = 'intro';
     this.outputTab = 'clinician';
+    this.sheetSize = 'comfortable';
     this.searchQuery = '';
     this.state = {
       patient: { firstName: '', lastName: '', dob: '', arrivalTime: '', surgeryDate: '' },
@@ -2364,6 +2408,12 @@ class PerioperativeDMApp {
       </div>
       <div id="patient-tab" class="tab-content ${this.outputTab==='patient'?'active':''}">
         ${this.renderPatientSheet(results)}
+        <div class="btn-row no-print ps-size-bar" style="margin-top:12px;">
+          <span class="ps-size-label">Text size:</span>
+          <button class="${this.sheetSize==='condensed'?'btn-primary':''}" onclick="window.app.setSheetSize('condensed')">Condensed</button>
+          <button class="${this.sheetSize==='comfortable'?'btn-primary':''}" onclick="window.app.setSheetSize('comfortable')">Comfortable</button>
+          <button class="${this.sheetSize==='large'?'btn-primary':''}" onclick="window.app.setSheetSize('large')">Large Print</button>
+        </div>
         <div class="btn-row no-print" style="margin-top:12px;">
           <button class="btn-primary" onclick="window.app.printSheet()">Print</button>
           <button class="btn-primary" onclick="window.app.savePDF()">Save as PDF</button>
@@ -2475,6 +2525,23 @@ class PerioperativeDMApp {
         </div>
       </div>`;
   }
+  // PATIENT SHEET - TIME-ORDERED (Option B, Mark 2026-08-14).
+  // Was one card per drug with four time sections inside it. Now one block per
+  // TIME SLOT, listing the drugs that act at that slot, because a patient reads
+  // this to answer "what do I do now", not "what does each of my drugs do".
+  // Order is fixed and deliberate:
+  //   1. medication checklist  - a table of contents, and the only place that
+  //      catches a drug the patient takes which is not on the sheet at all. At
+  //      the top because that catch is only useful BEFORE they act.
+  //   2. eating and drinking   - chronologically first (the 24 h clear liquid
+  //      diet starts about 26 h before surgery). Each paragraph is printed WHOLE
+  //      and unedited: every branch of the matrix in decision record section 5
+  //      spans the entire timeline inside one paragraph, and slicing them into
+  //      time buckets would rewrite signed-off wording and break the branches
+  //      that deliberately carry no clock anchor (co-treated early cutoff) or no
+  //      timed instruction at all (colonoscopy).
+  //   3. days before / night before / morning of.
+  // No patient string is altered anywhere in here.
   renderPatientSheet(results) {
     const p = this.state.patient;
     const patientName = [p.firstName, p.lastName].filter(Boolean).join(' ') || '[Patient Name]';
@@ -2484,31 +2551,117 @@ class PerioperativeDMApp {
         <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:var(--accent);margin-bottom:8px;">ALTA BATES SUMMIT MEDICAL CENTER<br>PREOPERATIVE CLINIC</div>
         <h2>Diabetes Medication Instructions</h2>
         <div class="patient-meta">
-          ${patientName}${p.dob ? ` · DOB: ${p.dob}` : ''}${p.arrivalTime ? ` · Arrival: ${fmtTime12(p.arrivalTime)}` : ''}<br>
-          ${ctx.surgeryTiming === 'AM' ? 'AM Surgery' : 'PM Surgery'} · ${SURGERY_TYPE_LABELS[ctx.surgeryType] || ''}
+          ${patientName}${p.dob ? ` &middot; DOB: ${p.dob}` : ''}${p.arrivalTime ? ` &middot; Arrival: ${fmtTime12(p.arrivalTime)}` : ''}<br>
+          ${ctx.surgeryTiming === 'AM' ? 'AM Surgery' : 'PM Surgery'} &middot; ${SURGERY_TYPE_LABELS[ctx.surgeryType] || ''}
         </div>
       </div>`;
-    const cards = results.map(r => {
-      const sec = (label, text, extra='') => text
-        ? `<div class="patient-section">
-            <div class="patient-section-label">${label}</div>
-            <div class="patient-section-text">${monoData(text)}</div>
-            ${extra}
-           </div>` : '';
-      const dietaryHtml = r.patient.dietary
-        ? `<div class="patient-dietary">
-            <div class="patient-dietary-label">Important Dietary Instruction</div>
-            <div class="patient-section-text">${monoData(r.patient.dietary)}</div>
-           </div>` : '';
-      return `
-        <div class="patient-drug-card">
-          <div class="patient-drug-name">${r.drugClass}: ${r.drugNames.join(', ')}</div>
-          ${sec('Days Before Surgery - Stop This Medication Early', r.patient.daysBefore)}
-          ${sec('The Night Before Surgery', r.patient.nightBefore)}
-          ${sec('The Morning of Surgery', r.patient.morningOf)}
-          ${dietaryHtml}
-        </div>`;
-    }).join('');
+    // Checklist disposition. DERIVED FROM THE TIME BUCKETS THE SHEET ACTUALLY
+    // PRINTS, not from the badge string alone, so the checklist cannot
+    // contradict the timeline below it. Everything it cannot state without
+    // qualification points at the instructions instead of guessing.
+    //
+    // Three defects this shape exists to prevent, all found by the clinical
+    // review of 2026-08-14 and all reproduced in the browser before fixing:
+    //  1. A bare HOLD badge is a 72-96 h washout on the SGLT2i card but a DAY-OF
+    //     hold on the metformin (eGFR/contrast) and sulfonylurea cards.
+    //  2. A night-before string is a dose REDUCTION on basal insulin, a SKIP on
+    //     sulfonylureas, an unchanged CONTINUE on the pump, and on bolus insulin
+    //     it is a conditional PERMISSION to take the dinner dose. Calling that
+    //     last one a stop told a T1DM patient to skip a dinner bolus the sheet
+    //     permits - the most dangerous thing this function has done.
+    //  3. One row per CARD, but a card can carry a split instruction (Janumet
+    //     held while Januvia continues; Synjardy morning-held while Jardiance
+    //     continues outright). A single disposition cannot be true for both, so
+    //     a multi-drug card states nothing and points below.
+    const dispoCore = (r) => {
+      // A card covering more than one drug may carry a split instruction.
+      // Deliberately conservative: it costs a summary line on cards whose drugs
+      // do agree, and it is the only rule here that cannot be wrong.
+      if (r.drugNames.length > 1) return 'see your instructions below';
+      if (r.patient.daysBefore) {
+        // Not "several days": the bariatric limb stops at the start of the
+        // preoperative diet, which is typically 2-4 weeks out.
+        return 'stop early - see below';
+      }
+      if (r.patient.nightBefore) {
+        if (r.badge === 'MODIFY DOSE') return 'dose changes start the night before - see below';
+        if (r.badge === 'CONTINUE BASAL') return 'keep using as usual - see below';
+        // Bolus insulin: the night-before text PERMITS the dinner dose.
+        if (r.badge === 'HOLD WHILE NPO') return 'see your instructions below';
+        return 'stop the night before - see below';
+      }
+      switch (r.badge) {
+        case 'CONTINUE': return 'keep taking as usual';
+        case 'CONTINUE BASAL': return 'keep using as usual - see below';
+        // Pointer retained: the AGI and meglitinide morning-of strings are
+        // conditional on whether the patient is permitted breakfast.
+        case 'HOLD MORNING OF SURGERY': return 'do not take the morning of surgery - see below';
+        case 'HOLD': return 'do not take on the day of surgery - see below';
+        case 'HOLD WHILE NPO': return 'do not take while you are not eating - see below';
+        case 'MODIFY DOSE': return 'dose changes - see below';
+        case 'CONSULT REQUIRED': return 'do not change anything until your doctor tells you - see below';
+        default: return 'see your instructions below';
+      }
+    };
+    // GLP-1 and tirzepatide (both are the 'glp1' card): the medication itself
+    // continues, so a bare 'keep taking as usual' is true but hides the thing that
+    // actually burdens this patient - the 24 h clear liquid diet. Named here,
+    // briefly, with the timing, because the timing is the part patients get wrong
+    // (Mark, 2026-08-14).
+    //
+    // APPLIED ON COLONOSCOPY TOO (Mark, 2026-08-14), even though the dietary block
+    // below defers entirely to bowel preparation there. His reason: a colonoscopy
+    // prep is largely clear liquids for about that long anyway, so the line does not
+    // conflict with the prep in practice, and the block below still says the prep
+    // instructions govern.
+    //
+    // Appended OUTSIDE dispoCore so it survives every branch, including the
+    // multi-drug rule - the 24 h diet applies whichever GLP-1 agents are listed.
+    const dispoText = (r) => {
+      const core = dispoCore(r);
+      if (r.id !== 'glp1') return core;
+      return core.replace(/ - see below$/, '') + ' - clear liquid diet starts 24 hours before arrival';
+    };
+    const listRows = results.map(r =>
+      `<div class="ps-list-row">
+         <div class="ps-list-drug">${r.drugNames.join(', ')}</div>
+         <div class="ps-list-dispo">${dispoText(r)}</div>
+       </div>`).join('');
+    const medList = `
+      <div class="ps-block">
+        <div class="patient-section-label">Your Diabetes Medications</div>
+        ${listRows}
+        <div class="patient-section-text" style="margin-top:10px;">If you take a diabetes medication that is not on this list, call the Preoperative Clinic before your surgery.</div>
+      </div>`;
+    // Eating and drinking. GLP-1 before SGLT2i: the 24 h clear liquid diet starts
+    // earlier than the 2 h carbohydrate drink, so this is chronological too.
+    const dietOrder = ['glp1', 'sglt2i'];
+    const dietCards = results.filter(r => r.patient.dietary)
+      .sort((a, b) => dietOrder.indexOf(a.id) - dietOrder.indexOf(b.id));
+    const dietHtml = dietCards.length
+      ? `<div class="patient-dietary">
+          <div class="patient-dietary-label">Eating and Drinking Before Surgery</div>
+          ${dietCards.map(r => `<div class="patient-section-text" style="margin-bottom:10px;">${monoData(r.patient.dietary)}</div>`).join('')}
+         </div>`
+      : '';
+    // One block per time slot. A slot with nothing in it does not print.
+    const bucket = (label, key) => {
+      const items = results.filter(r => r.patient[key]).map(r =>
+        `<div class="ps-item">
+           <div class="ps-item-drug">${r.drugNames.join(', ')}</div>
+           <div class="patient-section-text">${monoData(r.patient[key])}</div>
+         </div>`).join('');
+      return items
+        ? `<div class="ps-block">
+             <div class="patient-section-label">${label}</div>
+             ${items}
+           </div>`
+        : '';
+    };
+    const timeline =
+      bucket('Days Before Surgery - Stop These Early', 'daysBefore') +
+      bucket('The Night Before Surgery', 'nightBefore') +
+      bucket('The Morning of Surgery', 'morningOf');
     // Only the SGLT2i and GLP-1 cards carry eating and drinking rules. Everyone
     // else is pointed at the clinic's own instructions rather than being given a
     // second set that could contradict them.
@@ -2519,9 +2672,15 @@ class PerioperativeDMApp {
         ${hasDietGuidance ? '' : '<div style="margin-bottom:6px;"><strong>Eating and drinking:</strong> follow the instructions from the Preoperative Clinic.</div>'}
         <div style="margin-bottom:6px;">These instructions apply to your <strong>diabetes medications only</strong>.</div>
         <div style="margin-bottom:6px;"><strong>Important:</strong> These recommendations were generated based on information available at your preoperative visit. Please verify your arrival time with your surgeon's office, as surgery times can change. Check with your surgeon's office if you have questions about resuming your medications after surgery.</div>
-        <div style="font-size:11px;color:var(--dim2);margin-top:8px;">Alta Bates Summit Medical Center Preoperative Clinic · Generated ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
+        <div style="font-size:11px;color:var(--dim2);margin-top:8px;">Alta Bates Summit Medical Center Preoperative Clinic &middot; Generated ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
       </div>`;
-    return header + cards + footer;
+    return `<div class="patient-sheet ps-${this.sheetSize}">` + header + medList + dietHtml + timeline + footer + '</div>';
+  }
+  // Reader-selected type scale. Per-session, resets with New Assessment, never
+  // printed on the sheet. CSS only - see the size scale block in the stylesheet.
+  setSheetSize(size) {
+    this.sheetSize = size;
+    this.render({ quiet: true });
   }
   printSheet() {
     this.outputTab = 'patient';
@@ -2539,6 +2698,7 @@ class PerioperativeDMApp {
   startOver() {
     this.step = 'intro';
     this.outputTab = 'clinician';
+    this.sheetSize = 'comfortable';
     this.searchQuery = '';
     this.state = {
       patient: { firstName: '', lastName: '', dob: '', arrivalTime: '', surgeryDate: '' },
