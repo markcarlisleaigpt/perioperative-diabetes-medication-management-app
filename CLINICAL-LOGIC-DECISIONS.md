@@ -473,7 +473,7 @@ rewrite, are restored to both this and the general instruction.
 SGLT2 inhibitor may be held for 72-96 h, so the glucose-lowering agent is off while the
 carbohydrate goes in - and hyperglycemia with case cancellation is the one concrete harm
 Endocrine Society Rec 8.1 names. The clinician text now says so and carries the ASA volume and
-the home-glucometer suggestion. The patient sheet is unchanged and still states no volume.
+the home-glucometer suggestion. The patient sheet now states 8-12 oz on every timed instruction (2026-08-13); it previously stated no volume.
 
 > **OPEN, needs Mark: the before-bed escape.** For an early arrival the sheet tells an
 > SGLT2i-only patient to drink before bed rather than at 03:30. The clinical review would not
@@ -498,8 +498,10 @@ product, believes they have complied, receives no eDKA mitigation, and the omiss
 undetectable - the record shows the instruction was given. This is a silent-failure path,
 which is why the exclusion is mandatory rather than advisory.
 
-**No volume limit - for any patient, including GLP-1 co-treated.** Clear liquids are ad lib
-up to the applicable cutoff; after the cutoff, nothing. The app states no volume, target, or
+**No volume limit on clear liquids generally - for any patient, including GLP-1 co-treated.**
+Clear liquids are ad lib up to the applicable cutoff; after the cutoff, nothing. **Superseded
+in part 2026-08-13:** the carbohydrate drink itself now carries a stated volume of 8-12 oz.
+What remains true is that the app sets no ceiling on other clear liquids, no target, or
 ceiling. Note this survives the change from a permission window to an instruction: the
 patient is told to have a carbohydrate drink, not how much of one.
 
@@ -517,6 +519,52 @@ and continuing patients alike.
 from the clinic; the app must not issue instructions about that specific product.
 
 **Explain the rationale** in both the clinician view and the patient sheet.
+
+### The on-waking drink has a floor, and bowel prep defers everywhere (Mark, 2026-08-14)
+
+**Floor: "before you leave home."** The on-waking instruction previously ended at *"even if
+that is less than 2 hours before you arrive"* with no lower bound, so a patient who overslept
+could drink in the car. The clinical review declined to endorse it unbounded. Mark chose a
+**behavioural** floor rather than a clock: *"drink it as soon as you are up, and in any case
+before you leave home for the hospital."* This keeps the no-alarm rule and the
+intervals-not-clock-times rule, needs no data the app lacks, and in practice travel plus
+check-in puts the drink well clear of induction. **The app still does not compute this** - it
+is patient-judged, like "if that time falls while you are asleep".
+
+**Bowel preparation defers in EVERY instruction, not just colonoscopy.** Mark, 2026-08-14:
+prep is not colonoscopy-only - colorectal, urologic and gynaecologic cases can carry one, and
+**this app has no intake field that identifies them**, so a `surgeryType === 'colonoscopy'`
+test misses them entirely. Every eating-and-drinking instruction on both cards now carries the
+deferral. Where the instruction already claims precedence over other preoperative advice, the
+prep line is phrased as the explicit exception to that claim, so the two cannot be read as
+contradicting each other. Adding a "bowel prep ordered?" intake question was considered and
+not taken, consistent with the contrast-route, AKI and gastroparesis decisions.
+
+**The colonoscopy full deferral is kept on top of it**, because prep is universal there and
+the app should not restate fasting rules to those patients at all.
+
+**A co-treated colonoscopy patient was missing the carve-out entirely.** The branch chain
+tested incretin co-treatment before surgery type, so a patient on a GLP-1 and an SGLT2i having
+a colonoscopy received the 2 h timed drink with no prep deferral and no colour exclusion -
+introduced 2026-08-13, caught by clinical review 2026-08-14, reproduced before and after the
+fix. Colonoscopy is now tested ahead of the timed limbs, and behind the two limbs that issue
+no drink at all, so a held co-treated patient still gets none.
+
+### The GLP-1 card defers a colonoscopy patient to prep, at a stated cost (Mark, 2026-08-14)
+
+The GLP-1 card had no surgery-type branch, so a colonoscopy patient was told to start a 24 h
+clear liquid diet, take nothing after their cutoff, and *"if anything here differs from your
+other preoperative instructions, follow these"* - which overrides prep, and whose NPO cutoff
+is incompatible with a morning split-dose prep. **Mark's decision: defer entirely, matching
+the SGLT2i card.**
+
+> **The cost, recorded because it is real and was raised before the decision.** The GLP-1 24 h
+> clear liquid diet and NPO cutoff exist for **delayed gastric emptying**, not bowel
+> cleanliness. Deferring drops an aspiration mitigation in a population selected for it. In
+> practice prep supplies the clear liquid diet anyway, so the real loss is the cutoff.
+> **The clinician card states this explicitly** and prints the fasting requirement that would
+> otherwise apply, so it is available to be reimposed for a patient where aspiration risk
+> matters. The patient sheet defers, as decided.
 
 ### Gastroparesis and aspiration risk - stated on every card that issues these rules
 
@@ -999,7 +1047,15 @@ concentration, not about ketogenesis.
 baseline without eliminating it. Even at a full week, in the highest-risk surgical population
 in the paper, eDKA still occurred at 0.69% - numerically above nonusers, not significantly so.
 
-**Whether a LONGER hold helps is genuinely unsettled.** Pitta found a strong inverse
+**CORRECTED 2026-08-14 (clinical review).** The anion-gap finding below was attributed to
+Pitta. It is **Steinhorn and colleagues, ref 44, 2023** - T2DM/HF/CKD, n=463, **average 36 h
+hold**. **Pitta, ref 40, 2025 is a different study and a materially important one: the
+POST-CABGDM randomised trial, T2DM, n=145, at a 72 h hold**, reporting reduced postoperative
+AKI (22.5% vs 39.1%, RR 0.57, 95% CI 0.34-0.96, P=0.03) and **no increase in safety events
+including ketoacidosis** - though the table records "no eDKA criteria", so ketoacidosis was a
+safety endpoint rather than a systematically ascertained outcome.
+
+**Whether a LONGER hold helps is genuinely unsettled.** Steinhorn found a strong inverse
 correlation between hold time and postoperative anion gap (r=-0.63, 95% CI -0.91 to -0.34);
 another study *"did not find a correlation between the duration of SGLT2i cessation before
 surgery ... and hyperketonaemia."* The paper also notes the drug's tissue effects outlast its
@@ -1009,7 +1065,11 @@ for 72 h"* - so "<1% in circulation" is not the same as "no pharmacologic effect
 **Consequence for this app (Mark, 2026-08-13):** it supports giving the carbohydrate drink to
 held patients (section 5, and the long-standing decision not to suppress any group), **and it
 supports giving them the on-waking version too.** The near-zero rates come from 120 h and
-168 h holds; this app holds 72-96 h, and no study reports the rate at exactly 72 h. A held
+168 h holds; this app holds 72-96 h. **Corrected 2026-08-14:** this section previously said no
+study reports the rate at exactly 72 h. Pitta 2025 does, at n=145, with no increase in
+ketoacidosis - but ketoacidosis was a safety endpoint with no eDKA criteria defined, so it is
+small and underpowered for this question rather than absent. The argument stands in the weaker
+form: the 72 h evidence is thin, not missing. A held
 patient is therefore not in the reassuring part of the evidence, and the drink is close to
 free. No change to the 72/96 h intervals, which remain as the source sets them.
 
@@ -1020,6 +1080,17 @@ insulin, or a prior history of diabetic ketoacidosis, adds to the risk among pat
 T2DM."* Three factors named together, no ranking, no separate effect size for any of them.
 This independently confirms the 2026-08-13 review finding and the correction made in
 section 2c.
+
+**The source is not silent on prior DKA elsewhere, though it still does not rank or quantify
+it.** BJA p.16, discussing Recommendation 9, suggests a concomitant insulin infusion in those
+*"deemed to be 'insulin deficient' such as those with higher HbA1c concentrations, taking
+high-dose insulin or multiple oral hypoglycaemic agents, or with a prior history of diabetic
+ketoacidosis."* That is intraoperative management, not a preoperative hold, but it is fair to
+say the source treats prior DKA as a marker of the insulin-deficient phenotype. It does not
+restore the withdrawn blank-holds rule. **Note also (clinical review, 2026-08-14): ref 42
+(Lui 2022, n=147,115), the paper's own largest citation for the risk-factor sentence, is
+summarised in Table 2 as naming insulin use and HbA1c >8% - it does not name DKA history at
+all.**
 
 **The only one of the three the paper quantifies is HbA1c:** RR 2.24 (95% CI 1.59-3.14) above
 7.9%, versus RR 1.05 (0.49-2.26) at or below, interaction P=0.034.
