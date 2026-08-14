@@ -769,7 +769,15 @@ function getSGLT2iResults(ctx, details, selected) {
       // Mark, 2026-08-13; decision record section 2a.
       const coIncretin = hasMedClass(selected, 'glp1') || hasMedClass(selected, 'tirzepatide');
       const incretinCutoff = details.glp1NpoCutoff || 'midnight';
-      const cutoffForcesFast = coIncretin && incretinCutoff !== '2h';
+      // Scoped to the branches where a long POSTOPERATIVE carbohydrate-free stretch is
+      // actually anticipated. It is NOT anticipated for a minor procedure or a
+      // colonoscopy: a midnight cutoff, an 07:30 arrival, a ~09:00 procedure and eating
+      // by ~11:00 is about 11 h, under the institutional 12 h threshold - and SPAQI
+      // panel a carries no fasting-keyed stop branch for those procedures at all.
+      // Before this scope test the rule held them anyway, overriding an explicit
+      // clinician No on a premise that is false for them. Clinical review 2026-08-13.
+      const longFastBranch = (sType === 'majorNoncardiac' || sType === 'cardiac' || sType === 'bariatric');
+      const cutoffForcesFast = coIncretin && incretinCutoff !== '2h' && longFastBranch;
       if (details.prolongedFasting === true || cutoffForcesFast) {
         // Provenance depends on the branch. In MAJOR NONCARDIAC the source itself
         // recommends discontinuing on anticipated prolonged fasting: Box p.12 R3a
@@ -785,6 +793,13 @@ function getSGLT2iResults(ctx, details, selected) {
           : 'anticipated >12 h without carbohydrate (guideline silent for this procedure type)';
         // Name the cutoff when it, rather than the clinician, is what fired this.
         const autoFast = cutoffForcesFast && details.prolongedFasting !== true;
+        // R3a and R4 are both keyed to anticipated POSTOPERATIVE fasting. When the
+        // cutoff fires this trigger and the clinician has NOT reported that fast, the
+        // source's condition is not established and printing "Held per SPAQI" would
+        // claim guideline backing the facts do not support. Drop to institutional so
+        // the departure notice fires. When the clinician answered Yes, the R-number
+        // stands as before. Clinical review 2026-08-13.
+        const effectiveR = autoFast ? null : fastingR;
         const cutoffLabel = incretinCutoff === 'midnight'
           ? 'nothing by mouth after midnight'
           : `nothing by mouth ${incretinCutoff.replace('h', '')} h before arrival`;
@@ -792,15 +807,15 @@ function getSGLT2iResults(ctx, details, selected) {
           label: autoFast
             ? `${baseLabel} - satisfied by GLP-1 or tirzepatide co-treatment with ${cutoffLabel}`
             : baseLabel,
-          institutional: !fastingR,
-          rNumber: fastingR,
+          institutional: !effectiveR,
+          rNumber: effectiveR,
           // FINDING 2 [HIGH]: R3a/R4 are keyed to anticipated POSTOPERATIVE fasting,
           // while this app deliberately asks one combined pre- plus postoperative
           // question (decision record section 2a). Say so rather than printing a bare
           // R-number against a question that does not distinguish the two.
-          note: (fastingR ? 'Box p.12. R3a/R4 address anticipated postoperative fasting; this app asks one combined pre- and postoperative question, and the 12 h threshold is institutional' : '')
-            + (autoFast ? `${fastingR ? '. ' : ''}Fired by the fasting cutoff rather than by the clinician's answer: only a 2 h cutoff leaves a co-treated patient in the same position as everyone else` : '')
-            || null,
+          note: autoFast
+            ? `Fired by the GLP-1 or tirzepatide fasting cutoff, not by the clinician, who did not report an anticipated >12 h carbohydrate-free window.${fastingR ? ` Deliberately NOT attributed to ${fastingR}: that recommendation is keyed to anticipated postoperative fasting, which has not been reported here, so this hold is institutional.` : ''} Only a 2 h cutoff leaves a co-treated patient in the same position as everyone else`
+            : (fastingR ? 'Box p.12. R3a/R4 address anticipated postoperative fasting; this app asks one combined pre- and postoperative question, and the 12 h threshold is institutional' : null),
         });
       }
       if (details.surgeryOver3h === true) {
@@ -844,7 +859,7 @@ function getSGLT2iResults(ctx, details, selected) {
     // Blank answers and the default each one applied, disclosed once in the clinician
     // view rather than printed under every intake question.
     const permissiveBlanks = [];
-    if (details.a1cOver8 === null || details.a1cOver8 === undefined) permissiveBlanks.push('most recent A1c (treated as not over 8%)');
+    if (details.a1cOver8 === null || details.a1cOver8 === undefined) permissiveBlanks.push('no A1c value supplied (treated as not over 8%)');
     if (details.surgeryOver3h === null || details.surgeryOver3h === undefined) permissiveBlanks.push('expected surgical duration (treated as under 3 h)');
     if (details.ketoDiet === null || details.ketoDiet === undefined) permissiveBlanks.push('ketogenic or very-low-carbohydrate diet (treated as not on one)');
     const dkaBlank = details.dkaHistory !== true && details.dkaHistory !== false;
@@ -1082,11 +1097,15 @@ function getSGLT2iResults(ctx, details, selected) {
   // that window instead. Everyone else gets the timed instruction.
   const carbPatient = onIncretin
     ? `While you are on the clear liquid diet before surgery, make sure some of what you drink contains carbohydrate - juice, a sports drink, regular soda, and gelatin all do; diet or zero-sugar versions and fat-free broth do not. Whenever you have your last drink before you have to stop, make that one a carbohydrate drink too. You do not need to set an alarm or stay up for it. This matters because of your SGLT2 medicine. In people who take these medicines, going a long stretch without carbohydrate can cause acid to build up in the blood, and that can happen even when blood sugar looks normal. This is true whether or not you are stopping it before surgery.`
-    : `Follow the eating and drinking instructions from the Preoperative Clinic: stop all solid food 8 hours before your arrival time, and you may keep drinking clear liquids until 2 hours before your arrival time - water, clear juice without pulp, sports drinks, regular (non-diet) soda, tea or coffee without milk, plain gelatin (Jell-O), or fat-free broth. One extra step, because you take an SGLT2 medicine: at about 2 hours before you arrive, as the last thing you drink, have a clear liquid that contains carbohydrate - juice, a sports drink, regular soda, and gelatin all do; diet or zero-sugar versions and fat-free broth do not. If that time falls while you are asleep, have one before you go to bed instead - do not set an alarm for it. This matters because of your SGLT2 medicine. In people who take these medicines, going a long stretch without carbohydrate can cause acid to build up in the blood, and that can happen even when blood sugar looks normal. This is true whether or not you are stopping it before surgery. If anything here differs from your other preoperative instructions, follow these.`;
+    : sType === 'colonoscopy'
+      ? `Follow the preparation instructions from the doctor doing your colonoscopy. Those instructions decide what you may eat and drink and when, and you should follow them. One extra step, because you take an SGLT2 medicine: make the last drink you have before your cut-off time a clear liquid that contains carbohydrate - apple or white grape juice, a sports drink, or regular (non-diet) soda all count; diet or zero-sugar versions and fat-free broth do not. Avoid anything red, purple or orange, nothing milky or creamy, no juice with pulp, and no alcohol. If your preparation instructions do not allow a drink like this, follow them instead and let the Preoperative Clinic know. This matters because of your SGLT2 medicine. In people who take these medicines, going a long stretch without carbohydrate can cause acid to build up in the blood, and that can happen even when blood sugar looks normal. This is true whether or not you are stopping it before surgery.`
+      : `Follow the eating and drinking instructions from the Preoperative Clinic: stop all solid food 8 hours before your arrival time, and you may keep drinking clear liquids until 2 hours before your arrival time - water, clear juice without pulp, sports drinks, regular (non-diet) soda, tea or coffee without milk, plain gelatin (Jell-O), or fat-free broth. Nothing milky or creamy, no juice with pulp, and no alcohol. One extra step, because you take an SGLT2 medicine: at about 2 hours before you arrive, as the last thing you drink, have a clear liquid that contains carbohydrate - juice, a sports drink, regular soda, and gelatin all do; diet or zero-sugar versions and fat-free broth do not. If that time falls while you are asleep, have one before you go to bed instead - do not set an alarm for it. This matters because of your SGLT2 medicine. In people who take these medicines, going a long stretch without carbohydrate can cause acid to build up in the blood, and that can happen even when blood sugar looks normal. This is true whether or not you are stopping it before surgery. If anything here differs from your other preoperative instructions from the Preoperative Clinic, follow these.`;
   const carbClinicianLead = onIncretin
     ? `Co-treated with a GLP-1 RA or tirzepatide; clear liquids run ${carbUntilClinician}. The carbohydrate drink is anchored to the patient's LAST drink before that cutoff rather than to a clock time, and the sheet tells them not to set an alarm for it. Reason: the cutoff lands between 1 and 5 am for several arrival-time and cutoff combinations - a 6 h cutoff before an 07:30 arrival is 01:30, an 8 h cutoff before a 12:30 arrival is 04:30 - and a named time would be either ignored or obeyed at 3 am. The sheet also directs that some of the clear liquids taken across the 24 h clear liquid diet contain carbohydrate, so the carbohydrate-free window is shortened without touching the cutoff.`
-    : `Clear liquids until 2 h before arrival and solids stopped 8 h before arrival, restating the clinic's own fasting instructions. IN ADDITION the patient is instructed to take a carbohydrate-containing clear liquid as the LAST thing they drink, at about 2 h before arrival. This is an active instruction, not a permission window, and it is new practice as of 2026-08-13 - the clinic does not currently do this. For an early arrival the 2 h point falls in the small hours - a 05:30 arrival puts it at 03:30 - so the sheet adds that a patient asleep at that time should drink before bed instead and should not set an alarm. Volume ad lib; no volume is stated to the patient.`;
-  const carbClinician = `${carbClinicianLead} Sugar-free and zero-carbohydrate products are excluded: the purpose is carbohydrate delivery, and a zero-carbohydrate drink is a silent no-op in a population conditioned to choose it. INSTITUTIONAL on three points - ASA 2023 Recommendation 1 (Strong recommendation, Moderate evidence) permits carbohydrate-containing clear liquids until 2 h before anesthesia but defines its population as excluding diabetes mellitus, gastroparesis and obesity; it cites up to 400 mL as the volume tested at the 2 h mark; and its only diabetes-specific comment suggests home glucometer readings guide the choice between a carbohydrate and a noncaloric liquid. Beverage examples and the milk, pulp and alcohol exclusions follow ASA 2017 Practice Guidelines for Preoperative Fasting, which the 2023 modular update leaves in force. DECLARED DEPARTURE: Endocrine Society 2022 (Korytkowski et al., JCEM 2022;107:2101) Recommendation 8.1 points the other way - in adults with type 1, type 2 or other forms of diabetes undergoing surgical procedures, it suggests NOT administering carbohydrate-containing oral fluids preoperatively (conditional recommendation, very low certainty evidence). Its reasoning is that the reduced insulin resistance sought by ERAS carbohydrate loading is not expected in diabetes, and that hyperglycemia may cancel a scheduled procedure. ABSMC gives the drink anyway: that recommendation addresses carbohydrate loading for insulin resistance and does not address mitigating euglycemic ketoacidosis in a patient on an SGLT2 inhibitor, which is the purpose here, and this instruction is given only to patients on an SGLT2 inhibitor. The conflict is stated rather than omitted so the reviewing clinician can weigh it.`;
+    : sType === 'colonoscopy'
+      ? `Colonoscopy: the sheet does NOT restate the clinic's 8 h / 2 h fasting rules and does NOT claim to supersede other instructions, because bowel preparation governs this patient's intake and is stricter and differently timed. The patient is directed to their preparation instructions and told only to make the LAST drink before their cut-off a carbohydrate-containing clear liquid, avoiding red, purple and orange. They are told to follow the prep instructions and notify the clinic if it does not permit this. New practice as of 2026-08-13 - the clinic does not currently do this.`
+      : `Clear liquids until 2 h before arrival and solids stopped 8 h before arrival, restating the clinic's own fasting instructions. IN ADDITION the patient is instructed to take a carbohydrate-containing clear liquid as the LAST thing they drink, at about 2 h before arrival. This is an active instruction, not a permission window, and it is new practice as of 2026-08-13 - the clinic does not currently do this. For an early arrival the 2 h point falls in the small hours - a 05:30 arrival puts it at 03:30 - so the sheet adds that a patient asleep at that time should drink before bed instead and should not set an alarm. NOTE FOR REVIEW: that escape produces a ~7.5 h preoperative carbohydrate-free window, which the clinical review of 2026-08-13 flagged as approaching the institutional 12 h threshold and as inconsistent with auto-holding a 4 h GLP-1 cutoff. Behavior unchanged pending Mark's decision. Volume ad lib; no volume is stated to the patient.`;
+  const carbClinician = `${carbClinicianLead} Anticipate arrival hyperglycemia: this instruction goes to patients whose SGLT2 inhibitor may be held for 72-96 h, so the glucose-lowering agent is off while the carbohydrate goes in. Endocrine Society Rec 8.1 names hyperglycemia and case cancellation as its concrete harm, and that is the residual risk here. ASA 2023 tested up to 400 mL (median 400 mL, IQR 300-400); no volume is stated to the patient, and ASA suggests home glucometer readings may guide the choice between a carbohydrate and a noncaloric clear liquid. Sugar-free and zero-carbohydrate products are excluded: the purpose is carbohydrate delivery, and a zero-carbohydrate drink is a silent no-op in a population conditioned to choose it. INSTITUTIONAL on three points - ASA 2023 Recommendation 1 (Strong recommendation, Moderate evidence) permits carbohydrate-containing clear liquids until 2 h before anesthesia but defines its population as excluding diabetes mellitus, gastroparesis and obesity; it cites up to 400 mL as the volume tested at the 2 h mark; and its only diabetes-specific comment suggests home glucometer readings guide the choice between a carbohydrate and a noncaloric liquid. Beverage examples and the milk, pulp and alcohol exclusions follow ASA 2017 Practice Guidelines for Preoperative Fasting, which the 2023 modular update leaves in force. DECLARED DEPARTURE: Endocrine Society 2022 (Korytkowski et al., JCEM 2022;107:2101) Recommendation 8.1 points the other way - in adults with type 1, type 2 or other forms of diabetes undergoing surgical procedures, it suggests NOT administering carbohydrate-containing oral fluids preoperatively (conditional recommendation, very low certainty evidence). Its reasoning is that the reduced insulin resistance sought by ERAS carbohydrate loading is not expected in diabetes, and that hyperglycemia may cancel a scheduled procedure. ABSMC gives the drink anyway: that recommendation addresses carbohydrate loading for insulin resistance and does not address mitigating euglycemic ketoacidosis in a patient on an SGLT2 inhibitor, which is the purpose here, and this instruction is given only to patients on an SGLT2 inhibitor. The conflict is stated rather than omitted so the reviewing clinician can weigh it.`;
 
   const drugNames = drugs.map(d => `${d.name} (${d.brand})`);
   // Combination pills containing metformin also carry the metformin component's
@@ -2043,7 +2062,7 @@ class PerioperativeDMApp {
           <div class="evidence-strip">
             ${details.sglt2iMode === 'FDA'
               ? '<strong>FDA/ADA Default:</strong> Hold canagliflozin, dapagliflozin, and empagliflozin at least 3 days; ertugliflozin at least 4 days before elective surgery. No minor-procedure or colonoscopy continuation exception in this mode.'
-              : '<strong>SPAQI (2026) — risk-stratified:</strong> Continue for minor procedures/colonoscopy (any patient); major noncardiac surgery (T2DM and non-diabetic); and cardiac surgery in non-diabetics and in T2DM with heart failure or CKD. Hold for type 1 diabetes; ketogenic/very-low-carb diet or bariatric surgery; and cardiac surgery in T2DM without heart failure or CKD. Any of the following forces a hold regardless of the above: anticipated >12 h without carbohydrate, expected surgery >3 h, current insulin use, history of DKA (including unknown), or most recent A1c >8% — the latter four are institutional criteria with no SPAQI recommendation number. Cardiac guidance is pending confirmation from cardiac surgery.'}
+              : '<strong>SPAQI (2026) — risk-stratified:</strong> Continue for minor procedures/colonoscopy (any patient); major noncardiac surgery (T2DM and non-diabetic); and cardiac surgery in non-diabetics and in T2DM with heart failure or CKD. Hold for type 1 diabetes; ketogenic/very-low-carb diet or bariatric surgery; and cardiac surgery in T2DM without heart failure or CKD. Any of the following forces a hold regardless of the above: anticipated >12 h without carbohydrate, expected surgery >3 h, current insulin use, history of DKA, or most recent A1c >8% — the latter four are institutional criteria with no SPAQI recommendation number. An unanswered DKA question also holds; a blank A1c, surgical-duration or ketogenic-diet answer permits continuation. For a patient co-treated with a GLP-1 RA or tirzepatide having major noncardiac or cardiac surgery, a fasting cutoff earlier than 2 h before arrival satisfies the >12 h trigger on its own, whatever is answered here.'}
           </div>
           ${details.sglt2iMode === 'SPAQI' ? `
             <hr class="divider">
@@ -2098,6 +2117,7 @@ class PerioperativeDMApp {
               <div class="check-label ${details.dkaHistory===false?'selected':''}" onclick="window.app.updateDetails('dkaHistory',false)">
                 <span class="custom-radio"></span> No
               </div>
+            </div>
             <hr class="divider">
             <div class="question" style="font-size:14px;">Is the patient on a ketogenic or very-low-carbohydrate diet (under 50 g carbohydrate per day)?</div>
             <div class="btn-row">
@@ -2106,9 +2126,6 @@ class PerioperativeDMApp {
               </div>
               <div class="check-label ${details.ketoDiet===false?'selected':''}" onclick="window.app.updateDetails('ketoDiet',false)">
                 <span class="custom-radio"></span> No
-              </div>
-              <div class="check-label ${details.ketoDiet==='unknown'?'selected':''}" onclick="window.app.updateDetails('ketoDiet','unknown')">
-                <span class="custom-radio"></span> Unknown
               </div>
             </div>` : ''}
         </div>`;
@@ -2366,10 +2383,10 @@ class PerioperativeDMApp {
     // 5. Blank answers, and the default each one applied. Stated here rather than
     //    under every intake question, and silent when nothing was left blank.
     if (p.permissiveBlanks && p.permissiveBlanks.length) {
-      rows.push(`<div class="prov-dim">Left blank, and defaulted in the direction that permits continuation: ${p.permissiveBlanks.map(esc).join("; ")}.</div>`);
+      rows.push(`<div class="prov-dim">Not supplied, and defaulted in the direction that permits continuation: ${p.permissiveBlanks.map(esc).join("; ")}.</div>`);
     }
     if (p.dkaBlank) {
-      rows.push(`<div class="prov-override"><span class="prov-key">DKA history not established</span> This question was not answered, so a history of diabetic ketoacidosis has neither been confirmed nor excluded. Unlike the other unanswered questions, this one holds the medication rather than permitting continuation: DKA history is the most predictive risk factor for euglycemic ketoacidosis in the source, and it cannot be reconstructed later. If the patient has no history, answer No and the medication continues.</div>`);
+      rows.push(`<div class="prov-override"><span class="prov-key">DKA history not established</span> This question was not answered, so a history of diabetic ketoacidosis has neither been confirmed nor excluded. Unlike the other unanswered questions, this one holds the medication rather than permitting continuation: The source lists DKA history as one of four risk factors for considering day-of-surgery ketone testing, and does not rank them; ABSMC treats it as the one that cannot be reconstructed after the fact. If the patient has no history, answer No and the medication continues.</div>`);
     }
     // 6. Box/Figure discrepancy footnote, shown wherever an affected R-number is
     //    printed -- as the base recommendation OR as a source-backed trigger.
