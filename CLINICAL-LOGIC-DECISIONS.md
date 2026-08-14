@@ -131,6 +131,15 @@ window stops being a judgment call: their own fasting cutoff settles it.
 | 4 h before arrival | **Trigger satisfied - HOLD** |
 | 2 h before arrival | No automatic trigger; the clinician's answer decides, as for everyone else |
 
+**Scoped to major noncardiac, cardiac and bariatric surgery (clinical review, 2026-08-13).**
+As first written the rule had no surgery-type condition, so it held minor-procedure and
+colonoscopy patients too - overriding an explicit No from the clinician on a premise that is
+false for them. Worked: colonoscopy, last carbohydrate at a midnight cutoff, 07:30 arrival,
+procedure about 09:00, eating by about 11:00 is roughly 11 h, under the 12 h threshold. SPAQI
+panel a carries no fasting-keyed stop branch for those procedures at all. Reproduced in the
+browser before the fix and after. The certainty this rule rests on is the postoperative half
+of the window, and that half is short precisely in the branches now excluded.
+
 The 2 h cutoff is the only one that leaves a co-treated patient where every other patient
 sits - clear liquids to 2 h before arrival - so the ordinary judgment applies there and
 nowhere else.
@@ -144,8 +153,19 @@ a fact about the patient's fasting plan, not an opinion about it.
 > window this section's question asks about. Do not "correct" this rule later by checking the
 > preoperative clock alone; the same caution is written into the code comment.
 
-**Implemented by satisfying the existing trigger, not by adding a parallel one.** The
-provenance already built and reviewed therefore applies unchanged: R3a for T2DM and R4 for
+**Implemented by satisfying the existing trigger, not by adding a parallel one.**
+
+> **CORRECTED 2026-08-13 after clinical review.** This section previously claimed the existing
+> provenance applied unchanged. It does not. R3a and R4 are both keyed to anticipated
+> POSTOPERATIVE fasting. When the cutoff fires the trigger and the clinician has answered NO to
+> the combined question, the source's condition is not established, and printing "Held per
+> SPAQI (R3a/R4)" claims guideline backing the entered facts do not support - while also
+> suppressing the section 7 departure notice, which fires only when no source-backed trigger
+> did. **A hold fired by the cutoff alone is now tagged INSTITUTIONAL with no R-number, and it
+> announces its departure like any other institutional trigger.** Where the clinician answered
+> YES, the R-number stands exactly as before. Reproduced both ways in the browser.
+
+The provenance below therefore applies only when the clinician has affirmed the fast: R3a for T2DM and R4 for
 non-diabetics in major noncardiac surgery, institutional elsewhere with the departure notice
 firing. The trigger label names the cutoff when the cutoff, rather than the clinician, is
 what fired it, so the clinician view never implies they answered a question they did not.
@@ -198,8 +218,12 @@ Four questions can be left blank. Three default toward continuation; one does no
 
 **The asymmetry is deliberate.** The first three fail toward continuing a drug in someone whose
 risk nobody measured. The fourth fails toward continuing an SGLT2 inhibitor in the patient the
-source flags hardest: DKA history is the most predictive item on its own risk-factor footnote,
-and unlike an A1c it cannot be reconstructed after the fact. A clinician who knows the patient
+source flags hardest. **Corrected 2026-08-13:** footnote a lists four risk factors - prolonged
+carbohydrate fasting, a <50 g carbohydrate diet, history of insulin use or DKA, and HbA1c >8% -
+as an unranked disjunctive list, and does NOT designate DKA history the most predictive of
+them. The app and this record both said it did; the claim has been removed from the clinician
+view. What survives is institutional and is stated as such: unlike an A1c, a DKA history cannot
+be reconstructed after the fact. A clinician who knows the patient
 has no history answers No and gets a continue - that is what the No answer is for.
 
 **The "Unknown" option is REMOVED from the DKA question.** It is now Yes / No, and blank carries
@@ -330,6 +354,38 @@ is 01:30, an 8 h cutoff before a 12:30 arrival is 04:30. For an SGLT2-only patie
 instruction is kept, with an explicit escape: if 2 h before arrival falls while they are
 asleep - a 05:30 arrival puts it at 03:30 - they drink before bed instead.
 
+### Colonoscopy is carved out of the supersession (clinical review, 2026-08-13)
+
+The rewritten sheet restated the clinic's 8 h solids / 2 h clear liquid rules and then told the
+patient, in writing, to follow this sheet wherever it differs from their other instructions.
+For a colonoscopy patient that is a live instruction conflict: bowel preparation governs their
+intake, is stricter and differently timed, and SPAQI continues the SGLT2i for these patients, so
+it is a common combination rather than an edge case. It also resolved, in this sheet's favor,
+the Epic-conflict question recorded below as Mark's to own.
+
+**A colonoscopy patient now receives no restated fasting rules and no supersession sentence.**
+They are pointed at their preparation instructions, told to follow them, and given the one extra
+step: make the LAST drink before the cut-off a carbohydrate-containing clear liquid, avoiding
+red, purple and orange, with a line telling them to follow the prep and notify the clinic if it
+does not permit this. **The red/purple/orange exclusion is new and is an assistant addition, not
+a Mark decision - it needs his sign-off.** The milk, pulp and alcohol exclusions, dropped in the
+rewrite, are restored to both this and the general instruction.
+
+**Arrival hyperglycemia is now disclosed to the clinician.** The drink goes to patients whose
+SGLT2 inhibitor may be held for 72-96 h, so the glucose-lowering agent is off while the
+carbohydrate goes in - and hyperglycemia with case cancellation is the one concrete harm
+Endocrine Society Rec 8.1 names. The clinician text now says so and carries the ASA volume and
+the home-glucometer suggestion. The patient sheet is unchanged and still states no volume.
+
+> **OPEN, needs Mark: the before-bed escape.** For an early arrival the sheet tells an
+> SGLT2i-only patient to drink before bed rather than at 03:30. The clinical review would not
+> sign it: a 22:00 drink before an 05:30 arrival is a ~7.5 h preoperative carbohydrate-free
+> window, most of the way to the 12 h threshold before the postoperative limb is counted, and
+> inconsistent with auto-holding a 4 h GLP-1 cutoff. Suggested alternatives: drink on waking to
+> travel, or omit the extra step for arrivals before about 07:00. **Behavior unchanged; a note
+> to that effect is in the clinician text.** Mark set the no-alarm principle deliberately, so
+> the replacement is his call, not the reviewer's.
+
 **These instructions supersede the general clinic ones where they differ**, stated on the
 sheet for both SGLT2 inhibitor and GLP-1 patients. **Rollout risk Mark flagged:** the clinic
 also issues fasting instructions from Epic, and if both are printed they can disagree. One
@@ -403,7 +459,13 @@ The clinical reviewer recommended suppressing this instruction for bariatric/VLC
 - **The gram target is ungraded.** "50–100 g carbohydrates/day" (panels a and b-T2DM) and ">50 g carbohydrates/day" (panel b non-T2DM) appear **only inside figure boxes** — not in the prose, not in the R1–R10 Box, not in Table 5. No R-number, no evidence grade. Do not present it to a clinician as a graded consensus recommendation.
 - **Panels c and d carry no gram target.** Panel c carries no carbohydrate instruction at all.
 - **The source does not support a day-of-surgery carbohydrate drink.** Searches for "carbohydrate load/loading/drink/beverage" return zero hits across all 24 pages. The source supports (i) daily dietary carbohydrate in the days before and (ii) minimizing fasting duration. Instructing a *drink* is an INSTITUTIONAL EXTENSION and must not be attributed to SPAQI.
-- **The correct citation for carbohydrate-containing clear liquids** is the 2023 ASA modular fasting update (Joshi/Abdelmalak/Weigel, Anesthesiology 2023;138:132–51), which SPAQI cites once (ref 78) for fasting limits only. **Not yet obtained or read.**
+- **The correct citation for carbohydrate-containing clear liquids** is the 2023 ASA modular fasting update (Joshi/Abdelmalak/Weigel, Anesthesiology 2023;138:132–51), which SPAQI cites once (ref 78) for fasting limits only. **ON DISK and READ as of 2026-08-13** -
+  `Source-Articles\2023-american-society-of-anesthesiologists-practice.PDF`. Every claim the app
+  makes about it checks out verbatim. **One nuance in the app's favor:** ASA does not forbid the
+  drink in diabetes. It excludes diabetes, gastroparesis and obesity from the population its
+  strong recommendation covers and says *"exercise clinical judgment with this patient
+  population"* - a scoping limitation, not a contraindication. It also supplies the volume the
+  app had been missing: up to 400 mL, median 400 (IQR 300-400).
 - **The source is silent** on carbohydrate loading in diabetes (hyperglycemia on arrival, gastroparesis) — zero hits for "gastroparesis" or "aspiration". It is silent on GLP-1 RAs and tirzepatide entirely ("GLP-1" appears once, in a reference title).
 
 ---
@@ -791,6 +853,7 @@ local-practice grounds and are not revisited by this recommendation.
 2. Whether "3 days" in the source means 72 h or 3 missed doses — unresolvable from the source; 72 h adopted.
 3. ~~CT surgery confirmation on the cardiac change.~~ **CLOSED 2026-08-12** - Mark adopted the guideline pathway without the written reply; the NP double-check flag is removed from the app.
 4. 2024 AGA/ASA/ASMBS multisociety GLP-1 guidance — cited by the app, **not on disk, not read**.
-5. 2023 ASA modular fasting update — needed to cite carbohydrate clear liquids correctly. **Not on disk.**
+5. ~~2023 ASA modular fasting update - needed to cite carbohydrate clear liquids correctly.~~
+   **CLOSED 2026-08-13** - it was on disk all along and has now been read. See section 5.
 6. Three remaining uncommitted 7/26 edits still need clinical sign-off (the morning-of string is now endorsed; the conservative-hold-when-unanswered default, the citation change, and the toggle relabeling are not).
 7. Clinician override feature — settled in principle (per-session, resets; patient PDF notes instructions were clinician-reviewed without clinical detail; no audit trail of the original recommendation) but the UI has not been designed or discussed.
