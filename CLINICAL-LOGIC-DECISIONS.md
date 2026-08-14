@@ -373,8 +373,10 @@ it, but **preoperative staff should be aware** that these patients are told to d
 > a 22:00 drink before an 05:30 arrival leaves a ~7.5 h carbohydrate-free window and delivers
 > the carbohydrate where it helps least. It is kept for held patients because the deviation
 > from the stated fasting window has to be paid for by benefit, and the benefit is smaller once
-> the drug has been stopped for 72-96 h. **The evidence for how much eDKA risk survives an
-> adequate hold has NOT been checked, and it is the fact that decides this row. Open.**
+> the drug has been stopped for 72-96 h. **CHECKED 2026-08-13 - see section 11. Residual risk
+> after an adequate hold is low but not zero, which supports keeping the drink for held
+> patients while not justifying the fasting-window deviation for them. This row now rests on
+> evidence rather than assumption.**
 
 > **The deliberate asymmetry, and its reason.** A HELD SGLT2i-only patient still gets the timed
 > drink; a HELD co-treated patient with the same 2 h cutoff gets none. Mark, 2026-08-13: for the
@@ -905,6 +907,73 @@ the same day: quote the conflict accurately and declare the departure rather tha
 
 This does not reopen section 5. The bariatric and T1DM suppression questions were settled on
 local-practice grounds and are not revisited by this recommendation.
+
+## 11. eDKA risk: what the source actually quantifies (checked 2026-08-13)
+
+Read directly from Oprea et al., BJA 2026, pp.3-4 and Table 2, plus ADA S16 p.9.
+Both questions below were raised by Mark and had been answered by assumption until now.
+
+### How much risk survives an adequate hold?
+
+**Pharmacokinetic basis for the interval:** *"if SGLT2is are discontinued for ~72 h, <1% of
+drug then remains in circulation."* That is the whole basis for 3 days, and it is about drug
+concentration, not about ketogenesis.
+
+**Outcome data, from Table 2:**
+
+| Study | Hold | Population | eDKA |
+|---|---|---|---|
+| Woronow 2024 | 24 h | T2DM, n=29 | **31%**, ketoacidosis lasting 3-20 days, 7 relapses |
+| Auerbach 2025 | 120 h | cardiac, n=540 | **0%** |
+| Chen 2025 | 168 h | metabolic/bariatric, n=4364 | **0.69%** vs 0.46% in nonusers (OR 1.5, P=0.316) |
+
+**Reading:** a short hold is clearly inadequate; an adequate hold brings risk close to
+baseline without eliminating it. Even at a full week, in the highest-risk surgical population
+in the paper, eDKA still occurred at 0.69% - numerically above nonusers, not significantly so.
+
+**Whether a LONGER hold helps is genuinely unsettled.** Pitta found a strong inverse
+correlation between hold time and postoperative anion gap (r=-0.63, 95% CI -0.91 to -0.34);
+another study *"did not find a correlation between the duration of SGLT2i cessation before
+surgery ... and hyperketonaemia."* The paper also notes the drug's tissue effects outlast its
+plasma levels - SGLT2is *"might confer AKI protection when given chronically even if withheld
+for 72 h"* - so "<1% in circulation" is not the same as "no pharmacologic effect".
+
+**Consequence for this app:** it supports giving the carbohydrate drink to held patients
+(section 5, and the long-standing decision not to suppress any group), and it does not
+support extending the on-waking fasting-window deviation to them. No change to the 72/96 h
+intervals, which remain as the source sets them.
+
+### Does the source quantify a prior DKA history?
+
+**No.** The prose reads: *"Poorly controlled diabetes mellitus, with an HbA1c >8%, use of
+insulin, or a prior history of diabetic ketoacidosis, adds to the risk among patients with
+T2DM."* Three factors named together, no ranking, no separate effect size for any of them.
+This independently confirms the 2026-08-13 review finding and the correction made in
+section 2c.
+
+**The only one of the three the paper quantifies is HbA1c:** RR 2.24 (95% CI 1.59-3.14) above
+7.9%, versus RR 1.05 (0.49-2.26) at or below, interaction P=0.034.
+
+> **This is the strongest argument against the blank-answer asymmetry, and it should be
+> recorded as such.** The risk factor with a measured effect size (A1c) defaults toward
+> CONTINUATION when blank; the one with no measured effect size (DKA history) HOLDS. Mark's
+> reasoning was never about effect size - it was that an A1c can be looked up later and a DKA
+> history cannot - so this does not overturn the decision. But anyone revisiting section 2c
+> should weigh it. **Decision unchanged, 2026-08-13.**
+
+**Scale, for the clinician note:** perioperative eDKA runs about 6.40 per 1000 person-years,
+and a population-based cohort of over 147,000 surgical patients with T2DM found an incidence
+rate ratio of **6.33 (95% CI 5.57-7.18)** in SGLT2i users versus nonusers. Both figures are
+now in the clinician view's blank-DKA block, which previously asserted the risk without
+defining it.
+
+**ADA S16 adds one datum and one caution.** In emergency surgery - where no hold is possible
+- DKA was 4.9% in SGLT2i users versus 3.5% in nonusers, **not significant after adjustment**,
+though ADA notes ICD-10 ascertainment likely missed euglycemic cases. ADA's own framing of
+the 3-4 day hold is explicitly precautionary: *"until further prospective studies are
+conducted, as an abundance of caution."*
+
+---
 
 ## Open items
 
