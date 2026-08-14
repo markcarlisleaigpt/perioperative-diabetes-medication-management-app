@@ -1287,6 +1287,24 @@ The 10px wide-tracked monospace headings are **replaced at every size**, includi
 they were the least legible element on the page. Mark wants to reconsider making Large Print
 the default once he has seen it in use.
 
+#### Line measure capped (2026-08-14)
+
+Type size was not the only legibility variable. Measured on the rendered sheet, body text ran
+**103 / 90 / 65 characters per line** at Condensed / Comfortable / Large Print. The recognized
+comfortable range for sustained reading is about **45-75**, and an over-long measure hurts
+exactly the readers this exercise is for - the eye has to track back across a wide gap to find
+the start of the next line. Part of why Large Print read better was its narrower measure, not
+only its type size.
+
+A `max-width` now caps the measure, expressed in `ch` so it scales with each size. **Tuned
+empirically, not by theory:** `ch` is the width of "0", narrower than Barlow's average glyph,
+so an initial 68ch still rendered about 89 real characters. Final values give **68 / 68 / 66
+characters** on the widest line - all three in range. Large Print is left wider because it was
+already container-limited inside the range, and narrowing it further would only add pages.
+
+CSS only. No patient string changed, and the low-vision display-size source gives a floor of at
+least 13 characters per line, which nothing here approaches.
+
 Rendered samples of all three, with the builder that regenerates them, are committed at
 `Patient-Sheet-Samples\`. They are in the project deliberately: session scratchpads do not
 persist and these samples were lost twice.
