@@ -385,7 +385,7 @@ CONTINUING the SGLT2 inhibitor and whose clear liquid cutoff is the ordinary 2 h
 |---|---|---|
 | SGLT2i only, **continuing** | early | **8-12 oz on waking, the first thing they do** |
 | SGLT2i only, **continuing** | normal | 8-12 oz at about 2 h before arrival |
-| SGLT2i only, **held** | early | 8-12 oz **before bed** |
+| SGLT2i only, **held** | early | **8-12 oz on waking** - same as continuing, changed 2026-08-13 |
 | SGLT2i only, **held** | normal | 8-12 oz at about 2 h before arrival |
 | GLP-1 + SGLT2i, cutoff **earlier than 2 h** | any | **No timed or morning drink.** Shape the 24 h clear liquid diet instead: some of it should contain carbohydrate, and so should the last drink before the cutoff |
 | GLP-1 + SGLT2i, cutoff **2 h**, **continuing** | early | **8-12 oz on waking** |
@@ -404,15 +404,16 @@ ASA asks for, and outside the 2 h ASA itself specifies. The patient sheet says t
 supersedes where instructions differ, so the printed 2 h clear-liquid line does not contradict
 it, but **preoperative staff should be aware** that these patients are told to drink on waking.
 
-> **Why before bed for a HELD patient rather than on waking.** A drink at bedtime is a weak
-> version of this instruction - the clinical review objected to it for exactly that reason, since
-> a 22:00 drink before an 05:30 arrival leaves a ~7.5 h carbohydrate-free window and delivers
-> the carbohydrate where it helps least. It is kept for held patients because the deviation
-> from the stated fasting window has to be paid for by benefit, and the benefit is smaller once
-> the drug has been stopped for 72-96 h. **CHECKED 2026-08-13 - see section 11. Residual risk
-> after an adequate hold is low but not zero, which supports keeping the drink for held
-> patients while not justifying the fasting-window deviation for them. This row now rests on
-> evidence rather than assumption.**
+> **The before-bed escape is RETIRED (Mark, 2026-08-13).** It was briefly kept for held
+> patients on the reasoning that a deviation from the stated fasting window has to be paid for
+> by benefit, and the benefit is smaller once the drug has been stopped. **The evidence in
+> section 11 does not support that split, and Mark reversed it the same day.** Residual eDKA
+> risk after a hold is lower but not zero - and, decisively, **the studies reporting near-zero
+> rates held for 120 h and 168 h, while this app holds 72-96 h.** A patient held for 72 h is
+> not in the reassuring part of that evidence, and there is no study at 72 h to appeal to.
+> A bedtime drink was also the weakest version of the instruction, which is what the clinical
+> review objected to. **Every patient who receives a timed drink now receives the on-waking
+> escape**, continuing or held.
 
 > **The deliberate asymmetry, and its reason.** A HELD SGLT2i-only patient still gets the timed
 > drink; a HELD co-treated patient with the same 2 h cutoff gets none. Mark, 2026-08-13: for the
@@ -516,6 +517,37 @@ and continuing patients alike.
 from the clinic; the app must not issue instructions about that specific product.
 
 **Explain the rationale** in both the clinician view and the patient sheet.
+
+### Gastroparesis and aspiration risk - stated on every card that issues these rules
+
+**Added 2026-08-13 at Mark's request.** Both cards that issue eating and drinking
+instructions - SGLT2i and GLP-1 - now carry the same clinician-facing caveat.
+
+ASA 2023 scopes its fasting recommendations to *"healthy patients ... those without
+coexisting diseases or conditions that may increase the risk for aspiration"* and names
+**gastroparesis, diabetes mellitus and obesity** in that exclusion list, adding that
+anesthesiologists *"should recognize that these conditions can increase the likelihood of
+regurgitation and pulmonary aspiration and should modify these guidelines based upon clinical
+judgment."* ASA 2017 carries the equivalent sentence, also naming diabetes. **Every patient
+this app gives eating and drinking instructions to falls in that excluded population.**
+
+The caveat states this, says the app does not ask about gastroparesis and does not try to
+detect it, and directs that where delayed gastric emptying is suspected clinically a longer
+fast should be considered and these intervals overridden.
+
+**Deliberately not an intake question.** Mark: it has to be picked up clinically rather than
+by forcing another question into the intake. Offered and not taken, on the same reasoning as
+the contrast route and AKI fields in section 8.
+
+**The caveat also carries ASA's own hedge**, quoted rather than omitted: *"emerging data
+suggesting that some of the conditions traditionally considered to have an impact on gastric
+emptying may have little or no effect on gastric emptying."* Printing the exclusion without
+it would overstate how settled the question is.
+
+> **Relevance to the on-waking drink.** This is the one place where the on-waking instruction
+> could bite, since it puts fluid in closer to induction than the printed 2 h rule. The caveat
+> is what the clinician acts on if they suspect delayed emptying. Note the drink is still
+> roughly 3 h before anesthesia on the arrival anchor.
 
 ### Groups explicitly NOT suppressed, and why
 
@@ -974,10 +1006,12 @@ surgery ... and hyperketonaemia."* The paper also notes the drug's tissue effect
 plasma levels - SGLT2is *"might confer AKI protection when given chronically even if withheld
 for 72 h"* - so "<1% in circulation" is not the same as "no pharmacologic effect".
 
-**Consequence for this app:** it supports giving the carbohydrate drink to held patients
-(section 5, and the long-standing decision not to suppress any group), and it does not
-support extending the on-waking fasting-window deviation to them. No change to the 72/96 h
-intervals, which remain as the source sets them.
+**Consequence for this app (Mark, 2026-08-13):** it supports giving the carbohydrate drink to
+held patients (section 5, and the long-standing decision not to suppress any group), **and it
+supports giving them the on-waking version too.** The near-zero rates come from 120 h and
+168 h holds; this app holds 72-96 h, and no study reports the rate at exactly 72 h. A held
+patient is therefore not in the reassuring part of the evidence, and the drink is close to
+free. No change to the 72/96 h intervals, which remain as the source sets them.
 
 ### Does the source quantify a prior DKA history?
 
