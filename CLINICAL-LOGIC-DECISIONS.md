@@ -338,7 +338,66 @@ group receives:
 | **Neither drug** | Nothing. A pointer to the Preoperative Clinic's own instructions, so there is nothing here to contradict Epic. |
 | **SGLT2 inhibitor, no GLP-1** | The clinic rules restated - solids stop 8 h before arrival, clear liquids until 2 h before, with examples - **plus** a carbohydrate-containing clear liquid as the LAST thing they drink, at about 2 h before arrival. |
 | **GLP-1, no SGLT2 inhibitor** | Unchanged rules, plus what counts as a clear liquid. |
-| **Both** | No timed drink. Some of the clear liquids taken across the 24 h diet should contain carbohydrate, and the last drink before the cutoff should be one of them. |
+| **Both** | Depends on the cutoff and on whether the SGLT2i continues - superseded by the matrix below. |
+
+### Who gets the drink, and when (Mark, 2026-08-13 - supersedes the rows above where they differ)
+
+The single rule underneath all of it: **the on-waking drink goes to a patient who is
+CONTINUING the SGLT2 inhibitor and whose clear liquid cutoff is the ordinary 2 h.**
+
+| Patient | Arrival | Instruction |
+|---|---|---|
+| SGLT2i only, **continuing** | early | **8-12 oz on waking, the first thing they do** |
+| SGLT2i only, **continuing** | normal | 8-12 oz at about 2 h before arrival |
+| SGLT2i only, **held** | early | 8-12 oz **before bed** |
+| SGLT2i only, **held** | normal | 8-12 oz at about 2 h before arrival |
+| GLP-1 + SGLT2i, cutoff **earlier than 2 h** | any | **No timed or morning drink.** Shape the 24 h clear liquid diet instead: some of it should contain carbohydrate, and so should the last drink before the cutoff |
+| GLP-1 + SGLT2i, cutoff **2 h**, **continuing** | early | **8-12 oz on waking** |
+| GLP-1 + SGLT2i, cutoff **2 h**, **continuing** | normal | 8-12 oz at about 2 h before arrival |
+| GLP-1 + SGLT2i, cutoff **2 h**, **held** | any | **No timed drink**; the 24 h diet wording only |
+
+"Early" is not computed. The sheet says *if that time falls while you are asleep*, and the
+patient judges it. This keeps Mark's intervals-not-clock-times rule and needs no threshold.
+
+**The on-waking drink may fall inside the final 2 h before ARRIVAL, and that is deliberate.**
+The boundary that actually matters is 2 h before *surgery*. Every cutoff in this app is stated
+against arrival because arrival runs about 2 h ahead of surgery, which is what makes the
+cutoffs conservative in the first place (see the 2026-08-04 item A decision). A patient waking
+at 04:00 for an 05:30 arrival drinks about 3.5 h before anesthesia - comfortably outside what
+ASA asks for, and outside the 2 h ASA itself specifies. The patient sheet says the drink
+supersedes where instructions differ, so the printed 2 h clear-liquid line does not contradict
+it, but **preoperative staff should be aware** that these patients are told to drink on waking.
+
+> **Why before bed for a HELD patient rather than on waking.** A drink at bedtime is a weak
+> version of this instruction - the clinical review objected to it for exactly that reason, since
+> a 22:00 drink before an 05:30 arrival leaves a ~7.5 h carbohydrate-free window and delivers
+> the carbohydrate where it helps least. It is kept for held patients because the deviation
+> from the stated fasting window has to be paid for by benefit, and the benefit is smaller once
+> the drug has been stopped for 72-96 h. **The evidence for how much eDKA risk survives an
+> adequate hold has NOT been checked, and it is the fact that decides this row. Open.**
+
+> **The deliberate asymmetry, and its reason.** A HELD SGLT2i-only patient still gets the timed
+> drink; a HELD co-treated patient with the same 2 h cutoff gets none. Mark, 2026-08-13: for the
+> co-treated patient there is a gastric-emptying cost to putting anything extra in, so the drink
+> is only worth it where the euglycemic DKA rationale is strongest, which is a continuing drug.
+> For the SGLT2i-only patient there is no such cost to weigh against it. Recorded because two
+> patients with identical fasting windows receive different sheets, and that will otherwise read
+> as an inconsistency.
+
+**The co-treated 2 h cutoff was previously lumped in with the other four and got no timed
+instruction at all** - it received *"whenever you have your last drink before you have to stop,
+make that one a carbohydrate drink too"*, which is a conditional about a drink they may not
+have, not an instruction to drink. Mark caught this 2026-08-13. The no-clock anchoring exists
+because a named time lands between 1 and 5 am for the midnight, 8, 6 and 4 h cutoffs; the 2 h
+cutoff has no such problem, and section 2a already singles it out as the one that leaves a
+co-treated patient where everyone else sits. The patient text now splits the same way the hold
+rule does.
+
+**Volume is now stated to the patient: 8 to 12 ounces**, on every timed instruction. This
+reverses the earlier no-volume decision below. 8-12 oz is 237-355 mL, at or just under the
+up-to-400 mL ASA 2023 tested (median 400, IQR 300-400), and it brackets the 10 oz
+carbohydrate drink already in use at the clinic. **The product is still never named on the
+patient sheet.** Mark's 10 oz figure has not been independently confirmed.
 
 **Intervals only, never computed clock times.** Mark's choice: the lines cannot go stale if
 the surgery time moves, and the patient keeps the rule rather than only the answer.
