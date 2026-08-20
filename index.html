@@ -1688,7 +1688,14 @@ function getInsulinGLP1ComboCard(ctx, details, drug, dd, baseFlags, isT1, dmType
 
   const nightBefore = `No evening dose - ${drug.brand} is taken ${drug.labelSchedule}. The dose taken on the morning BEFORE surgery is the patient's usual dose, unchanged.`;
   const morningOf = `DO NOT give ${drug.brand} on the morning of surgery. Its ${drug.glp1Component} component is meal-anchored, so it delivers no glycemic benefit to a patient who is NPO, while acutely delaying gastric emptying in the 1-3 h before induction - the window covered by the product's own pulmonary-aspiration warning. Give the basal component INSTEAD as a SEPARATE plain basal insulin at ${keepPct}% of the usual ${drug.brand} unit dose${doseClause}. That separate insulin must be prescribed in advance; the patient cannot improvise it from this pen. Notify the anesthesia team that this patient is on a GLP-1 receptor agonist. INSTITUTIONAL - no published guideline addresses fixed-ratio insulin/GLP-1 products perioperatively (Mark, 2026-08-18).`;
-  const patientMorning = `Do NOT take your ${drug.brand} on the morning of surgery. Instead, take ${patientDose} of the separate long-acting insulin your clinic has prescribed for that morning. If you have not been given a separate long-acting insulin to use that morning, call the Preoperative Clinic before your surgery.`;
+  // Two deliberate wording choices. (1) It OPENS by confirming the day-before dose. The
+  // sheet's convention is that silence means no change, which is safe for a drug that
+  // continues - but here the patient is told emphatically not to take this pen on one
+  // day, and over-generalising to the day before would skip their ONLY basal insulin,
+  // which is the more harmful direction. (2) The fallback is anchored to WHEN THEY READ
+  // THIS, not to 'before your surgery' - a patient reading it at 5 am on the day has no
+  // time to act on a clinic call (Mark, 2026-08-18).
+  const patientMorning = `Keep taking your ${drug.brand} as usual up to and including the day before surgery. Do NOT take it on the morning of surgery. Instead, take ${patientDose} of the separate long-acting insulin your clinic has prescribed for that morning. If you have not been given a separate long-acting insulin to use that morning, call the Preoperative Clinic as soon as you get these instructions - do not wait until the day of surgery.`;
 
   return {
     id: `basal-${drug.id}`,
