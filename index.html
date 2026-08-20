@@ -301,13 +301,24 @@ input[type="checkbox"], input[type="radio"] { width:16px; height:16px; cursor:po
 .ps-block { border:1px solid var(--line); border-radius:2px; padding:16px; margin-bottom:14px; background:var(--surface); }
 .ps-list-row { display:flex; justify-content:space-between; gap:14px; font-size:var(--ps-body); line-height:1.7; padding:4px 0; border-bottom:1px dotted var(--line); }
 .ps-list-row:last-child { border-bottom:none; }
-.ps-list-drug { font-weight:700; color:#DDE4F0; }
-.ps-list-dispo { color:#C3CCDE; text-align:right; flex-shrink:0; }
+.ps-list-drug { font-weight:700; color:#DDE4F0; min-width:0; overflow-wrap:break-word; }
+/* The disposition was flex-shrink:0, so it was forbidden to compress. The drug
+   name absorbed all the compression instead, and once it could compress no
+   further the row ran off the page - the defect Mark screenshotted on a phone,
+   2026-08-17. Both columns may now wrap. */
+.ps-list-dispo { color:#C3CCDE; text-align:right; flex-shrink:1; min-width:0; overflow-wrap:break-word; }
 /* At the large scale a long brand list wraps and leaves the disposition
    stranded beside the first line, so the row stacks instead of sitting in two
    columns. Only the large scale needs this - the other two fit on one line. */
 .patient-sheet.ps-large .ps-list-row { flex-direction:column; gap:2px; }
 .patient-sheet.ps-large .ps-list-dispo { text-align:left; }
+/* A phone has no room for two columns at ANY text size, so this stack is driven
+   by VIEWPORT, independent of the size toggle. Screen only - the printed page is
+   about 816px wide and keeps the two-column row. */
+@media screen and (max-width: 600px) {
+  .ps-list-row { flex-direction:column; gap:2px; }
+  .ps-list-dispo { text-align:left; }
+}
 .ps-size-bar { display:flex; align-items:center; gap:8px; margin-top:8px; flex-wrap:wrap; }
 .ps-size-bar .ps-size-label { font-size:12px; color:var(--dim2); }
 /* ===== DOSE INPUT ===== */
@@ -1314,7 +1325,7 @@ function getDPP4iResults(ctx, details, selected) {
     const mNames = metComboDrugs.map(d => `${d.name} (${d.brand})`).join('; ');
     badge = 'HOLD MORNING OF SURGERY'; badgeType = 'hold';
     morningOf = `HOLD morning of surgery: ${mNames}. Combination pill containing metformin. Metformin is held on the day of surgery in every scenario and the components cannot be separated, so the DPP-4 component is held with it.`;
-    patientMorning = `Do NOT take ${mNames} on the morning of surgery.`;
+    patientMorning = `Take ${mNames} as usual through the day and night before surgery. Do NOT take ${mNames} on the morning of surgery.`;
     if (plainDPP4.length) {
       const pNames = plainDPP4.map(d => `${d.name} (${d.brand})`).join('; ');
       morningOf += ` Continue at usual dose: ${pNames}. A DPP-4 inhibitor on its own carries minimal hypoglycemia risk and continuation is supported for minor procedures.`;
@@ -1324,12 +1335,12 @@ function getDPP4iResults(ctx, details, selected) {
   } else if (timing === 'PM') {
     badge = 'HOLD MORNING OF SURGERY'; badgeType = 'hold';
     morningOf = 'HOLD morning of surgery. If patient is eating a light breakfast for PM surgery (when appropriate), may take with breakfast — but default is HOLD.';
-    patientMorning = 'Do NOT take this medication on the morning of surgery.';
+    patientMorning = 'Take this medication as usual through the day and night before surgery. Do NOT take it on the morning of surgery.';
     flags.push({ type: 'info', text: 'PM surgery: If patient is eating a light breakfast, DPP-4 inhibitor may be taken with breakfast given very low hypoglycemia risk. Clinical judgment applies.' });
   } else {
     badge = 'HOLD MORNING OF SURGERY'; badgeType = 'hold';
     morningOf = 'HOLD morning of surgery. Do not administer. Note: SAMBA 2024 considers continuation reasonable given low hypoglycemia risk; ABSMC default is HOLD per ADA 2026.';
-    patientMorning = 'Do NOT take this medication on the morning of surgery.';
+    patientMorning = 'Take this medication as usual through the day and night before surgery. Do NOT take it on the morning of surgery.';
   }
   const drugNames = allDrugs.map(d => `${d.name} (${d.brand})`);
   let evidence = 'ADA Standards of Care 2026, section 16 perioperative practice point 4, states: "Metformin and other oral glucose-lowering agents should be held on the day of surgery or procedure." Other sources: SAMBA Updated Consensus 2024 (Anesth Analg 2024;139:459-77) states DPP-4 inhibitors have a low perioperative hypoglycemia risk and may be continued preoperatively; its medication table lists them as "take". The AHA/ACC 2024 perioperative guideline does not address DPP-4 inhibitors. The day-of-surgery hold is backed by the ADA statement above and is also longstanding ABSMC practice; the sources differ on DPP-4 inhibitors specifically, and the hold is the conservative reading.';
@@ -1398,7 +1409,7 @@ function getMetforminDisposition(details) {
     } else {
       badge = 'HOLD MORNING OF SURGERY'; badgeType = 'hold';
       morningOf = `HOLD morning of surgery (eGFR ${eGFR} mL/min/1.73m²). ABSMC uses a conservative institutional hold on the day of surgery; AHA/ACC 2024 Class 2a states perioperative continuation is reasonable in patients with diabetes or impaired glucose tolerance, without a renal-function qualifier. The eGFR limits below are FDA labeling. Clinician may use judgment.`;
-      patientMorning = 'Do NOT take this medication on the morning of surgery.';
+      patientMorning = 'Take this medication as usual through the day and night before surgery. Do NOT take it on the morning of surgery.';
       if (contrast === null) {
         flags.push({ type: 'warn', text: 'Contrast exposure status not confirmed. If patient is receiving iodinated contrast within 48h of surgery, hold metformin regardless of eGFR.' });
       }
@@ -1517,11 +1528,11 @@ function getMeglitinideResults(ctx, details, selected) {
   let morningOf, patientMorning;
   if (timing === 'PM') {
     morningOf = 'PM surgery: If patient is eating a full breakfast (PM surgery, when appropriate), may take usual morning dose with breakfast. HOLD if eating only a light meal or if NPO. Default: HOLD.';
-    patientMorning = 'Do NOT take this medication on the morning of surgery unless your surgeon has specifically told you that you may eat a full breakfast.';
+    patientMorning = 'Take this medication as usual through the day and night before surgery. Do NOT take it on the morning of surgery unless your surgeon has specifically told you that you may eat a full breakfast.';
     flags.push({ type: 'info', text: 'PM surgery: Meglitinides may be taken with a full breakfast given their short half-life (~1h). HOLD if NPO or light breakfast only.' });
   } else {
     morningOf = 'HOLD morning of surgery. Patient is NPO — no meal with which to pair dose.';
-    patientMorning = 'Do NOT take this medication on the morning of surgery.';
+    patientMorning = 'Take this medication as usual through the day and night before surgery. Do NOT take it on the morning of surgery.';
   }
   const evidence = 'Source: ADA Standards of Care 2026, section 16 perioperative practice point 4: metformin and other oral glucose-lowering agents should be held on the day of surgery or procedure. SAMBA Updated Consensus 2024. Short half-life (~1h) means lower hypoglycemia risk than sulfonylureas, but hold while NPO.';
   const resumption = 'Resume with first full meal postoperatively. No monitoring required for resumption.';
@@ -1544,7 +1555,7 @@ function getTZDResults(ctx, details, selected) {
   const flags = [];
   const drugNames = drugs.map(d => `${d.name} (${d.brand})`);
   const morningOf = 'HOLD morning of surgery (ABSMC default per ADA 2026). Note: Slow onset/offset — holding one day has minimal glycemic impact. SAMBA 2024, CPOC, and AAGBI guidelines consider continuation reasonable given low hypoglycemia risk and slow offset. ABSMC default: hold.';
-  const patientMorning = 'Do NOT take this medication on the morning of surgery.';
+  const patientMorning = 'Take this medication as usual through the day and night before surgery. Do NOT take it on the morning of surgery.';
   if (hasHF) {
     flags.push({ type: 'alert', text: 'Heart failure present: Thiazolidinediones cause fluid retention and may worsen heart failure. Monitor closely postoperatively. Consult cardiology or endocrinology before restarting. Do not resume if new or worsening edema or fluid overload develops.' });
   }
@@ -1581,10 +1592,10 @@ function getAGIResults(ctx, details, selected) {
   let morningOf, patientMorning;
   if (timing === 'PM') {
     morningOf = 'PM surgery: May take with breakfast if patient is eating a carbohydrate-containing breakfast (when appropriate). HOLD if NPO or eating protein-only. Default: HOLD.';
-    patientMorning = 'Take this medication with breakfast ONLY if your surgeon has told you that you may eat breakfast AND if your breakfast contains carbohydrates (bread, cereal, fruit, etc.). Otherwise, do NOT take it.';
+    patientMorning = 'Take this medication as usual through the day and night before surgery. On the morning of surgery, take it with breakfast ONLY if your surgeon has told you that you may eat breakfast AND if your breakfast contains carbohydrates (bread, cereal, fruit, etc.). Otherwise, do NOT take it.';
   } else {
     morningOf = 'HOLD — medication requires dietary carbohydrates to work and is functionally ineffective while NPO.';
-    patientMorning = 'Do NOT take this medication on the morning of surgery.';
+    patientMorning = 'Take this medication as usual through the day and night before surgery. Do NOT take it on the morning of surgery.';
   }
   flags.push({ type: 'info', text: 'IMPORTANT: If patient takes an alpha-glucosidase inhibitor AND another agent that can cause hypoglycemia (e.g., insulin, sulfonylurea), treat hypoglycemia with GLUCOSE TABLETS or IV dextrose — NOT sucrose or complex carbohydrates, which are less effective due to this drug\'s mechanism.' });
   const evidence = 'Source: ADA Standards of Care 2026, section 16 perioperative practice point 4: metformin and other oral glucose-lowering agents should be held on the day of surgery or procedure. The mechanism requires dietary carbohydrate, so the drug has no effect during NPO.';
@@ -2610,7 +2621,7 @@ class PerioperativeDMApp {
         case 'CONTINUE BASAL': return 'keep using as usual - see below';
         // Pointer retained: the AGI and meglitinide morning-of strings are
         // conditional on whether the patient is permitted breakfast.
-        case 'HOLD MORNING OF SURGERY': return 'do not take the morning of surgery - see below';
+        case 'HOLD MORNING OF SURGERY': return 'take as usual through the day and night before - see below';
         case 'HOLD': return 'do not take on the day of surgery - see below';
         case 'HOLD WHILE NPO': return 'do not take while you are not eating - see below';
         case 'MODIFY DOSE': return 'dose changes - see below';
