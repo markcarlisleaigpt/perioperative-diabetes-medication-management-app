@@ -1,0 +1,11 @@
+# index.html had MIXED line endings - mostly CRLF, with LF-only regions and, at one
+# point, lone CR characters used as line separators. That mix cost real time: a lone CR
+# is a line terminator to a JavaScript engine but not to sed or git, so live code
+# displayed as commented out, and removing the lone CRs let core.autocrlf normalize the
+# whole file, turning a six-character fix into a 2743-line diff.
+#
+# The file is now uniformly CRLF and is pinned that way, so diffs stay legible and an
+# editor cannot quietly reintroduce the mix.
+*.html text eol=crlf
+*.js text eol=lf
+*.md text eol=lf

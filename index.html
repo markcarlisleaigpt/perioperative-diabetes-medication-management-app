@@ -2777,7 +2777,9 @@ class PerioperativeDMApp {
       </div>`;
     // Eating and drinking. GLP-1 before SGLT2i: the 24 h clear liquid diet starts
     // earlier than the 2 h carbohydrate drink, so this is chronological too.
-    // Ranked by PROPERTY, not by card id: a fixed-ratio insulin/GLP-1 pen carries the same    // 24 h diet and must sort with it, not ahead of everything because its id is unknown.    const dietRank = (r) => r.carriesGlp1Diet ? 0 : (r.id === 'sglt2i' ? 1 : 2);
+    // Ranked by PROPERTY, not by card id: a fixed-ratio insulin/GLP-1 pen carries the same
+    // 24 h diet and must sort with it, not ahead of everything because its id is unknown.
+    const dietRank = (r) => r.carriesGlp1Diet ? 0 : (r.id === 'sglt2i' ? 1 : 2);
     const dietCards = results.filter(r => r.patient.dietary)
       .sort((a, b) => dietRank(a) - dietRank(b));
     const dietHtml = dietCards.length
@@ -2807,7 +2809,11 @@ class PerioperativeDMApp {
     // Only the SGLT2i and GLP-1 cards carry eating and drinking rules. Everyone
     // else is pointed at the clinic's own instructions rather than being given a
     // second set that could contradict them.
-    // Derived from whether a dietary block is actually PRINTED. Keying this to card ids put    // 'follow the instructions from the Preoperative Clinic' directly beneath a 24 h clear    // liquid diet for any card the list did not name - and the footer, being last, reads as    // the authoritative one.    const hasDietGuidance = results.some(r => r.patient && r.patient.dietary);
+    // Derived from whether a dietary block is actually PRINTED. Keying this to card ids put
+    // 'follow the instructions from the Preoperative Clinic' directly beneath a 24 h clear
+    // liquid diet for any card the list did not name - and the footer, being last, reads as
+    // the authoritative one.
+    const hasDietGuidance = results.some(r => r.patient && r.patient.dietary);
     const footer = `
       <div class="patient-footer">
         <div style="margin-bottom:6px;"><strong>Questions?</strong> Call the ABSMC Preoperative Clinic: <strong>(510) 869-8865</strong></div>
