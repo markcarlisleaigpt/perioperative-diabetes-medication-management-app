@@ -670,7 +670,7 @@ function fmtDayList(ds) {
 const SURGERY_TYPE_LABELS = {
   minor: 'Minor Procedure',
   colonoscopy: 'Colonoscopy',
-  majorNoncardiac: 'Major Noncardiac Surgery',
+  majorNoncardiac: 'Ambulatory or Major Noncardiac Surgery',
   cardiac: 'Cardiac Surgery',
   bariatric: 'Bariatric Surgery',
 };
@@ -2090,7 +2090,7 @@ class PerioperativeDMApp {
         <div class="question">Surgery Type</div>
         ${btn('Minor procedure', 'surgeryType', 'minor', ctx.surgeryType, 'e.g., cataract surgery, skin lesion or biopsy, dental extraction, joint/epidural injection, port placement, simple hand or foot procedure. Usually local or MAC anesthesia, brief, same-day discharge.')}
         ${btn('Colonoscopy / endoscopy', 'surgeryType', 'colonoscopy', ctx.surgeryType)}
-        ${btn('Major noncardiac surgery', 'surgeryType', 'majorNoncardiac', ctx.surgeryType, 'e.g., joint replacement, hysterectomy, bowel resection, major abdominal/pelvic, spine, or vascular surgery. Usually general anesthesia, longer fasting, often an overnight or multi-day stay.')}
+        ${btn('Ambulatory or major noncardiac surgery', 'surgeryType', 'majorNoncardiac', ctx.surgeryType, 'e.g., joint replacement, hysterectomy, bowel resection, major abdominal/pelvic, spine, or vascular surgery - including same-day and outpatient surgery.')}
         ${btn('Cardiac surgery', 'surgeryType', 'cardiac', ctx.surgeryType)}
         ${btn('Bariatric surgery', 'surgeryType', 'bariatric', ctx.surgeryType)}
       </div>
@@ -2578,7 +2578,7 @@ class PerioperativeDMApp {
         <h2>Diabetes Medication Instructions</h2>
         <div class="patient-meta">
           ${patientName}${p.dob ? ` &middot; DOB: ${p.dob}` : ''}${p.arrivalTime ? ` &middot; Arrival: ${fmtTime12(p.arrivalTime)}` : ''}<br>
-          ${ctx.surgeryTiming === 'AM' ? 'AM Surgery' : 'PM Surgery'} &middot; ${SURGERY_TYPE_LABELS[ctx.surgeryType] || ''}
+          ${ctx.surgeryTiming === 'AM' ? 'AM Surgery' : 'PM Surgery'}
         </div>
       </div>`;
     // Checklist disposition. DERIVED FROM THE TIME BUCKETS THE SHEET ACTUALLY
