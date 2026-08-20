@@ -476,9 +476,23 @@ const DRUG_DB = {
       { id: 'glargine-u100', name: 'Glargine U-100', brand: 'Lantus / Basaglar / Semglee / Rezvoglar', needsDosingTime: true, needsFrequency: true },
       { id: 'glargine-u300', name: 'Glargine U-300', brand: 'Toujeo', needsDosingTime: true, needsFrequency: true, concentrated: true, concentratedNote: 'Extended duration >36h — morning of dose reductions persist longer than standard glargine.' },
       { id: 'detemir', name: 'Detemir', brand: 'Levemir', needsFrequency: true },
-      { id: 'degludec-u100', name: 'Degludec U-100', brand: 'Tresiba', needsDosingTime: true, needsFrequency: true },
+      // Duration is NOT concentration. U-100 degludec is not concentrated, but it has the
+      // same ~42h effective duration as the U-200 pen below, and the same consequence:
+      // a reduction persists well past the day it is given. Flagged separately so the
+      // note does not require falsely marking the drug concentrated (Mark, 2026-08-18).
+      { id: 'degludec-u100', name: 'Degludec U-100', brand: 'Tresiba', needsDosingTime: true, needsFrequency: true, durationNote: 'Effective duration ~42h — dose reductions persist longer than standard basal analogs.' },
       { id: 'degludec-u200', name: 'Degludec U-200', brand: 'Tresiba FlexTouch', needsDosingTime: true, needsFrequency: true, concentrated: true, concentratedNote: 'Same units as U-100 degludec; effective duration ~42h.' },
       { id: 'nph', name: 'NPH Insulin', brand: 'Humulin N / Novolin N', isNPH: true, needsFrequency: true },
+      // Fixed-ratio insulin/GLP-1 combination. Filed under basalInsulin because the pen is
+      // dosed in INSULIN UNITS and the dose machinery lives here; the GLP-1 half is carried
+      // by getInsulinGLP1ComboCard() below. minDose/maxDose are the pen's deliverable range
+      // (FDA label) - a value outside it is a transcription error, not a small dose.
+      // Xultophy (degludec/liraglutide) was deliberately NOT added: its current US commercial
+      // availability is unconfirmed (Mark, 2026-08-18).
+      { id: 'iglarlixi', name: 'Insulin glargine/Lixisenatide', brand: 'Soliqua 100/33',
+        needsDosingTime: false, needsFrequency: false, t2dmOnly: true, minDose: 15, maxDose: 60,
+        combo: ['basalInsulin','glp1'], insulinComponent: 'insulin glargine', glp1Component: 'lixisenatide',
+        labelSchedule: 'within the hour before the first meal of the day' },
     ]
   },
   bolusInsulin: {
@@ -563,8 +577,19 @@ function hasAnyInsulin(selected) {
   return ['basalInsulin','bolusInsulin','premixedInsulin','insulinU500','pump']
     .some(k => hasMedClass(selected, k));
 }
+// Incretin detection is PROPERTY-based, not class-based. A fixed-ratio insulin/GLP-1
+// pen is filed under basalInsulin, so a class membership test misses it - and missing
+// it silently drops the 24 h clear liquid diet, the NPO cutoff, the gastroparesis
+// caveat, AND the SGLT2i co-treatment coupling that decides whether a timed
+// carbohydrate drink is issued at all. There were THREE separate copies of the class
+// test (this one plus coIncretin and onIncretin inside the SGLT2i card); they all call
+// this now, so they cannot disagree (Mark, 2026-08-18).
+function hasAnyIncretin(selected) {
+  return Object.entries(DRUG_DB).some(([key, cls]) => cls.drugs.some(d =>
+    selected.has(d.id) && (key === 'glp1' || key === 'tirzepatide' || (d.combo && d.combo.includes('glp1')))));
+}
 function hasAnyGLP1(selected) {
-  return hasMedClass(selected, 'glp1') || hasMedClass(selected, 'tirzepatide');
+  return hasAnyIncretin(selected);
 }
 function hasAnySGLT2i(selected) {
   return hasMedClass(selected, 'sglt2i');
@@ -844,7 +869,7 @@ function getSGLT2iResults(ctx, details, selected) {
       // once time to incision and the stretch before carbohydrate resumes are added.
       // Do not "correct" this rule by checking the preoperative clock alone.
       // Mark, 2026-08-13; decision record section 2a.
-      const coIncretin = hasMedClass(selected, 'glp1') || hasMedClass(selected, 'tirzepatide');
+      const coIncretin = hasAnyIncretin(selected);
       const incretinCutoff = details.glp1NpoCutoff || 'midnight';
       // Scoped to the branches where a long POSTOPERATIVE carbohydrate-free stretch is
       // actually anticipated. It is NOT anticipated for a minor procedure or a
@@ -1152,7 +1177,7 @@ function getSGLT2iResults(ctx, details, selected) {
   // Bounded by the strictest NPO cutoff applying to this patient across all
   // their medications: a GLP-1 or tirzepatide cutoff wins where one is set,
   // otherwise clear liquids run to 2 h before arrival.
-  const onIncretin = hasMedClass(selected, 'glp1') || hasMedClass(selected, 'tirzepatide');
+  const onIncretin = hasAnyIncretin(selected);
   const carbCutoff = details.glp1NpoCutoff || 'midnight';
   let carbUntilPatient, carbUntilClinician;
   if (onIncretin && carbCutoff === 'midnight') {
@@ -1237,11 +1262,12 @@ function getSGLT2iResults(ctx, details, selected) {
     provenance: spaqiProvenance,
   };
 }
-function getGLP1Results(ctx, details, selected) {
-  const glp1Drugs = getSelectedDrugsByClass(selected, 'glp1');
-  const tDrugs = getSelectedDrugsByClass(selected, 'tirzepatide');
-  const allDrugs = [...glp1Drugs, ...tDrugs];
-  if (!allDrugs.length) return null;
+// The GLP-1 disposition is drug-INDEPENDENT: every value below derives from context
+// and details, never from which agent the patient takes. Factored out of
+// getGLP1Results so a fixed-ratio insulin/GLP-1 combination can consume exactly these
+// rules instead of restating them (Mark, 2026-08-18). Restating is how two texts
+// drift - the same reason getMetforminDisposition() exists.
+function getGLP1Disposition(ctx, details) {
   const giSymptoms = details.giSymptoms;
   const arrivalTime = ctx.arrivalTime || '';
   const npoCutoff = details.glp1NpoCutoff || 'midnight';
@@ -1285,18 +1311,30 @@ function getGLP1Results(ctx, details, selected) {
   const patientMorning = giSymptoms === true
     ? 'Your doctor may advise you to hold this medication. Please check with your surgical team. Continue the clear liquid diet as instructed.'
     : 'Continue taking this medication as usual on your regular schedule.';
-  const drugNames = allDrugs.map(d => `${d.name} (${d.brand})`);
   const resumption = 'Resume when tolerating oral intake postoperatively. No specific postoperative hold period required. If postoperative GI symptoms develop, hold until resolved.';
   const evidence = 'Source: AGA/ASA/ASMBS/ISCPO/SAGES Multisociety Clinical Practice Guidance, October 2024. ASA Affirmation of Value, May 2024. ADA Standards of Care 2026. ADS/NACOS/GESA/ANZCA Clinical Practice Recommendations, April 2025. The ABSMC protocol (continue + 24 h clear liquid diet) follows the 2025 recommendations, which advise a 24 h clear fluid diet followed by standard 6 h fasting for ALL patients on GLP-1 RAs and GLP-1/GIP co-agonists, without discontinuing therapy.';
+  return { badge, badgeType, flags, morningOf, patientMorning, dietary24h, dietaryClinician, resumption, evidence };
+}
+function getGLP1Results(ctx, details, selected) {
+  const glp1Drugs = getSelectedDrugsByClass(selected, 'glp1');
+  const tDrugs = getSelectedDrugsByClass(selected, 'tirzepatide');
+  const allDrugs = [...glp1Drugs, ...tDrugs];
+  if (!allDrugs.length) return null;
+  const d = getGLP1Disposition(ctx, details);
+  const drugNames = allDrugs.map(dr => `${dr.name} (${dr.brand})`);
   return {
     id: 'glp1',
     drugClass: 'GLP-1 RA / GIP-GLP-1 Dual Agonist',
     drugNames,
-    badge,
-    badgeType,
-    clinician: { nightBefore: null, morningOf, monitoring: null, resumption, evidence, dietary: dietaryClinician },
-    patient: { nightBefore: null, morningOf: patientMorning, dietary: dietary24h },
-    flags,
+    badge: d.badge,
+    badgeType: d.badgeType,
+    // Any card carrying the 24 h clear liquid diet sets this. The patient sheet keys
+    // its diet ordering, its checklist wording and its eating-and-drinking footer off
+    // this property rather than off a hard-coded list of card ids.
+    carriesGlp1Diet: true,
+    clinician: { nightBefore: null, morningOf: d.morningOf, monitoring: null, resumption: d.resumption, evidence: d.evidence, dietary: d.dietaryClinician },
+    patient: { nightBefore: null, morningOf: d.patientMorning, dietary: d.dietary24h },
+    flags: d.flags,
     comboFlag: null,
   };
 }
@@ -1612,6 +1650,66 @@ function getAGIResults(ctx, details, selected) {
     comboFlag: null,
   };
 }
+// Fixed-ratio insulin/GLP-1 combination pen. ONE PILL, ONE CARD - the app's established
+// rule for combination products - so this card carries BOTH the basal insulin instruction
+// and the full GLP-1 disposition, consumed from getGLP1Disposition() rather than restated.
+//
+// NOTHING HERE IS GUIDELINE-BACKED. No published source addresses fixed-ratio insulin/GLP-1
+// products perioperatively: ADA 2026 section 16, SAMBA 2024, UpToDate, the April 2025
+// periprocedural GLP-1 recommendations and Endocrine Society 2022 are all silent - the last
+// mentions these products only in its conflict-of-interest disclosures. Every rule below is
+// INSTITUTIONAL and is labelled as such on the card.
+function getInsulinGLP1ComboCard(ctx, details, drug, dd, baseFlags, isT1, dmType) {
+  const d = getGLP1Disposition(ctx, details);
+  // The disposition's GI-symptom flag says 'consider holding medication'. That wording is
+  // DANGEROUS here: holding this pen holds the patient's only basal insulin. Dropped and
+  // replaced below.
+  const flags = [...baseFlags, ...d.flags.filter(f => !/Consider holding medication/i.test(f.text))];
+  const dose = parseFloat(dd.eveningDose);
+  const reductPct = isT1 ? 20 : 25;
+  const keepPct = 100 - reductPct;
+  const substitute = dosePct(dose, reductPct);
+  const doseClause = substitute ? ` (${substitute}, ${keepPct}% of the usual ${dose} units)` : '';
+  const patientDose = substitute ? substitute : `${keepPct}% of your usual ${drug.brand} dose`;
+
+  if (drug.t2dmOnly && dmType === 'T1DM') {
+    flags.push({ type: 'alert', text: `PRESCRIBING INCONSISTENCY: ${drug.brand} is indicated in type 2 diabetes only and is not recommended for diabetic ketoacidosis, but this patient is recorded as type 1. Verify the medication and the diabetes type before proceeding.` });
+  }
+  if (!isNaN(dose) && (dose < drug.minDose || dose > drug.maxDose)) {
+    flags.push({ type: 'alert', text: `DOSE OUT OF RANGE: ${dose} units is outside the ${drug.brand} pen's deliverable range of ${drug.minDose}-${drug.maxDose} units. This is usually a transcription error - a total daily insulin dose, or millilitres read off the carton. Verify the patient's actual ${drug.brand} dose before relying on the substitute dose below.` });
+  }
+  if (isNaN(dose)) {
+    flags.push({ type: 'warn', text: `Usual ${drug.brand} dose not entered, so no substitute dose could be calculated. Enter the dose, or state the morning-of insulin explicitly for this patient.` });
+  }
+  if (details.giSymptoms === true) {
+    flags.push({ type: 'alert', text: `GI symptoms present AND this patient is on a fixed-ratio insulin/GLP-1 pen. DO NOT hold ${drug.brand} to address them - holding it holds the patient's only basal insulin. Notify the anesthesia team, consider full-stomach precautions and RSI if general anesthesia is planned, and discuss substituting a plain basal insulin with the prescriber for the perioperative period.` });
+  }
+  flags.push({ type: 'info', text: `${drug.brand} is taken ${drug.labelSchedule} (FDA label). If this patient takes it at another time of day that is off-label, and the morning-of instruction below must be reconciled with their actual schedule.` });
+
+  const nightBefore = `No evening dose - ${drug.brand} is taken ${drug.labelSchedule}. The dose taken on the morning BEFORE surgery is the patient's usual dose, unchanged.`;
+  const morningOf = `DO NOT give ${drug.brand} on the morning of surgery. Its ${drug.glp1Component} component is meal-anchored, so it delivers no glycemic benefit to a patient who is NPO, while acutely delaying gastric emptying in the 1-3 h before induction - the window covered by the product's own pulmonary-aspiration warning. Give the basal component INSTEAD as a SEPARATE plain basal insulin at ${keepPct}% of the usual ${drug.brand} unit dose${doseClause}. That separate insulin must be prescribed in advance; the patient cannot improvise it from this pen. Notify the anesthesia team that this patient is on a GLP-1 receptor agonist. INSTITUTIONAL - no published guideline addresses fixed-ratio insulin/GLP-1 products perioperatively (Mark, 2026-08-18).`;
+  const patientMorning = `Do NOT take your ${drug.brand} on the morning of surgery. Instead, take ${patientDose} of the separate long-acting insulin your clinic has prescribed for that morning. If you have not been given a separate long-acting insulin to use that morning, call the Preoperative Clinic before your surgery.`;
+
+  return {
+    id: `basal-${drug.id}`,
+    drugClass: 'Basal Insulin / GLP-1 Combination',
+    drugNames: [`${drug.name} (${drug.brand})`],
+    badge: 'MODIFY DOSE',
+    badgeType: 'modify',
+    carriesGlp1Diet: true,
+    clinician: {
+      nightBefore,
+      morningOf,
+      monitoring: 'Check blood glucose on admission. Target perioperative glucose 100-180 mg/dL. Never hold all basal insulin - this pen IS the patient basal insulin.',
+      resumption: `Resume ${drug.brand} when tolerating oral intake and blood glucose is stable. Verify with prescriber. In addition, and not sooner than the rule above - GLP-1 component: ${d.resumption}`,
+      evidence: `INSTITUTIONAL. No published source addresses fixed-ratio insulin/GLP-1 combinations perioperatively - ADA Standards of Care 2026 section 16, SAMBA 2024, UpToDate and the ADS/NACOS/GESA/ANZCA April 2025 recommendations are all silent, and Endocrine Society 2022 names these products only in its disclosures. The basal reduction follows ADA 2026 (long-acting analogs to 75-80% of the usual dose). The 24 h clear liquid diet follows the April 2025 recommendations, whose wording is agent-agnostic and which explicitly reject the tachyphylaxis assumption; the ${drug.brand} label itself states the product delays gastric emptying and carries the pulmonary-aspiration warning for GLP-1 receptor agonist users undergoing anesthesia. DECLARED CONFLICT: SAMBA 2024 Table 3 lists liraglutide's day-of-surgery instruction as HOLD, where this app continues GLP-1 receptor agonists. That conflict cannot be resolved by holding this pen, because doing so would hold the patient's basal insulin - which is why the morning-of dose is given as a separate plain basal instead. ${d.evidence}`,
+      dietary: d.dietaryClinician,
+    },
+    patient: { nightBefore: null, morningOf: patientMorning, dietary: d.dietary24h },
+    flags,
+    comboFlag: `COMBINATION PRODUCT: ${drug.brand} contains both ${drug.insulinComponent} and ${drug.glp1Component}. The components CANNOT be separated, so every instruction on this card applies to the whole pen. The morning-of dose is given as a separate plain basal insulin precisely because they cannot be separated. Discuss with the prescribing physician - they may wish to prescribe the components separately for the perioperative period.`,
+  };
+}
 function getBasalInsulinResults(ctx, details, selected) {
   const drugs = getSelectedDrugsByClass(selected, 'basalInsulin');
   if (!drugs.length) return null;
@@ -1644,6 +1742,16 @@ function getBasalInsulinResults(ctx, details, selected) {
     const drugFlags = [...flags];
     if (drug.concentrated) {
       drugFlags.push({ type: 'info', text: drug.concentratedNote });
+    }
+    if (drug.durationNote) {
+      drugFlags.push({ type: 'info', text: drug.durationNote });
+    }
+    // A fixed-ratio insulin/GLP-1 pen is not an ordinary basal: its morning-of dose is
+    // replaced by a separate plain basal, and it carries the whole GLP-1 disposition.
+    // Handled entirely by its own builder, which returns before the basal logic runs.
+    if (drug.combo && drug.combo.includes('glp1')) {
+      results.push(getInsulinGLP1ComboCard(ctx, details, drug, dd, drugFlags, isT1, dmType));
+      return;
     }
     if (drug.isNPH) {
       // NPH — 50% reduction
@@ -2246,7 +2354,7 @@ class PerioperativeDMApp {
     }
     // GLP-1 / Tirzepatide
     if (hasAnyGLP1(sel)) {
-      const giDrugs = [...DRUG_DB.glp1.drugs, ...DRUG_DB.tirzepatide.drugs].filter(d => sel.has(d.id)).map(d => d.brand).join(', ');
+      const giDrugs = Object.entries(DRUG_DB).flatMap(([key, cls]) => cls.drugs.filter(d => sel.has(d.id) && (key === 'glp1' || key === 'tirzepatide' || (d.combo && d.combo.includes('glp1'))))).map(d => d.brand).join(', ');
       html += `
         <div class="card">
           <div class="question">GLP-1 RA / Tirzepatide — GI Symptom Screen</div>
@@ -2309,6 +2417,7 @@ class PerioperativeDMApp {
         <div class="card">
           <div class="question" style="font-size:15px;">${drug.name} <span style="color:var(--dim2);font-size:13px;">(${drug.brand})</span></div>
           ${drug.concentrated ? `<div class="flag flag-info" style="margin-bottom:12px;">${drug.concentratedNote}</div>` : ''}
+          ${drug.durationNote ? `<div class="flag flag-info" style="margin-bottom:12px;">${drug.durationNote}</div>` : ''}
           ${drug.needsFrequency ? `
             <div class="section-label">Dosing Frequency</div>
             <div class="btn-row">
@@ -2645,7 +2754,7 @@ class PerioperativeDMApp {
     // multi-drug rule - the 24 h diet applies whichever GLP-1 agents are listed.
     const dispoText = (r) => {
       const core = dispoCore(r);
-      if (r.id !== 'glp1') return core;
+      if (!r.carriesGlp1Diet) return core;
       return core.replace(/ - see below$/, '') + ' - clear liquid diet starts 24 hours before arrival';
     };
     const listRows = results.map(r =>
@@ -2661,9 +2770,9 @@ class PerioperativeDMApp {
       </div>`;
     // Eating and drinking. GLP-1 before SGLT2i: the 24 h clear liquid diet starts
     // earlier than the 2 h carbohydrate drink, so this is chronological too.
-    const dietOrder = ['glp1', 'sglt2i'];
+    // Ranked by PROPERTY, not by card id: a fixed-ratio insulin/GLP-1 pen carries the same    // 24 h diet and must sort with it, not ahead of everything because its id is unknown.    const dietRank = (r) => r.carriesGlp1Diet ? 0 : (r.id === 'sglt2i' ? 1 : 2);
     const dietCards = results.filter(r => r.patient.dietary)
-      .sort((a, b) => dietOrder.indexOf(a.id) - dietOrder.indexOf(b.id));
+      .sort((a, b) => dietRank(a) - dietRank(b));
     const dietHtml = dietCards.length
       ? `<div class="patient-dietary">
           <div class="patient-dietary-label">Eating and Drinking Before Surgery</div>
@@ -2691,7 +2800,7 @@ class PerioperativeDMApp {
     // Only the SGLT2i and GLP-1 cards carry eating and drinking rules. Everyone
     // else is pointed at the clinic's own instructions rather than being given a
     // second set that could contradict them.
-    const hasDietGuidance = results.some(r => r.id === 'sglt2i' || r.id === 'glp1');
+    // Derived from whether a dietary block is actually PRINTED. Keying this to card ids put    // 'follow the instructions from the Preoperative Clinic' directly beneath a 24 h clear    // liquid diet for any card the list did not name - and the footer, being last, reads as    // the authoritative one.    const hasDietGuidance = results.some(r => r.patient && r.patient.dietary);
     const footer = `
       <div class="patient-footer">
         <div style="margin-bottom:6px;"><strong>Questions?</strong> Call the ABSMC Preoperative Clinic: <strong>(510) 869-8865</strong></div>
