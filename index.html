@@ -145,7 +145,8 @@ input[type="checkbox"], input[type="radio"] { width:16px; height:16px; cursor:po
   display:flex; align-items:center; gap:8px;
   font-family:'JetBrains Mono',monospace; font-size:10.5px; font-weight:700; color:var(--text);
   text-transform:uppercase; letter-spacing:.16em;
-  padding:10px 0 6px; border-bottom:1px solid var(--line-strong); margin:16px 0 8px;
+  padding:13px 0 11px; border-bottom:1px solid var(--line-strong); margin:16px 0 8px;
+  cursor:pointer; user-select:none; -webkit-tap-highlight-color:transparent;
 }
 .category-header:first-of-type { margin-top:0; }
 .cat-chip { width:9px; height:9px; border-radius:1px; flex-shrink:0; background:var(--dim2); box-shadow:0 0 8px currentColor; }
@@ -164,6 +165,14 @@ input[type="checkbox"], input[type="radio"] { width:16px; height:16px; cursor:po
 [data-cat="insulinU500"] .cat-chip { background:#FF5D5D; box-shadow:0 0 8px rgba(255,93,93,.8); }
 [data-cat="pump"] .cat-chip { background:#90A4AE; box-shadow:0 0 8px rgba(144,164,174,.7); }
 .drug-indent { padding-left:8px; }
+.category-header:hover .cat-label { color:var(--accent); }
+.category-header.static { cursor:default; }
+.category-header.static:hover .cat-label { color:var(--text); }
+.cat-label { flex:1; text-align:left; }
+.cat-count { font-family:'JetBrains Mono',monospace; font-size:9.5px; font-weight:700; letter-spacing:.08em; padding:2px 7px; border-radius:2px; background:var(--surface-3); color:var(--dim); flex-shrink:0; text-transform:none; }
+.cat-count.has-sel { background:var(--accent); color:var(--accent-ink); box-shadow:0 0 8px rgba(255,180,84,.45); }
+.cat-caret { flex-shrink:0; color:var(--dim2); display:flex; transition:transform .15s; }
+.category-header.open .cat-caret { transform:rotate(90deg); }
 /* ===== SEARCH ===== */
 .search-wrap { position:relative; margin-bottom:16px; }
 .search-wrap input { padding-left:36px; }
@@ -2075,6 +2084,7 @@ class PerioperativeDMApp {
     this.outputTab = 'clinician';
     this.sheetSize = 'comfortable';
     this.searchQuery = '';
+    this.expandedCats = new Set();
     this.state = {
       patient: { firstName: '', lastName: '', dob: '', arrivalTime: '', surgeryDate: '' },
       context: { dmType: null, surgeryType: null, surgeryTiming: null, hasHF: null, hasCKD: null, arrivalTime: '', surgeryDate: '' },
@@ -2140,6 +2150,11 @@ class PerioperativeDMApp {
   updateInsulinDetailNoRender(drugId, key, val) {
     if (!this.state.details.insulinDetails[drugId]) this.state.details.insulinDetails[drugId] = {};
     this.state.details.insulinDetails[drugId][key] = val;
+  }
+  toggleCat(classKey) {
+    if (this.expandedCats.has(classKey)) this.expandedCats.delete(classKey);
+    else this.expandedCats.add(classKey);
+    this.render({ quiet: true });
   }
   toggleDrug(drugId) {
     if (this.state.selected.has(drugId)) this.state.selected.delete(drugId);
@@ -2286,11 +2301,19 @@ class PerioperativeDMApp {
         </div>
       </div>`;
     };
+    const searching = q.length > 0;
+    const caretSvg = '<svg viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 2.5 8.5 6l-4 3.5"/></svg>';
     const section = (classKey) => {
       const cls = DRUG_DB[classKey];
       const drugs = filterDrugs(cls.drugs);
       if (!drugs.length) return '';
-      return `<div class="category-header" data-cat="${classKey}"><span class="cat-chip"></span>${cls.label}</div>${drugs.map(drugItem).join('')}`;
+      const selCount = cls.drugs.filter(d => selected.has(d.id)).length;
+      const isOpen = searching || this.expandedCats.has(classKey);
+      const badge = `<span class="cat-count${selCount ? ' has-sel' : ''}">${selCount ? selCount + ' selected' : drugs.length}</span>`;
+      const head = searching
+        ? `<div class="category-header static open" data-cat="${classKey}"><span class="cat-chip"></span><span class="cat-label">${cls.label}</span>${badge}</div>`
+        : `<div class="category-header${isOpen ? ' open' : ''}" data-cat="${classKey}" role="button" tabindex="0" aria-expanded="${isOpen}" onclick="window.app.toggleCat('${classKey}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.app.toggleCat('${classKey}');}"><span class="cat-chip"></span><span class="cat-label">${cls.label}</span>${badge}<span class="cat-caret">${caretSvg}</span></div>`;
+      return head + (isOpen ? drugs.map(drugItem).join('') : '');
     };
     const allSections = Object.keys(DRUG_DB).map(section).join('');
     return `
@@ -2900,6 +2923,7 @@ class PerioperativeDMApp {
     this.outputTab = 'clinician';
     this.sheetSize = 'comfortable';
     this.searchQuery = '';
+    this.expandedCats = new Set();
     this.state = {
       patient: { firstName: '', lastName: '', dob: '', arrivalTime: '', surgeryDate: '' },
       context: { dmType: null, surgeryType: null, surgeryTiming: null, hasHF: null, hasCKD: null, arrivalTime: '', surgeryDate: '' },
