@@ -491,6 +491,7 @@ const DRUG_DB = {
       // availability is unconfirmed (Mark, 2026-08-18).
       { id: 'iglarlixi', name: 'Insulin glargine/Lixisenatide', brand: 'Soliqua 100/33',
         needsDosingTime: false, needsFrequency: false, t2dmOnly: true, minDose: 15, maxDose: 60,
+        doseLabel: 'Usual daily dose',
         combo: ['basalInsulin','glp1'], insulinComponent: 'insulin glargine', glp1Component: 'lixisenatide',
         labelSchedule: 'within the hour before the first meal of the day' },
     ]
@@ -1277,7 +1278,10 @@ function getGLP1Disposition(ctx, details) {
   if (giSymptoms === true) {
     badge = 'CONSIDER HOLDING';
     badgeType = 'consider';
-    flags.push({ type: 'warn', text: 'GI symptoms present (nausea, vomiting, dyspepsia, bloating, or constipation). Consider holding medication and notify anesthesia team. Risk of delayed gastric emptying may be elevated. Consider RSI if GA planned. Point-of-care gastric ultrasound may be useful on procedure day if concern persists.' });
+    // suggestsHold is the STRUCTURAL marker. A card for a drug that cannot be held filters
+    // on this property; it used to match four English words in this sentence, so rewording
+    // the sentence silently restored the dangerous flag on that card (2026-08-18).
+    flags.push({ suggestsHold: true, type: 'warn', text: 'GI symptoms present (nausea, vomiting, dyspepsia, bloating, or constipation). Consider holding medication and notify anesthesia team. Risk of delayed gastric emptying may be elevated. Consider RSI if GA planned. Point-of-care gastric ultrasound may be useful on procedure day if concern persists.' });
   }
   if (giSymptoms === null) {
     flags.push({ type: 'warn', text: 'GI symptom screen not completed. Continue per ABSMC protocol with dietary modification. Screen patient for GI symptoms at preoperative visit.' });
@@ -1659,23 +1663,35 @@ function getAGIResults(ctx, details, selected) {
 // periprocedural GLP-1 recommendations and Endocrine Society 2022 are all silent - the last
 // mentions these products only in its conflict-of-interest disclosures. Every rule below is
 // INSTITUTIONAL and is labelled as such on the card.
-function getInsulinGLP1ComboCard(ctx, details, drug, dd, baseFlags, isT1, dmType) {
+function getInsulinGLP1ComboCard(ctx, details, drug, dd, baseFlags, isT1, dmType, selected) {
   const d = getGLP1Disposition(ctx, details);
   // The disposition's GI-symptom flag says 'consider holding medication'. That wording is
   // DANGEROUS here: holding this pen holds the patient's only basal insulin. Dropped and
   // replaced below.
-  const flags = [...baseFlags, ...d.flags.filter(f => !/Consider holding medication/i.test(f.text))];
+  const flags = [...baseFlags, ...d.flags.filter(f => !f.suggestsHold)];
   const dose = parseFloat(dd.eveningDose);
-  const reductPct = isT1 ? 20 : 25;
+  // A type 2-only product never takes the type 1 percentage. isT1 is true when the
+  // diabetes type is BLANK, which would have applied 20% (32 units of 40) to a product
+  // indicated only in type 2, with no alert saying so.
+  const reductPct = drug.t2dmOnly ? 25 : (isT1 ? 20 : 25);
   const keepPct = 100 - reductPct;
-  const substitute = dosePct(dose, reductPct);
+  // The substitute is the ONLY computed dose on this card, and flags do NOT render on the
+  // patient sheet - so an out-of-range input must produce NO NUMBER rather than a plausible
+  // wrong one. 3 units read off the carton as mL previously printed 'take 2 units'.
+  const doseOutOfRange = !isNaN(dose) && (dose < drug.minDose || dose > drug.maxDose);
+  const substitute = doseOutOfRange ? null : dosePct(dose, reductPct);
   const doseClause = substitute ? ` (${substitute}, ${keepPct}% of the usual ${dose} units)` : '';
-  const patientDose = substitute ? substitute : `${keepPct}% of your usual ${drug.brand} dose`;
+  // When no dose is available the patient string must contain NO percentage: asking a
+  // patient to compute an insulin dose on the morning of surgery is the thing the app's
+  // whole dose machinery exists to prevent.
+  const substituteSentence = substitute
+    ? `Instead, take ${substitute} of the separate long-acting insulin your clinic has prescribed for that morning.`
+    : 'Instead, take the separate long-acting insulin your clinic has prescribed for that morning, at the dose written on that prescription.';
 
   if (drug.t2dmOnly && dmType === 'T1DM') {
     flags.push({ type: 'alert', text: `PRESCRIBING INCONSISTENCY: ${drug.brand} is indicated in type 2 diabetes only and is not recommended for diabetic ketoacidosis, but this patient is recorded as type 1. Verify the medication and the diabetes type before proceeding.` });
   }
-  if (!isNaN(dose) && (dose < drug.minDose || dose > drug.maxDose)) {
+  if (doseOutOfRange) {
     flags.push({ type: 'alert', text: `DOSE OUT OF RANGE: ${dose} units is outside the ${drug.brand} pen's deliverable range of ${drug.minDose}-${drug.maxDose} units. This is usually a transcription error - a total daily insulin dose, or millilitres read off the carton. Verify the patient's actual ${drug.brand} dose before relying on the substitute dose below.` });
   }
   if (isNaN(dose)) {
@@ -1684,10 +1700,21 @@ function getInsulinGLP1ComboCard(ctx, details, drug, dd, baseFlags, isT1, dmType
   if (details.giSymptoms === true) {
     flags.push({ type: 'alert', text: `GI symptoms present AND this patient is on a fixed-ratio insulin/GLP-1 pen. DO NOT hold ${drug.brand} to address them - holding it holds the patient's only basal insulin. Notify the anesthesia team, consider full-stomach precautions and RSI if general anesthesia is planned, and discuss substituting a plain basal insulin with the prescriber for the perioperative period.` });
   }
-  flags.push({ type: 'info', text: `${drug.brand} is taken ${drug.labelSchedule} (FDA label). If this patient takes it at another time of day that is off-label, and the morning-of instruction below must be reconciled with their actual schedule.` });
+  // Selecting the pen AND another basal produces two contradictory morning-of lines on the
+  // same sheet ('no morning insulin dose needed' above 'take N units of the separate
+  // long-acting insulin'), and the patient may identify the other basal AS the substitute.
+  const otherBasal = DRUG_DB.basalInsulin.drugs.filter(x => selected.has(x.id) && x.id !== drug.id);
+  if (otherBasal.length) {
+    flags.push({ type: 'alert', text: `DUPLICATE BASAL THERAPY: ${drug.brand} is selected alongside ${otherBasal.map(x => x.brand).join('; ')}. ${drug.brand} already contains a basal insulin. Confirm the patient is genuinely on both - if the other basal was selected to record this pen's insulin component, deselect it. The patient sheet otherwise carries two different morning-of insulin instructions, and the patient may mistake the other basal for the separate insulin named here.` });
+  }
+  const otherIncretin = Object.entries(DRUG_DB).flatMap(([key, cls]) => cls.drugs.filter(x => selected.has(x.id) && x.id !== drug.id && (key === 'glp1' || key === 'tirzepatide')));
+  if (otherIncretin.length) {
+    flags.push({ type: 'alert', text: `DUPLICATE INCRETIN THERAPY: ${drug.brand} contains ${drug.glp1Component} and is selected alongside ${otherIncretin.map(x => x.brand).join('; ')}. Confirm the patient is on both.` });
+  }
+  flags.push({ type: 'info', text: `${drug.brand} is taken ${drug.labelSchedule} (FDA label). If this patient takes it at another time of day, that is off-label and the morning-of instruction below must be reconciled with their actual schedule.` });
 
   const nightBefore = `No evening dose - ${drug.brand} is taken ${drug.labelSchedule}. The dose taken on the morning BEFORE surgery is the patient's usual dose, unchanged.`;
-  const morningOf = `DO NOT give ${drug.brand} on the morning of surgery. Its ${drug.glp1Component} component is meal-anchored, so it delivers no glycemic benefit to a patient who is NPO, while acutely delaying gastric emptying in the 1-3 h before induction - the window covered by the product's own pulmonary-aspiration warning. Give the basal component INSTEAD as a SEPARATE plain basal insulin at ${keepPct}% of the usual ${drug.brand} unit dose${doseClause}. That separate insulin must be prescribed in advance; the patient cannot improvise it from this pen. Notify the anesthesia team that this patient is on a GLP-1 receptor agonist. INSTITUTIONAL - no published guideline addresses fixed-ratio insulin/GLP-1 products perioperatively (Mark, 2026-08-18).`;
+  const morningOf = `DO NOT give ${drug.brand} on the morning of surgery. Its ${drug.glp1Component} component is meal-anchored, so it delivers no glycemic benefit to a patient who is NPO, while acutely delaying gastric emptying in the 1-3 h before induction - the window covered by the product's own pulmonary-aspiration warning. Give the basal component INSTEAD as a SEPARATE long-acting basal analog at ${keepPct}% of the usual ${drug.brand} unit dose${doseClause}. Insulin glargine U-100 is preferred: it is this pen's own insulin component, so the substitution is exactly unit-for-unit. DO NOT substitute NPH, which this app reduces by half rather than a quarter because of its peak - 30 units of NPH at 07:00 in a fasting patient peaks intraoperatively - and do not substitute a concentrated basal such as glargine U-300, which is not unit-equivalent. That separate insulin must be prescribed in advance; the patient cannot improvise it from this pen. Notify the anesthesia team that this patient is on a GLP-1 receptor agonist. INSTITUTIONAL - no published guideline addresses fixed-ratio insulin/GLP-1 products perioperatively (Mark, 2026-08-18).`;
   // Two deliberate wording choices. (1) It OPENS by confirming the day-before dose. The
   // sheet's convention is that silence means no change, which is safe for a drug that
   // continues - but here the patient is told emphatically not to take this pen on one
@@ -1695,7 +1722,7 @@ function getInsulinGLP1ComboCard(ctx, details, drug, dd, baseFlags, isT1, dmType
   // which is the more harmful direction. (2) The fallback is anchored to WHEN THEY READ
   // THIS, not to 'before your surgery' - a patient reading it at 5 am on the day has no
   // time to act on a clinic call (Mark, 2026-08-18).
-  const patientMorning = `Keep taking your ${drug.brand} as usual up to and including the day before surgery. Do NOT take it on the morning of surgery. Instead, take ${patientDose} of the separate long-acting insulin your clinic has prescribed for that morning. If you have not been given a separate long-acting insulin to use that morning, call the Preoperative Clinic as soon as you get these instructions - do not wait until the day of surgery.`;
+  const patientMorning = `Keep taking your ${drug.brand} as usual up to and including the day before surgery. Do NOT take it on the morning of surgery. ${substituteSentence} If you have not been given a separate long-acting insulin to use that morning, call the Preoperative Clinic as soon as you get these instructions - do not wait until the day of surgery.`;
 
   return {
     id: `basal-${drug.id}`,
@@ -1704,11 +1731,22 @@ function getInsulinGLP1ComboCard(ctx, details, drug, dd, baseFlags, isT1, dmType
     badge: 'MODIFY DOSE',
     badgeType: 'modify',
     carriesGlp1Diet: true,
+    // The MODIFY DOSE badge maps to 'dose changes', which is the one thing NOT happening -
+    // the pen's dose does not change, the pen is not taken and a different medicine is
+    // substituted. A patient scanning the checklist could reasonably conclude they take a
+    // reduced dose of the pen that morning, which is exactly what this card exists to prevent.
+    checklistDispo: 'do not take on the morning of surgery; a different insulin is used instead - see below',
     clinician: {
       nightBefore,
       morningOf,
       monitoring: 'Check blood glucose on admission. Target perioperative glucose 100-180 mg/dL. Never hold all basal insulin - this pen IS the patient basal insulin.',
-      resumption: `Resume ${drug.brand} when tolerating oral intake and blood glucose is stable. Verify with prescriber. In addition, and not sooner than the rule above - GLP-1 component: ${d.resumption}`,
+      // The GLP-1 resumption rule ends 'if postoperative GI symptoms develop, hold until
+      // resolved'. Importing it verbatim put a HOLD INSTRUCTION on the one card whose
+      // central claim is that this pen is never held - and the Resumption section is what a
+      // surgical team reads on POD 0-2, when postoperative nausea is ordinary. Rewritten for
+      // this product rather than imported, the same way getMetforminComboOverlay refuses to
+      // restate the secondary component's hold interval.
+      resumption: `Resume ${drug.brand} when tolerating oral intake and blood glucose is stable. Verify with prescriber. GLP-1 component: no specific postoperative hold period is required. If postoperative GI symptoms develop, DO NOT hold ${drug.brand} to address them - it is the patient's basal insulin. Substitute a separate long-acting basal analog until the symptoms resolve, then resume the pen.`,
       evidence: `INSTITUTIONAL. No published source addresses fixed-ratio insulin/GLP-1 combinations perioperatively - ADA Standards of Care 2026 section 16, SAMBA 2024, UpToDate and the ADS/NACOS/GESA/ANZCA April 2025 recommendations are all silent, and Endocrine Society 2022 names these products only in its disclosures. The basal reduction follows ADA 2026 (long-acting analogs to 75-80% of the usual dose). The 24 h clear liquid diet follows the April 2025 recommendations, whose wording is agent-agnostic and which explicitly reject the tachyphylaxis assumption; the ${drug.brand} label itself states the product delays gastric emptying and carries the pulmonary-aspiration warning for GLP-1 receptor agonist users undergoing anesthesia. DECLARED CONFLICT: SAMBA 2024 Table 3 lists liraglutide's day-of-surgery instruction as HOLD, where this app continues GLP-1 receptor agonists. That conflict cannot be resolved by holding this pen, because doing so would hold the patient's basal insulin - which is why the morning-of dose is given as a separate plain basal instead. ${d.evidence}`,
       dietary: d.dietaryClinician,
     },
@@ -1757,7 +1795,7 @@ function getBasalInsulinResults(ctx, details, selected) {
     // replaced by a separate plain basal, and it carries the whole GLP-1 disposition.
     // Handled entirely by its own builder, which returns before the basal logic runs.
     if (drug.combo && drug.combo.includes('glp1')) {
-      results.push(getInsulinGLP1ComboCard(ctx, details, drug, dd, drugFlags, isT1, dmType));
+      results.push(getInsulinGLP1ComboCard(ctx, details, drug, dd, drugFlags, isT1, dmType, selected));
       return;
     }
     if (drug.isNPH) {
@@ -2458,9 +2496,9 @@ class PerioperativeDMApp {
               <input type="number" value="${dd.morningDose || ''}" placeholder="units" min="0" oninput="window.app.updateInsulinDetailNoRender('${drug.id}','morningDose',this.value)">
               <span class="units">units</span>
             </div>` : `
-            <div class="section-label">Current ${drug.isNPH ? 'Dose' : (dd.dosingTime === 'morning' ? 'Morning Dose' : 'Evening Dose')}</div>
+            <div class="section-label">Current ${drug.doseLabel ? drug.doseLabel : (drug.isNPH ? 'Dose' : (dd.dosingTime === 'morning' ? 'Morning Dose' : 'Evening Dose'))}</div>
             <div class="dose-group">
-              <label>${dd.dosingTime === 'morning' ? 'Morning dose' : 'Evening/bedtime dose'}</label>
+              <label>${drug.doseLabel ? drug.doseLabel : (dd.dosingTime === 'morning' ? 'Morning dose' : 'Evening/bedtime dose')}</label>
               <input type="number" value="${dd.eveningDose || ''}" placeholder="units" min="0" oninput="window.app.updateInsulinDetailNoRender('${drug.id}','eveningDose',this.value)">
               <span class="units">units</span>
             </div>`}
@@ -2716,6 +2754,10 @@ class PerioperativeDMApp {
     //     continues outright). A single disposition cannot be true for both, so
     //     a multi-drug card states nothing and points below.
     const dispoCore = (r) => {
+      // A card may state its own checklist disposition where the badge vocabulary would
+      // mislead. The fixed-ratio insulin/GLP-1 pen is badged MODIFY DOSE, but its dose does
+      // not change - the pen is not taken and a different medicine is substituted.
+      if (r.checklistDispo) return r.checklistDispo;
       // A card covering more than one drug may carry a split instruction.
       // Deliberately conservative: it costs a summary line on cards whose drugs
       // do agree, and it is the only rule here that cannot be wrong.
@@ -2762,7 +2804,13 @@ class PerioperativeDMApp {
     const dispoText = (r) => {
       const core = dispoCore(r);
       if (!r.carriesGlp1Diet) return core;
-      return core.replace(/ - see below$/, '') + ' - clear liquid diet starts 24 hours before arrival';
+      // The pointer is re-appended rather than discarded. Stripping it was harmless for the
+      // GLP-1 card, whose CONTINUE string never carried one, but it silently removed the
+      // "see below" from any card that did - on a row whose whole job is to send the reader
+      // to the instruction underneath.
+      const hadPointer = / - see below$/.test(core);
+      const base = core.replace(/ - see below$/, '');
+      return base + ' - clear liquid diet starts 24 hours before arrival' + (hadPointer ? ' - see below' : '');
     };
     const listRows = results.map(r =>
       `<div class="ps-list-row">
@@ -2780,7 +2828,11 @@ class PerioperativeDMApp {
     // Ranked by PROPERTY, not by card id: a fixed-ratio insulin/GLP-1 pen carries the same
     // 24 h diet and must sort with it, not ahead of everything because its id is unknown.
     const dietRank = (r) => r.carriesGlp1Diet ? 0 : (r.id === 'sglt2i' ? 1 : 2);
-    const dietCards = results.filter(r => r.patient.dietary)
+    // Two cards can carry the SAME 24 h clear liquid diet paragraph - a combination pen plus
+    // a separate GLP-1, for instance. Printing it twice makes a reader hunt for the
+    // difference between two identical paragraphs.
+    const seenDiet = new Set();
+    const dietCards = results.filter(r => r.patient.dietary && !seenDiet.has(r.patient.dietary) && (seenDiet.add(r.patient.dietary), true))
       .sort((a, b) => dietRank(a) - dietRank(b));
     const dietHtml = dietCards.length
       ? `<div class="patient-dietary">

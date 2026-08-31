@@ -22,6 +22,15 @@
 // reorganised so the logic no longer sits above the class, this script fails
 // loudly rather than silently sweeping nothing.
 //
+// WHAT THIS SWEEP CANNOT SEE. It loads only the pure logic layer above the app
+// class, so the ENTIRE patient-sheet renderer is out of reach: the checklist row,
+// the diet ordering and de-duplication, and the eating-and-drinking footer are all
+// below the boundary and must be checked in a browser. For the same reason a
+// regression in hasAnyGLP1() is invisible here - it gates the GI-symptom screen and
+// the NPO-cutoff question CARD, both of which live in the class. Mutation testing
+// 2026-08-18 confirmed this: reverting hasAnyGLP1 to a class-membership test leaves
+// the sweep passing, while reverting coIncretin or onIncretin is caught.
+//
 // ADDING AN ASSERTION. Put it in ASSERTIONS below. Each one receives a single
 // card result plus the scenario, and returns a string describing the failure or
 // null when it holds. Prefer assertions about what the PATIENT is told - the
@@ -77,12 +86,21 @@ function loadLogic() {
 // right while the R-number provenance is silently wrong.
 const SURGERY_TYPES = ['minor', 'colonoscopy', 'majorNoncardiac', 'cardiac', 'bariatric'];
 const TIMINGS = ['AM', 'PM'];
-const DM_TYPES = ['type1', 'type2'];
+// The app's canonical values. 'type1'/'type2' match NEITHER branch of
+// `isT1 = dmType === 'T1DM' || !dmType`, so this axis swept nothing at all until
+// 2026-08-18 - the same class of error the surgeryType comment above warns about.
+const DM_TYPES = ['T1DM', 'T2DM'];
 // '' is the not-entered case, which must apply the conservative metformin hold.
 // The rest straddle every eGFR threshold in the app: 30, 45, and above.
 const EGFRS = ['', '25', '35', '50', '60', '90'];
 const CONTRASTS = [true, false, null];
 const HFS = [true, false];
+// Previously pinned, so whole branches were never executed: the GI-symptom screen
+// (including the flag that must never reach a pen that cannot be held), and the dose
+// guards. '' is not-entered, '3' is millilitres read off the carton, '100' is a total
+// daily insulin dose, '15' is the pen minimum, '40' an ordinary dose.
+const GI_SYMPTOMS = [true, false, null];
+const COMBO_DOSES = ['40', '15', '3', '100', ''];
 
 // The oral agents. Plain insulin is still excluded: those cards need insulinDetails
 // per drug and want a differently shaped sweep. The fixed-ratio insulin/GLP-1 pen IS
@@ -115,7 +133,75 @@ const DIET_PROPERTY = 'carriesGlp1Diet';
 // co-treated with an incretin (or who are, on a 2 h cutoff, still continuing the SGLT2i).
 const TIMED_DRINK = /8 to 12 ounces/i;
 
+// The fixed-ratio pen's card id.
+const PEN_CARD = () => 'basal-' + COMBO_PEN;
+
 const ASSERTIONS = [
+  {
+    name: 'the pen card never carries a hold-suggesting flag',
+    // The GI-symptom flag from getGLP1Disposition says 'consider holding medication'.
+    // On this card that would mean holding the patient's only basal insulin. It is
+    // filtered on the structural suggestsHold property, not on its wording.
+    check(card) {
+      if (card.id !== PEN_CARD()) return null;
+      if ((card.flags || []).some(f => f.suggestsHold)) return 'a suggestsHold flag reached the pen card';
+      return null;
+    },
+  },
+  {
+    name: 'the pen card confirms the day-before dose',
+    // Silence means 'no change' by convention, but a patient told emphatically not to
+    // take this pen on one day may generalise to the day before - skipping their only
+    // basal insulin, which is the more harmful direction.
+    check(card) {
+      if (card.id !== PEN_CARD()) return null;
+      const t = (card.patient && card.patient.morningOf) || '';
+      if (!/up to and including the day before surgery/.test(t)) {
+        return 'patient.morningOf does not confirm the day-before dose';
+      }
+      return null;
+    },
+  },
+  {
+    name: 'the pen card fallback is actionable when the patient reads it',
+    // 'call the clinic before your surgery' is useless to someone reading the sheet at
+    // 5 am on the day.
+    check(card) {
+      if (card.id !== PEN_CARD()) return null;
+      const t = (card.patient && card.patient.morningOf) || '';
+      if (!/as soon as you get these instructions/.test(t)) return 'fallback is not anchored to when the sheet is read';
+      return null;
+    },
+  },
+  {
+    name: 'an out-of-range pen dose never yields a number on the patient sheet',
+    // Flags do NOT render on the patient sheet, so a clinician alert is no protection
+    // here: 3 units read off the carton as millilitres once printed "take 2 units", and
+    // the patient saw the number with none of the doubt attached. Out of range must
+    // degrade to the non-numeric sentence, not to a smaller wrong number.
+    check(card, scenario) {
+      if (card.id !== PEN_CARD()) return null;
+      const d = parseFloat(scenario.comboDose);
+      const outOfRange = !isNaN(d) && (d < 15 || d > 60);
+      if (!outOfRange) return null;
+      const t = (card.patient && card.patient.morningOf) || '';
+      const m = t.match(/\b\d+(\.\d+)?\s*units\b/);
+      if (m) return `dose ${scenario.comboDose} is outside the pen range but the sheet still prints "${m[0]}"`;
+      return null;
+    },
+  },
+  {
+    name: 'the pen card never asks the patient to compute a dose',
+    // A blank dose used to yield 'take 75% of your usual Soliqua dose of the separate
+    // long-acting insulin' - ungrammatical, and insulin arithmetic on the morning of
+    // surgery is precisely what the dose machinery exists to prevent.
+    check(card) {
+      if (card.id !== PEN_CARD()) return null;
+      const t = (card.patient && card.patient.morningOf) || '';
+      if (/%/.test(t)) return 'patient.morningOf contains a percentage: ' + JSON.stringify(t.slice(0, 120));
+      return null;
+    },
+  },
   {
     name: 'a card that declares the GLP-1 diet actually prints one',
     // carriesGlp1Diet drives the patient sheet's footer suppression. A card that sets
@@ -191,6 +277,31 @@ const ASSERTIONS = [
 // catch cross-card contradictions, which per-card checks cannot see.
 const SET_ASSERTIONS = [
   {
+    name: 'a co-treated SGLT2i card declares the incretin trigger in its provenance',
+    // Guards the SECOND of the three unified incretin sites - coIncretin, which feeds
+    // cutoffForcesFast. Reverting it does not change the SGLT2i badge for this product,
+    // because a patient on the pen trips the separate current-insulin trigger anyway, so
+    // asserting the badge would catch nothing. The trigger text is what disappears. Same
+    // lesson as 'assert the R-number, not just the badge'.
+    check(results, scenario, selection) {
+      if (!selection.hasIncretin) return null;
+      // The trigger is only reachable on the long-fast surgery types, and only for T2DM:
+      // a T1DM patient takes the fixed-hold branch, which never evaluates it. Asserting it
+      // outside that branch would fail on scenarios where its absence is correct.
+      if (scenario.dmType !== 'T2DM') return null;
+      // Bariatric is a FIXED hold too (isFixedHold covers T1DM, ketogenic diet and
+      // bariatric), so it never evaluates the fasting trigger either.
+      if (!['majorNoncardiac', 'cardiac'].includes(scenario.surgeryType)) return null;
+      const sglt2i = results.find(c => c.id === 'sglt2i');
+      if (!sglt2i) return null;
+      const prov = JSON.stringify(sglt2i.provenance || {});
+      if (!/satisfied by GLP-1 or tirzepatide co-treatment/.test(prov)) {
+        return 'SGLT2i provenance does not declare the incretin co-treatment trigger';
+      }
+      return null;
+    },
+  },
+  {
     name: 'a co-treated patient is never issued the timed carbohydrate drink',
     // THE silent failure this sweep exists for, and it is not the diet - the combination
     // card sets its own diet property, so a broken incretin test does not remove it.
@@ -224,14 +335,18 @@ function run() {
     if (!cls || !cls.drugs || !cls.drugs.length) throw new Error(`DRUG_DB has no drugs for "${key}" - class key renamed?`);
     for (const d of cls.drugs) orals.add(d.id);
   }
+  // An enum the app does not recognise sweeps nothing while still reporting PASS.
+  for (const dm of DM_TYPES) {
+    if (dm !== 'T1DM' && dm !== 'T2DM') throw new Error(`DM_TYPES contains "${dm}" - the app tests 'T1DM'/'T2DM'`);
+  }
   if (!DRUG_DB.basalInsulin.drugs.some(d => d.id === COMBO_PEN)) {
     throw new Error(`${COMBO_PEN} not found in basalInsulin - drug id renamed?`);
   }
 
   const SELECTIONS = [
     { name: 'all oral agents', ids: orals, insulinDetails: {}, hasIncretin: false },
-    { name: 'combination pen alone', ids: new Set([COMBO_PEN]), insulinDetails: COMBO_PEN_DETAILS, hasIncretin: true },
-    { name: 'combination pen + SGLT2i', ids: new Set([COMBO_PEN, 'empagliflozin']), insulinDetails: COMBO_PEN_DETAILS, hasIncretin: true },
+    { name: 'combination pen alone', ids: new Set([COMBO_PEN]), insulinDetails: COMBO_PEN_DETAILS, hasIncretin: true, varyDose: true },
+    { name: 'combination pen + SGLT2i', ids: new Set([COMBO_PEN, 'empagliflozin']), insulinDetails: COMBO_PEN_DETAILS, hasIncretin: true, varyDose: true },
     { name: 'GLP-1 + SGLT2i', ids: new Set(['sema-sc', 'empagliflozin']), insulinDetails: {}, hasIncretin: true },
   ];
 
@@ -244,16 +359,18 @@ function run() {
       for (const dmType of DM_TYPES)
         for (const eGFR of EGFRS)
           for (const contrastWithin48h of CONTRASTS)
-            for (const hasHF of HFS) {
+            for (const hasHF of HFS)
+              for (const giSymptoms of GI_SYMPTOMS)
+                for (const comboDose of (selection.varyDose ? COMBO_DOSES : ['40'])) {
               scenarios++;
-              const scenario = { selection: selection.name, surgeryType, surgeryTiming, dmType, eGFR: eGFR || '(blank)', contrastWithin48h, hasHF };
+              const scenario = { selection: selection.name, surgeryType, surgeryTiming, dmType, eGFR: eGFR || '(blank)', contrastWithin48h, hasHF, giSymptoms, comboDose: comboDose || '(blank)' };
 
               const ctx = { dmType, surgeryType, surgeryTiming, hasHF, hasCKD: false, arrivalTime: '', surgeryDate: '' };
               const details = {
                 sglt2iMode: 'SPAQI', a1cOver8: null, prolongedFasting: false, surgeryOver3h: null,
                 sglt2iDoseTime: 'morning', dkaHistory: null, ketoDiet: null,
-                eGFR, contrastWithin48h, giSymptoms: null, glp1NpoCutoff: 'midnight',
-                insulinDetails: selection.insulinDetails,
+                eGFR, contrastWithin48h, giSymptoms, glp1NpoCutoff: 'midnight',
+                insulinDetails: selection.varyDose ? { [COMBO_PEN]: { eveningDose: comboDose } } : selection.insulinDetails,
               };
 
               let results;
@@ -266,7 +383,7 @@ function run() {
 
               for (const card of results) {
                 for (const a of ASSERTIONS) {
-                  const detail = a.check(card);
+                  const detail = a.check(card, scenario);
                   if (detail) failures.push({ scenario, card: card.id, assertion: a.name, detail });
                 }
               }
