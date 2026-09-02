@@ -165,6 +165,11 @@ input[type="checkbox"], input[type="radio"] { width:16px; height:16px; cursor:po
 [data-cat="insulinU500"] .cat-chip { background:#FF5D5D; box-shadow:0 0 8px rgba(255,93,93,.8); }
 [data-cat="pump"] .cat-chip { background:#90A4AE; box-shadow:0 0 8px rgba(144,164,174,.7); }
 .drug-indent { padding-left:8px; }
+.optional-note { background:var(--bg-well); border:1px solid var(--line); border-left:3px solid var(--accent); border-radius:2px; padding:12px 14px; margin-bottom:16px; font-size:13.5px; color:var(--dim); line-height:1.5; }
+.optional-note strong { color:var(--text); }
+.optional-warn { background:var(--accent-dim); border-left:3px solid var(--accent); border-radius:2px; padding:11px 13px; margin:4px 0 16px; font-size:13px; color:var(--dim); line-height:1.5; }
+.btn-secondary-wide { width:100%; padding:12px; margin-top:8px; background:transparent; color:var(--dim); border:1px solid var(--line); border-radius:2px; font-size:14px; font-weight:600; cursor:pointer; transition:all .12s; }
+.btn-secondary-wide:hover { border-color:var(--line-strong); color:var(--text); }
 .category-header:hover .cat-label { color:var(--accent); }
 .category-header.static { cursor:default; }
 .category-header.static:hover .cat-label { color:var(--text); }
@@ -304,6 +309,13 @@ input[type="checkbox"], input[type="radio"] { width:16px; height:16px; cursor:po
 .patient-sheet { --ps-measure:52ch; }
 .patient-sheet.ps-large { --ps-measure:70ch; }
 .patient-sheet .patient-section-text { max-width:var(--ps-measure); }
+.ps-steps { list-style:none; padding:0; margin:0 0 11px; display:flex; flex-direction:column; gap:9px; max-width:var(--ps-measure); }
+.ps-steps li { position:relative; padding-left:17px; line-height:1.6; }
+.ps-steps li::before { content:''; position:absolute; left:2px; top:.6em; width:5px; height:5px; border-radius:50%; background:var(--accent); }
+.ps-steps li strong { color:#FFF1DC; font-weight:700; }
+.ps-why { margin:0; line-height:1.6; max-width:var(--ps-measure); }
+.ps-why strong { color:#FFF1DC; font-weight:700; }
+.ps-noname { border:1px solid rgba(255,180,84,.45); background:var(--accent-dim); border-radius:2px; padding:9px 12px; margin-bottom:12px; font-size:var(--ps-body); line-height:1.5; color:#F0E2CC; }
 .ps-item { margin-bottom:14px; }
 .ps-item:last-child { margin-bottom:0; }
 .ps-item-drug { font-family:'Rajdhani',sans-serif; font-size:var(--ps-drug); font-weight:700; color:var(--accent); letter-spacing:.02em; margin-bottom:3px; }
@@ -368,6 +380,12 @@ input[type="checkbox"], input[type="radio"] { width:16px; height:16px; cursor:po
   .ps-list-drug { color:#111 !important; }
   .ps-list-dispo { color:#333 !important; }
   .ps-list-row { border-bottom-color:#bbb !important; }
+  .ps-steps li::before { background:#00614C !important; }
+  .ps-steps li { break-inside: avoid; page-break-inside: avoid; }
+  .ps-steps { break-inside: auto; }
+  .ps-steps li strong, .ps-why strong { color:#111 !important; }
+  .ps-why { color:#111 !important; }
+  .ps-noname { border-color:#c9a227 !important; background:#fdf6e3 !important; color:#111 !important; }
   .patient-dietary-label { color:#00614C !important; }
   .patient-footer { color:#555 !important; border-color:#ccc !important; background:#f9f9f9 !important; }
   .tab-bar, .btn-row, button { display:none !important; }
@@ -709,6 +727,41 @@ const SURGERY_TYPE_LABELS = {
   cardiac: 'Cardiac Surgery',
   bariatric: 'Bariatric Surgery',
 };
+// Which clinical-context questions the SELECTED medications actually consume.
+// Derived by tracing each card (and the helpers it delegates to) for reads of
+// ctx.<field>, 2026-09-01. Deliberately CONSERVATIVE: a field is listed if the
+// card references it at all, even where the output did not observably change in
+// testing - an unasked question stays null, and null is not a safe default for a
+// field some branch may still read. Combination pills register under every class
+// they belong to, so they pull in the union of those requirements.
+const CONTEXT_NEEDS = {
+  sglt2i:           ['dmType','surgeryType','hasHF','hasCKD'],
+  glp1:             ['surgeryType'],
+  tirzepatide:      ['surgeryType'],
+  dpp4i:            ['surgeryType','surgeryTiming'],
+  metformin:        [],
+  sulfonylurea:     ['surgeryTiming'],
+  meglitinide:      ['surgeryTiming'],
+  tzd:              ['hasHF'],
+  agi:              ['surgeryTiming'],
+  basalInsulin:     ['dmType','surgeryType','surgeryTiming'],
+  bolusInsulin:     ['surgeryTiming'],
+  premixedInsulin:  ['dmType','surgeryTiming'],
+  pump:             ['dmType','surgeryTiming'],
+  insulinU500:      [],
+};
+const CONTEXT_ORDER = ['dmType','surgeryType','surgeryTiming','hasHF','hasCKD'];
+function neededContext(selected) {
+  const need = new Set();
+  for (const cls of Object.keys(CONTEXT_NEEDS)) {
+    if (hasMedClass(selected, cls)) CONTEXT_NEEDS[cls].forEach(k => need.add(k));
+  }
+  // Property-based, matching the cards. Class membership alone misses a fixed-ratio
+  // insulin/GLP-1 pen and the metformin component of a combination pill.
+  if (hasAnyGLP1(selected)) CONTEXT_NEEDS.glp1.forEach(k => need.add(k));
+  if (hasMetformin(selected)) CONTEXT_NEEDS.metformin.forEach(k => need.add(k));
+  return CONTEXT_ORDER.filter(k => need.has(k));
+}
 function needsDetails(selected) {
   return hasAnySGLT2i(selected) || hasAnyGLP1(selected) || hasMetformin(selected) || hasAnyInsulin(selected);
 }
@@ -1227,14 +1280,14 @@ function getSGLT2iResults(ctx, details, selected) {
   const sglt2iContinuing = !!(spaqiProvenance && spaqiProvenance.finalRecommendation === 'CONTINUE');
   const ordinaryCutoff = !onIncretin || carbCutoff === '2h';
   const carbPatient = (onIncretin && !ordinaryCutoff)
-    ? `While you are on the clear liquid diet before surgery, make sure some of what you drink contains carbohydrate - juice, a sports drink, regular soda, and gelatin all do; diet or zero-sugar versions and fat-free broth do not. Whenever you have your last drink before you have to stop, make that one a carbohydrate drink too. You do not need to set an alarm or stay up for it. This matters because of your SGLT2 medicine. In people who take these medicines, going a long stretch without carbohydrate can cause acid to build up in the blood, and that can happen even when blood sugar looks normal. This is true whether or not you are stopping it before surgery. If you have been given bowel preparation instructions for your procedure, follow those instructions for eating and drinking - they replace what is written here.`
+    ? `<ul class="ps-steps" role="list"><li><strong>While you are on clear liquids</strong> — make sure some of what you drink contains carbohydrate: juice, a sports drink, regular soda, or gelatin. Diet, zero-sugar, sugar-free and no-sugar-added versions of these do not count, and neither does fat-free broth.</li><li><strong>Your last drink before you stop</strong> — make that one a carbohydrate drink too.</li><li><strong>Do not set an alarm</strong> or stay up for it.</li></ul><p class="ps-why"><strong>Why the carbohydrate drink:</strong> in people who take SGLT2 medicines, going a long stretch without carbohydrate can cause acid to build up in the blood. This can happen even when blood sugar looks normal, and it is true whether or not you are stopping the medicine before surgery.</p>`
     : (onIncretin && !sglt2iContinuing)
-      ? `While you are on the clear liquid diet before surgery, make sure some of what you drink contains carbohydrate - juice, a sports drink, regular soda, and gelatin all do; diet or zero-sugar versions and fat-free broth do not. Whenever you have your last drink before you have to stop, make that one a carbohydrate drink too. You do not need to set an alarm or stay up for it. This matters because of your SGLT2 medicine. In people who take these medicines, going a long stretch without carbohydrate can cause acid to build up in the blood, and that can happen even when blood sugar looks normal. This is true whether or not you are stopping it before surgery. If you have been given bowel preparation instructions for your procedure, follow those instructions for eating and drinking - they replace what is written here.`
+      ? `<ul class="ps-steps" role="list"><li><strong>While you are on clear liquids</strong> — make sure some of what you drink contains carbohydrate: juice, a sports drink, regular soda, or gelatin. Diet, zero-sugar, sugar-free and no-sugar-added versions of these do not count, and neither does fat-free broth.</li><li><strong>Your last drink before you stop</strong> — make that one a carbohydrate drink too.</li><li><strong>Do not set an alarm</strong> or stay up for it.</li></ul><p class="ps-why"><strong>Why the carbohydrate drink:</strong> in people who take SGLT2 medicines, going a long stretch without carbohydrate can cause acid to build up in the blood. This can happen even when blood sugar looks normal, and it is true whether or not you are stopping the medicine before surgery.</p>`
     : sType === 'colonoscopy'
-      ? `Follow the preparation instructions from the doctor doing your colonoscopy. Those instructions decide what you may eat and drink and when, and you should follow them. One extra step, because you take an SGLT2 medicine: make the last drink you have before your cut-off time a clear liquid that contains carbohydrate - apple or white grape juice, a sports drink, or regular (non-diet) soda all count; diet or zero-sugar versions and fat-free broth do not. Avoid anything red, purple or orange, nothing milky or creamy, no juice with pulp, and no alcohol. If your preparation instructions do not allow a drink like this, follow them instead and let the Preoperative Clinic know. This matters because of your SGLT2 medicine. In people who take these medicines, going a long stretch without carbohydrate can cause acid to build up in the blood, and that can happen even when blood sugar looks normal. This is true whether or not you are stopping it before surgery.`
+      ? `<ul class="ps-steps" role="list"><li><strong>Follow the preparation instructions from the doctor doing your colonoscopy</strong> — they decide what you may eat and drink, and when.</li><li><strong>Your last drink before your cut-off</strong> — make it a clear liquid that contains carbohydrate: apple or white grape juice, a sports drink, or regular (non-diet) soda. Diet, zero-sugar, sugar-free and no-sugar-added versions of these do not count, and neither does fat-free broth.</li><li><strong>Avoid anything red, purple or orange</strong>, anything milky or creamy, juice with pulp, and alcohol.</li><li><strong>If your preparation instructions do not allow a drink like this</strong> — follow them instead, and let the Preoperative Clinic know.</li></ul><p class="ps-why"><strong>Why the carbohydrate drink:</strong> in people who take SGLT2 medicines, going a long stretch without carbohydrate can cause acid to build up in the blood. This can happen even when blood sugar looks normal, and it is true whether or not you are stopping the medicine before surgery.</p>`
     : onIncretin
-      ? `You may keep drinking clear liquids until 2 hours before your arrival time. Nothing milky or creamy, no juice with pulp, and no alcohol. One extra step, because you take an SGLT2 medicine: at about 2 hours before you arrive, as the last thing you drink, have 8 to 12 ounces of a clear liquid that contains carbohydrate - juice, a sports drink, or regular (non-diet) soda all do; diet or zero-sugar versions and fat-free broth do not. If that time falls while you are asleep, then instead make this the very first thing you do when you wake up - drink it as soon as you are up, and in any case before you leave home for the hospital - even if that is less than 2 hours before you arrive. Do not set an alarm for it. This matters because of your SGLT2 medicine. In people who take these medicines, going a long stretch without carbohydrate can cause acid to build up in the blood, and that can happen even when blood sugar looks normal. This is true whether or not you are stopping it before surgery. If you have been given bowel preparation instructions for your procedure, follow those instructions for eating and drinking - they replace what is written here.`
-      : `Follow the eating and drinking instructions from the Preoperative Clinic: stop all solid food 8 hours before your arrival time, and you may keep drinking clear liquids until 2 hours before your arrival time - water, clear juice without pulp, sports drinks, soda, tea or coffee without milk, plain gelatin (Jell-O), or fat-free broth. Nothing milky or creamy, no juice with pulp, and no alcohol. One extra step, because you take an SGLT2 medicine: at about 2 hours before you arrive, as the last thing you drink, have 8 to 12 ounces of a clear liquid that contains carbohydrate - juice, a sports drink, or regular (non-diet) soda all do; diet or zero-sugar versions and fat-free broth do not. If that time falls while you are asleep, then instead make this the very first thing you do when you wake up - drink it as soon as you are up, and in any case before you leave home for the hospital - even if that is less than 2 hours before you arrive. Do not set an alarm for it. This matters because of your SGLT2 medicine. In people who take these medicines, going a long stretch without carbohydrate can cause acid to build up in the blood, and that can happen even when blood sugar looks normal. This is true whether or not you are stopping it before surgery. If anything here differs from your other preoperative instructions from the Preoperative Clinic, follow these. The one exception: if you have been given bowel preparation instructions for your procedure, follow those for eating and drinking - they replace what is written here.`;
+      ? `<ul class="ps-steps" role="list"><li><strong>Until 2 hours before you arrive</strong> — you may keep drinking clear liquids. Nothing milky or creamy, no juice with pulp, and no alcohol.</li><li><strong>About 2 hours before you arrive</strong> — make your last drink 8 to 12 ounces of a clear liquid that contains carbohydrate: juice, a sports drink, or regular (non-diet) soda. Diet, zero-sugar, sugar-free and no-sugar-added versions of these do not count, and neither does fat-free broth.</li><li><strong>If 2 hours before you arrive falls while you are asleep</strong> — drink it first thing when you wake up instead: as soon as you are up, and in any case before you leave home for the hospital, even if that is less than 2 hours before you arrive. This one drink is the exception to the &ldquo;nothing to eat or drink&rdquo; line above. Do not set an alarm for it.</li></ul><p class="ps-why"><strong>Why the carbohydrate drink:</strong> in people who take SGLT2 medicines, going a long stretch without carbohydrate can cause acid to build up in the blood. This can happen even when blood sugar looks normal, and it is true whether or not you are stopping the medicine before surgery.</p>`
+      : `<ul class="ps-steps" role="list"><li><strong>8 hours before you arrive</strong> — stop all solid food.</li><li><strong>Until 2 hours before you arrive</strong> — you may keep drinking clear liquids: water, clear juice without pulp, sports drinks, soda, tea or coffee without milk, plain gelatin (Jell-O), or fat-free broth.</li><li><strong>Nothing milky or creamy</strong>, no juice with pulp, and no alcohol.</li><li><strong>About 2 hours before you arrive</strong> — make your last drink 8 to 12 ounces of a clear liquid that contains carbohydrate: juice, a sports drink, or regular (non-diet) soda. Diet, zero-sugar, sugar-free and no-sugar-added versions of these do not count, and neither does fat-free broth.</li><li><strong>If 2 hours before you arrive falls while you are asleep</strong> — drink it first thing when you wake up instead: as soon as you are up, and in any case before you leave home for the hospital, even if that is less than 2 hours before you arrive. Do not set an alarm for it.</li></ul><p class="ps-why"><strong>Why the carbohydrate drink:</strong> in people who take SGLT2 medicines, going a long stretch without carbohydrate can cause acid to build up in the blood. This can happen even when blood sugar looks normal, and it is true whether or not you are stopping the medicine before surgery.</p>`;
   const carbClinicianLead = (onIncretin && !ordinaryCutoff)
     ? `Co-treated with a GLP-1 RA or tirzepatide; clear liquids run ${carbUntilClinician}. The carbohydrate drink is anchored to the patient's LAST drink before that cutoff rather than to a clock time, and the sheet tells them not to set an alarm for it. Reason: the cutoff lands between 1 and 5 am for several arrival-time and cutoff combinations - a 6 h cutoff before an 07:30 arrival is 01:30, an 8 h cutoff before a 12:30 arrival is 04:30 - and a named time would be either ignored or obeyed at 3 am. The sheet also directs that some of the clear liquids taken across the 24 h clear liquid diet contain carbohydrate, so the carbohydrate-free window is shortened without touching the cutoff.`
     : (onIncretin && !sglt2iContinuing)
@@ -1297,11 +1350,13 @@ function getGLP1Disposition(ctx, details) {
   }
   flags.push({ type: 'info', text: 'The risk of delayed gastric emptying is greater during dose escalation, at higher doses, or in patients with known gastroparesis/dysmotility or Parkinson\'s disease. This does not change the patient instructions: continue the medication plan and clear liquid diet unless the clinical team advises otherwise. Consider point-of-care gastric ultrasound on the day of procedure if aspiration risk remains a concern.' });
   const npoPatient = npoCutoff === 'midnight'
-    ? 'Then have NOTHING to eat or drink (including water) after midnight the night before your surgery.'
-    : `Then have NOTHING to eat or drink (including water) starting ${npoCutoff.replace('h', '')} hours before your arrival time.`;
-  const verifyText = npoCutoff === 'midnight'
-    ? 'Please verify your exact arrival time with your surgeon\'s office.'
-    : 'Please verify your exact arrival time with your surgeon\'s office.';
+    ? '<li><strong>After midnight the night before surgery</strong> — nothing to eat or drink at all, including water.</li>'
+    : `<li><strong>Starting ${npoCutoff.replace('h', '')} hours before you arrive</strong> — nothing to eat or drink at all, including water.</li>`;
+  // Deliberately empty: the sheet footer carries this instruction on every sheet, and
+  // stating it twice on the co-treated sheets read as two different requirements.
+  const verifyText = '';
+    
+    
   const npoClinician = npoCutoff === 'midnight'
     ? 'then strict NPO after midnight — nothing to eat or drink'
     : `then strict NPO starting ${npoCutoff.replace('h', '')} hours before the scheduled arrival time \u2014 nothing to eat or drink`;
@@ -1313,10 +1368,10 @@ function getGLP1Disposition(ctx, details) {
   // deferring drops an aspiration mitigation. Prep supplies clear liquids anyway;
   // the cutoff is the real loss.
   const dietary24h = ctx.surgeryType === 'colonoscopy'
-    ? `Follow the preparation instructions from the doctor doing your colonoscopy. Those instructions decide what you may eat and drink and when, and you should follow them. ${verifyText}`
+    ? `<ul class="ps-steps" role="list"><li><strong>Follow the preparation instructions from the doctor doing your colonoscopy</strong> — they decide what you may eat and drink, and when.</li>${verifyText}</ul>`
     : arrivalTime
-    ? `Start a clear liquid diet 24 hours before your planned arrival time. If your planned arrival time is ${fmtTime12(arrivalTime)}, begin clear liquids at that same time the day before. Clear liquids include water, clear juice without pulp, sports drinks, soda, tea or coffee without milk, plain gelatin (Jell-O), or fat-free broth. ${npoPatient} ${verifyText} If anything here differs from your other preoperative instructions, follow these. The one exception: if you have been given bowel preparation instructions for your procedure, follow those for eating and drinking - they replace what is written here.`
-    : `Start a clear liquid diet 24 hours before your planned arrival time for surgery. Clear liquids include water, clear juice without pulp, sports drinks, soda, tea or coffee without milk, plain gelatin (Jell-O), or fat-free broth. ${npoPatient} ${verifyText} If anything here differs from your other preoperative instructions, follow these. The one exception: if you have been given bowel preparation instructions for your procedure, follow those for eating and drinking - they replace what is written here.`;
+    ? `<ul class="ps-steps" role="list"><li><strong>24 hours before you arrive</strong> — start a clear liquid diet. Your arrival time is ${fmtTime12(arrivalTime)}, so begin clear liquids at that same time the day before.</li><li><strong>Clear liquids are</strong> water, clear juice without pulp, sports drinks, soda, tea or coffee without milk, plain gelatin (Jell-O), and fat-free broth.</li>${npoPatient}${verifyText}</ul>`
+    : `<ul class="ps-steps" role="list"><li><strong>24 hours before you arrive</strong> — start a clear liquid diet, counting back from your planned arrival time for surgery.</li><li><strong>Clear liquids are</strong> water, clear juice without pulp, sports drinks, soda, tea or coffee without milk, plain gelatin (Jell-O), and fat-free broth.</li>${npoPatient}${verifyText}</ul>`;
   const dietaryClinician = `${ctx.surgeryType === 'colonoscopy' ? 'COLONOSCOPY: the patient sheet defers entirely to bowel preparation and issues NO dietary instruction from this app (Mark, 2026-08-14), because prep governs intake and a morning split-dose prep is incompatible with a midnight NPO cutoff. THE COST, STATED SO IT IS NOT LOST: the 24 h clear liquid diet and the NPO cutoff below exist for delayed gastric emptying, not bowel cleanliness. Prep supplies the clear liquids; it does not necessarily supply the cutoff. If aspiration risk is a concern in this patient, set the fasting instruction explicitly and reconcile it with the prep. The requirement that would otherwise apply: ' : ''}Universal dietary modification required for all GLP-1 RA and tirzepatide patients. Clear liquid diet starting 24 hours before planned arrival time (arrival is typically ~2 hours before surgery; effective window ≈26 hours before surgery start), ${npoClinician}.${arrivalTime ? ` Patient's planned arrival: ${arrivalTime}.` : ''}${gastroparesisCaveat}`;
   const morningOf = giSymptoms === true
     ? 'CONSIDER HOLDING per GI symptom screen (see flags). Notify anesthesia team. Continue dietary modification regardless of medication decision.'
@@ -2107,20 +2162,22 @@ class PerioperativeDMApp {
     this.render();
   }
   setState(step) { this.step = step; this.render(); }
-  generateInstructions() {
+  // Returns true when the detail answers are complete enough to generate.
+  // Split out of generateInstructions so the merged assess step can gate on it.
+  validateDetails() {
     // The >12 h carbohydrate-fast question forces a hold in every branch, so it must
     // be answered rather than silently defaulting to no-trigger. Surgery >3 h and A1c
     // may be left blank; both default to no trigger by decision (2026-07-31).
     if (this.state.details.sglt2iMode === 'SPAQI' && hasAnySGLT2i(this.state.selected) && this.state.details.prolongedFasting === null) {
       alert('Answer the question about more than 12 hours without carbohydrate intake before generating instructions. It determines whether the SGLT2 inhibitor is held.');
-      return;
+      return false;
     }
     // Dose time of day is what makes a stop DATE computable. Without it a held
     // patient falls back to interval-only wording, which is the failure mode that
     // made the explicit-date feature effectively dead.
     if (hasAnySGLT2i(this.state.selected) && !this.state.details.sglt2iDoseTime) {
       alert('Select when the patient takes their SGLT2 inhibitor (morning or evening) before generating instructions. It determines the last permissible dose date if the medication is held.');
-      return;
+      return false;
     }
     // NPH dosing frequency must be chosen before generating (peak-related dosing differs).
     const basal = getSelectedDrugsByClass(this.state.selected, 'basalInsulin');
@@ -2129,11 +2186,11 @@ class PerioperativeDMApp {
         const f = (this.state.details.insulinDetails[drug.id] || {}).frequency;
         if (f !== 'once' && f !== 'twice') {
           alert(`Select a dosing frequency for ${drug.name} before continuing.`);
-          return;
+          return false;
         }
       }
     }
-    this.setState('output');
+    return true;
   }
   setOutputTab(tab) { this.outputTab = tab; this.render({ quiet: true }); }
   updatePatient(key, val) { this.state.patient[key] = val; }
@@ -2161,14 +2218,26 @@ class PerioperativeDMApp {
     else this.state.selected.add(drugId);
     this.render({ quiet: true });
   }
+  // The assess step disappears entirely when the selected medications ask nothing,
+  // so the sequence - and the "Step N of M" label - is computed, never hard-coded.
+  activeSteps() {
+    const s = ['medications'];
+    if (this.assessHasQuestions()) s.push('assess');
+    s.push('patient');
+    return s;
+  }
+  assessHasQuestions() {
+    return neededContext(this.state.selected).length > 0 || needsDetails(this.state.selected);
+  }
+  stepLabel(name) {
+    const s = this.activeSteps();
+    const i = s.indexOf(name);
+    return i < 0 ? '' : `Step ${i + 1} of ${s.length}`;
+  }
   goBack() {
-    const steps = ['intro','patient','context','medications','details','output'];
+    const steps = ['intro', ...this.activeSteps(), 'output'];
     const idx = steps.indexOf(this.step);
-    if (idx > 0) {
-      let prev = steps[idx - 1];
-      if (prev === 'details' && !needsDetails(this.state.selected)) prev = 'medications';
-      this.setState(prev);
-    }
+    if (idx > 0) this.setState(steps[idx - 1]);
   }
   renderHeader(title, sub, step) {
     return `
@@ -2190,14 +2259,19 @@ class PerioperativeDMApp {
           <strong>Clinical Disclaimer:</strong> This tool is a decision-support aid for qualified healthcare professionals only. It does not replace clinical judgment, institutional protocols, or direct patient assessment. All recommendations should be reviewed by the treating clinical team. Users assume full responsibility for clinical decisions made.
         </div>
         <p class="helper-text">Generates perioperative hold/continue/modify instructions for SGLT2 inhibitors, GLP-1 receptor agonists, DPP-4 inhibitors, metformin, sulfonylureas, thiazolidinediones, meglitinides, alpha-glucosidase inhibitors, and all insulin types including pumps.</p>
-        <button class="btn-primary" onclick="window.app.setState('patient')">Begin Assessment →</button>
+        <button class="btn-primary" onclick="window.app.setState('medications')">Begin Assessment →</button>
       </div>`;
   }
   renderPatient() {
     const p = this.state.patient;
     return `
-      ${this.renderHeader('Patient Information', 'Printed on patient instruction sheet', 'Step 1 of 5')}
+      ${this.renderHeader('Patient Information', 'Optional — personalizes the printed sheet', this.stepLabel('patient'))}
+      ${this.renderBackBtn()}
       <div class="card">
+        <div class="optional-note">
+          <strong>This whole step is optional.</strong> You can skip it and still get complete
+          medication instructions. Filling it in personalizes the printed sheet.
+        </div>
         <div class="field-group">
           <label class="field-label">First Name</label>
           <input type="text" value="${p.firstName}" placeholder="First name" oninput="window.app.updatePatient('firstName', this.value)">
@@ -2217,18 +2291,24 @@ class PerioperativeDMApp {
         <div class="field-group">
           <label class="field-label">Surgery Date</label>
           <input type="date" value="${p.surgeryDate}" oninput="window.app.updatePatient('surgeryDate', this.value)">
-          <p class="helper-text">Optional. If provided, instructions will show exact calendar dates.</p>
+          <p class="helper-text">Optional. If provided, instructions show exact calendar dates.</p>
         </div>
-        <button class="btn-primary" onclick="window.app.savePatientAndContinue()">Next: Clinical Context →</button>
+        ${hasAnySGLT2i(this.state.selected) ? `<div class="optional-warn">Worth filling in for this patient: with an SGLT2 inhibitor, the surgery date and arrival time are what turn the hold into named calendar dates. Without them the sheet can only give the interval in hours and days, leaving the patient to count back to the dates themselves.</div>` : ''}
+        <button class="btn-primary" onclick="window.app.savePatientAndContinue()">Generate Instructions →</button>
+        <button class="btn-secondary-wide" onclick="window.app.savePatientAndContinue()">Skip this step →</button>
       </div>`;
   }
+  // Runs on BOTH the fill-in and the skip path. The SGLT2i stop-date maths reads
+  // arrivalTime and surgeryDate off ctx, not off state.patient, so skipping this
+  // step must still perform the copy or every held SGLT2i silently loses its dates.
   savePatientAndContinue() {
     this.state.context.arrivalTime = this.state.patient.arrivalTime;
     this.state.context.surgeryDate = this.state.patient.surgeryDate;
-    this.setState('context');
+    this.setState('output');
   }
-  renderContext() {
+  renderContextCards(needed) {
     const ctx = this.state.context;
+    const want = (k) => needed.includes(k);
     const btn = (label, key, val, currentVal, subtitle='') => {
       const active = currentVal === val;
       return `<div class="check-label ${active ? 'selected' : ''}" onclick="window.app.updateContext('${key}','${val}')">
@@ -2246,14 +2326,14 @@ class PerioperativeDMApp {
         </div>
       </div>`;
     return `
-      ${this.renderHeader('Clinical Context', 'Applies to all selected medications', 'Step 2 of 5')}
-      ${this.renderBackBtn()}
+      ${want('dmType') ? `
       <div class="card">
         <div class="question">Diabetes Type</div>
         ${btn('Type 1 Diabetes (T1DM)', 'dmType', 'T1DM', ctx.dmType, 'No endogenous insulin — stricter dose reductions')}
         ${btn('Type 2 Diabetes (T2DM)', 'dmType', 'T2DM', ctx.dmType, 'Retains some endogenous insulin')}
         ${btn('No diabetes (on medication for CKD, heart failure, or obesity)', 'dmType', 'noDM', ctx.dmType, 'SGLT2i for heart failure/CKD; GLP-1 for obesity')}
-      </div>
+      </div>` : ''}
+      ${want('surgeryType') ? `
       <div class="card">
         <div class="question">Surgery Type</div>
         ${btn('Minor procedure', 'surgeryType', 'minor', ctx.surgeryType, 'e.g., cataract surgery, skin lesion or biopsy, dental extraction, joint/epidural injection, port placement, simple hand or foot procedure. Usually local or MAC anesthesia, brief, same-day discharge.')}
@@ -2261,29 +2341,46 @@ class PerioperativeDMApp {
         ${btn('Ambulatory or major noncardiac surgery', 'surgeryType', 'majorNoncardiac', ctx.surgeryType, 'e.g., joint replacement, hysterectomy, bowel resection, major abdominal/pelvic, spine, or vascular surgery - including same-day and outpatient surgery.')}
         ${btn('Cardiac surgery', 'surgeryType', 'cardiac', ctx.surgeryType)}
         ${btn('Bariatric surgery', 'surgeryType', 'bariatric', ctx.surgeryType)}
-      </div>
+      </div>` : ''}
+      ${want('surgeryTiming') ? `
       <div class="card">
         <div class="question">Surgery Timing</div>
         ${btn('AM surgery', 'surgeryTiming', 'AM', ctx.surgeryTiming, 'NPO from midnight — standard')}
         ${btn('PM surgery', 'surgeryTiming', 'PM', ctx.surgeryTiming, 'Patient may eat a light breakfast when appropriate')}
-      </div>
+      </div>` : ''}
+      ${want('hasHF') ? `
       <div class="card">
         <div class="question">Heart Failure (any stage)?</div>
         ${yesno('hasHF', ctx.hasHF)}
-      </div>
+      </div>` : ''}
+      ${want('hasCKD') ? `
       <div class="card">
         <div class="question">Chronic Kidney Disease (CKD)?</div>
         ${yesno('hasCKD', ctx.hasCKD)}
-      </div>
-      <button class="btn-primary" onclick="window.app.validateContextAndContinue()">Next: Select Medications →</button>`;
+      </div>` : ''}`;
   }
-  validateContextAndContinue() {
+  // Merged step: the context questions these medications consume, followed by the
+  // drug-specific detail questions that were previously a separate screen.
+  renderAssess() {
+    const needed = neededContext(this.state.selected);
+    return `
+      ${this.renderHeader('Clinical Details', 'Only what these medications require', this.stepLabel('assess'))}
+      ${this.renderBackBtn()}
+      ${this.renderContextCards(needed)}
+      ${needsDetails(this.state.selected) ? this.detailsCards() : ''}
+      <button class="btn-primary" onclick="window.app.validateAssessAndContinue()">Next: Patient Information →</button>`;
+  }
+  validateAssessAndContinue() {
     const ctx = this.state.context;
-    if (!ctx.dmType || !ctx.surgeryType || !ctx.surgeryTiming || ctx.hasHF === null || ctx.hasCKD === null) {
-      alert('Please complete all clinical context fields before continuing.');
+    const needed = neededContext(this.state.selected);
+    const labels = { dmType: 'diabetes type', surgeryType: 'surgery type', surgeryTiming: 'surgery timing', hasHF: 'heart failure', hasCKD: 'CKD' };
+    const missing = needed.filter(k => ctx[k] === null || ctx[k] === undefined || ctx[k] === '');
+    if (missing.length) {
+      alert('Answer the following before continuing: ' + missing.map(k => labels[k]).join(', ') + '.');
       return;
     }
-    this.setState('medications');
+    if (!this.validateDetails()) return;
+    this.setState('patient');
   }
   renderMedications() {
     const selected = this.state.selected;
@@ -2317,7 +2414,7 @@ class PerioperativeDMApp {
     };
     const allSections = Object.keys(DRUG_DB).map(section).join('');
     return `
-      ${this.renderHeader('Select Medications', 'Choose all diabetes medications this patient takes', 'Step 3 of 5')}
+      ${this.renderHeader('Select Medications', 'Choose all diabetes medications this patient takes', this.stepLabel('medications'))}
       ${this.renderBackBtn()}
       <div class="card">
         <div class="search-wrap">
@@ -2327,17 +2424,15 @@ class PerioperativeDMApp {
         ${selected.size > 0 ? `<div class="selected-count">✓ ${selected.size} medication${selected.size > 1 ? 's' : ''} selected</div>` : ''}
         ${allSections.trim() ? allSections : `<p class="no-meds-msg">No medications match "${this.searchQuery.replace(/</g,'&lt;')}". Clear or edit the search above.</p>`}
       </div>
-      ${selected.size > 0 ? `<button class="btn-primary" onclick="window.app.goToDetails()">Next: Medication Details →</button>` : ''}`;
+      ${selected.size > 0 ? `<button class="btn-primary" onclick="window.app.goToAssess()">Next →</button>` : ''}`;
   }
-  goToDetails() {
+  goToAssess() {
     if (this.state.selected.size === 0) { alert('Please select at least one medication.'); return; }
-    if (needsDetails(this.state.selected)) this.setState('details');
-    else this.setState('output');
+    this.setState(this.assessHasQuestions() ? 'assess' : 'patient');
   }
-  renderDetails() {
+  detailsCards() {
     const sel = this.state.selected;
     const details = this.state.details;
-    const ctx = this.state.context;
     let html = '';
     // SGLT2i mode
     if (hasAnySGLT2i(sel)) {
@@ -2576,18 +2671,14 @@ class PerioperativeDMApp {
           </div>
         </div>`;
     });
-    return `
-      ${this.renderHeader('Medication Details', 'Required for personalized instructions', 'Step 4 of 5')}
-      ${this.renderBackBtn()}
-      ${html}
-      <button class="btn-primary" onclick="window.app.generateInstructions()">Generate Instructions →</button>`;
+    return html;
   }
   renderOutput() {
     const results = getAllResults(this.state.context, this.state.details, this.state.selected);
     const p = this.state.patient;
     const patientName = [p.firstName, p.lastName].filter(Boolean).join(' ') || 'Patient';
     return `
-      ${this.renderHeader('Perioperative Medication Instructions', patientName + (p.dob ? ` · DOB: ${p.dob}` : ''), 'Step 5 of 5 — Results')}
+      ${this.renderHeader('Perioperative Medication Instructions', patientName + (p.dob ? ` · DOB: ${p.dob}` : ''), 'Results')}
       <div class="no-print">
         ${this.renderBackBtn()}
         <div class="tab-bar">
@@ -2747,17 +2838,28 @@ class PerioperativeDMApp {
   // No patient string is altered anywhere in here.
   renderPatientSheet(results) {
     const p = this.state.patient;
-    const patientName = [p.firstName, p.lastName].filter(Boolean).join(' ') || '[Patient Name]';
+    const hasName = !!(p.firstName || p.lastName);
+    const patientName = [p.firstName, p.lastName].filter(Boolean).join(' ');
     const ctx = this.state.context;
+    // NOTE: the name identifies page 1 only. These sheets run to three pages and the
+    // pages get separated, so pages 2+ carry no identifier whether or not a name was
+    // entered. A print running-header was attempted with position:fixed and abandoned -
+    // Chrome repeats it but overlaps the body text. Doing it properly needs the sheet
+    // wrapped in a table with a repeating <thead>. Not attempted here.
+    const metaBits = [];
+    if (hasName) metaBits.push(patientName);
+    if (p.dob) metaBits.push(`DOB: ${p.dob}`);
+    if (p.arrivalTime) metaBits.push(`Arrival: ${fmtTime12(p.arrivalTime)}`);
     const header = `
       <div class="patient-sheet-header">
         <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:var(--accent);margin-bottom:8px;">ALTA BATES SUMMIT MEDICAL CENTER<br>PREOPERATIVE CLINIC</div>
         <h2>Diabetes Medication Instructions</h2>
         <div class="patient-meta">
-          ${patientName}${p.dob ? ` &middot; DOB: ${p.dob}` : ''}${p.arrivalTime ? ` &middot; Arrival: ${fmtTime12(p.arrivalTime)}` : ''}<br>
-          ${ctx.surgeryTiming === 'AM' ? 'AM Surgery' : 'PM Surgery'}
+          ${metaBits.join(' &middot; ')}${metaBits.length ? '<br>' : ''}
+          ${ctx.surgeryTiming ? (ctx.surgeryTiming === 'AM' ? 'AM Surgery' : 'PM Surgery') : ''}
         </div>
-      </div>`;
+      </div>
+      ${hasName ? '' : `<div class="ps-noname">This sheet does not have a patient name on it. Please check that these instructions are yours before you follow them.</div>`}`;
     // Checklist disposition. DERIVED FROM THE TIME BUCKETS THE SHEET ACTUALLY
     // PRINTS, not from the badge string alone, so the checklist cannot
     // contradict the timeline below it. Everything it cannot state without
@@ -2861,6 +2963,7 @@ class PerioperativeDMApp {
       ? `<div class="patient-dietary">
           <div class="patient-dietary-label">Eating and Drinking Before Surgery</div>
           ${dietCards.map(r => `<div class="patient-section-text" style="margin-bottom:10px;">${monoData(r.patient.dietary)}</div>`).join('')}
+          ${`<div class="patient-section-text"><ul class="ps-steps" role="list">${ctx.surgeryType === 'colonoscopy' ? `<li><strong>If you were given bowel preparation instructions</strong> — follow those for eating and drinking instead of these.</li>` : `<li><strong>If anything here differs</strong> from your other preoperative instructions, follow these — with one exception: if you were given bowel preparation instructions, follow those for eating and drinking instead.</li>`}</ul></div>`}
          </div>`
       : '';
     // One block per time slot. A slot with nothing in it does not print.
@@ -2894,7 +2997,7 @@ class PerioperativeDMApp {
         <div style="margin-bottom:6px;"><strong>Questions?</strong> Call the ABSMC Preoperative Clinic: <strong>(510) 869-8865</strong></div>
         ${hasDietGuidance ? '' : '<div style="margin-bottom:6px;"><strong>Eating and drinking:</strong> follow the instructions from the Preoperative Clinic.</div>'}
         <div style="margin-bottom:6px;">These instructions apply to your <strong>diabetes medications only</strong>.</div>
-        <div style="margin-bottom:6px;"><strong>Important:</strong> These recommendations were generated based on information available at your preoperative visit. Please verify your arrival time with your surgeon's office, as surgery times can change. Check with your surgeon's office if you have questions about resuming your medications after surgery.</div>
+        <div style="margin-bottom:6px;"><strong>Important:</strong> These recommendations were generated based on information available at your preoperative visit. Please verify your arrival time with your surgeon's office, as surgery times can change - if it changes, the times on this sheet change with it. Check with your surgeon's office if you have questions about resuming your medications after surgery.</div>
         <div style="font-size:11px;color:var(--dim2);margin-top:8px;">Alta Bates Summit Medical Center Preoperative Clinic &middot; Generated ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
       </div>`;
     return `<div class="patient-sheet ps-${this.sheetSize}">` + header + medList + dietHtml + timeline + footer + '</div>';
@@ -2937,9 +3040,8 @@ class PerioperativeDMApp {
     let html = '';
     if (this.step === 'intro') html = this.renderIntro();
     else if (this.step === 'patient') html = this.renderPatient();
-    else if (this.step === 'context') html = this.renderContext();
     else if (this.step === 'medications') html = this.renderMedications();
-    else if (this.step === 'details') html = this.renderDetails();
+    else if (this.step === 'assess') html = this.renderAssess();
     else if (this.step === 'output') html = this.renderOutput();
     const focusSearch = document.activeElement && document.activeElement.id === 'med-search';
     const caret = focusSearch ? document.activeElement.selectionStart : 0;
