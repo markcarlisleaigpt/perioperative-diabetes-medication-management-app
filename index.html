@@ -388,6 +388,7 @@ input[type="checkbox"], input[type="radio"] { width:16px; height:16px; cursor:po
   .ps-noname { border-color:#c9a227 !important; background:#fdf6e3 !important; color:#111 !important; }
   .patient-dietary-label { color:#00614C !important; }
   .patient-footer { color:#555 !important; border-color:#ccc !important; background:#f9f9f9 !important; }
+  .header-banner { display:none !important; }
   .tab-bar, .btn-row, button { display:none !important; }
   .tab-content { display:block !important; }
   #clinician-tab { display:none !important; }
@@ -1352,9 +1353,8 @@ function getGLP1Disposition(ctx, details) {
   const npoPatient = npoCutoff === 'midnight'
     ? '<li><strong>After midnight the night before surgery</strong> — nothing to eat or drink at all, including water.</li>'
     : `<li><strong>Starting ${npoCutoff.replace('h', '')} hours before you arrive</strong> — nothing to eat or drink at all, including water.</li>`;
-  // Deliberately empty: the sheet footer carries this instruction on every sheet, and
-  // stating it twice on the co-treated sheets read as two different requirements.
-  const verifyText = '';
+  // The arrival-time instruction lives in the sheet footer, on every sheet, rather than
+  // in this block - stating it twice read as two different requirements.
     
     
   const npoClinician = npoCutoff === 'midnight'
@@ -1368,10 +1368,10 @@ function getGLP1Disposition(ctx, details) {
   // deferring drops an aspiration mitigation. Prep supplies clear liquids anyway;
   // the cutoff is the real loss.
   const dietary24h = ctx.surgeryType === 'colonoscopy'
-    ? `<ul class="ps-steps" role="list"><li><strong>Follow the preparation instructions from the doctor doing your colonoscopy</strong> — they decide what you may eat and drink, and when.</li>${verifyText}</ul>`
+    ? `<ul class="ps-steps" role="list"><li><strong>Follow the preparation instructions from the doctor doing your colonoscopy</strong> — they decide what you may eat and drink, and when.</li></ul>`
     : arrivalTime
-    ? `<ul class="ps-steps" role="list"><li><strong>24 hours before you arrive</strong> — start a clear liquid diet. Your arrival time is ${fmtTime12(arrivalTime)}, so begin clear liquids at that same time the day before.</li><li><strong>Clear liquids are</strong> water, clear juice without pulp, sports drinks, soda, tea or coffee without milk, plain gelatin (Jell-O), and fat-free broth.</li>${npoPatient}${verifyText}</ul>`
-    : `<ul class="ps-steps" role="list"><li><strong>24 hours before you arrive</strong> — start a clear liquid diet, counting back from your planned arrival time for surgery.</li><li><strong>Clear liquids are</strong> water, clear juice without pulp, sports drinks, soda, tea or coffee without milk, plain gelatin (Jell-O), and fat-free broth.</li>${npoPatient}${verifyText}</ul>`;
+    ? `<ul class="ps-steps" role="list"><li><strong>24 hours before you arrive</strong> — start a clear liquid diet. If your arrival time is ${fmtTime12(arrivalTime)}, start clear liquids at ${fmtTime12(arrivalTime)} the day before.</li><li><strong>Clear liquids are</strong> water, clear juice without pulp, sports drinks, soda, tea or coffee without milk, plain gelatin (Jell-O), and fat-free broth.</li>${npoPatient}</ul>`
+    : `<ul class="ps-steps" role="list"><li><strong>24 hours before you arrive</strong> — start a clear liquid diet, counting back from your planned arrival time for surgery.</li><li><strong>Clear liquids are</strong> water, clear juice without pulp, sports drinks, soda, tea or coffee without milk, plain gelatin (Jell-O), and fat-free broth.</li>${npoPatient}</ul>`;
   const dietaryClinician = `${ctx.surgeryType === 'colonoscopy' ? 'COLONOSCOPY: the patient sheet defers entirely to bowel preparation and issues NO dietary instruction from this app (Mark, 2026-08-14), because prep governs intake and a morning split-dose prep is incompatible with a midnight NPO cutoff. THE COST, STATED SO IT IS NOT LOST: the 24 h clear liquid diet and the NPO cutoff below exist for delayed gastric emptying, not bowel cleanliness. Prep supplies the clear liquids; it does not necessarily supply the cutoff. If aspiration risk is a concern in this patient, set the fasting instruction explicitly and reconcile it with the prep. The requirement that would otherwise apply: ' : ''}Universal dietary modification required for all GLP-1 RA and tirzepatide patients. Clear liquid diet starting 24 hours before planned arrival time (arrival is typically ~2 hours before surgery; effective window ≈26 hours before surgery start), ${npoClinician}.${arrivalTime ? ` Patient's planned arrival: ${arrivalTime}.` : ''}${gastroparesisCaveat}`;
   const morningOf = giSymptoms === true
     ? 'CONSIDER HOLDING per GI symptom screen (see flags). Notify anesthesia team. Continue dietary modification regardless of medication decision.'
@@ -2227,7 +2227,10 @@ class PerioperativeDMApp {
     return s;
   }
   assessHasQuestions() {
-    return neededContext(this.state.selected).length > 0 || needsDetails(this.state.selected);
+    if (neededContext(this.state.selected).length > 0) return true;
+    // needsDetails() is necessary but not sufficient: U-500 alone sets it via
+    // hasAnyInsulin yet contributes no card, which rendered an empty step.
+    return needsDetails(this.state.selected) && this.detailsCards().trim() !== '';
   }
   stepLabel(name) {
     const s = this.activeSteps();
@@ -2269,8 +2272,9 @@ class PerioperativeDMApp {
       ${this.renderBackBtn()}
       <div class="card">
         <div class="optional-note">
-          <strong>This whole step is optional.</strong> You can skip it and still get complete
-          medication instructions. Filling it in personalizes the printed sheet.
+          <strong>This whole step is optional</strong> and can be skipped. Filling it in puts the
+          patient&rsquo;s name on the sheet, and lets medication stop dates print as named calendar
+          dates rather than as an interval for the patient to count back themselves.
         </div>
         <div class="field-group">
           <label class="field-label">First Name</label>
@@ -2963,7 +2967,7 @@ class PerioperativeDMApp {
       ? `<div class="patient-dietary">
           <div class="patient-dietary-label">Eating and Drinking Before Surgery</div>
           ${dietCards.map(r => `<div class="patient-section-text" style="margin-bottom:10px;">${monoData(r.patient.dietary)}</div>`).join('')}
-          ${`<div class="patient-section-text"><ul class="ps-steps" role="list">${ctx.surgeryType === 'colonoscopy' ? `<li><strong>If you were given bowel preparation instructions</strong> — follow those for eating and drinking instead of these.</li>` : `<li><strong>If anything here differs</strong> from your other preoperative instructions, follow these — with one exception: if you were given bowel preparation instructions, follow those for eating and drinking instead.</li>`}</ul></div>`}
+          ${`<div class="patient-section-text"><ul class="ps-steps" role="list">${ctx.surgeryType === 'colonoscopy' ? `<li><strong>Your bowel preparation instructions decide what you may eat and drink, and when</strong> — fit the carbohydrate drink above inside them. If they do not allow it, follow the preparation instructions and tell the Preoperative Clinic.</li>` : `<li><strong>If anything here differs</strong> from your other preoperative instructions from the Preoperative Clinic, follow these — with one exception: if you were given bowel preparation instructions, follow those for eating and drinking instead.</li>`}</ul></div>`}
          </div>`
       : '';
     // One block per time slot. A slot with nothing in it does not print.
@@ -2997,7 +3001,7 @@ class PerioperativeDMApp {
         <div style="margin-bottom:6px;"><strong>Questions?</strong> Call the ABSMC Preoperative Clinic: <strong>(510) 869-8865</strong></div>
         ${hasDietGuidance ? '' : '<div style="margin-bottom:6px;"><strong>Eating and drinking:</strong> follow the instructions from the Preoperative Clinic.</div>'}
         <div style="margin-bottom:6px;">These instructions apply to your <strong>diabetes medications only</strong>.</div>
-        <div style="margin-bottom:6px;"><strong>Important:</strong> These recommendations were generated based on information available at your preoperative visit. Please verify your arrival time with your surgeon's office, as surgery times can change - if it changes, the times on this sheet change with it. Check with your surgeon's office if you have questions about resuming your medications after surgery.</div>
+        <div style="margin-bottom:6px;"><strong>Important:</strong> These recommendations were generated based on information available at your preoperative visit. Please verify your exact arrival time with your surgeon's office, as surgery times can change. The eating and drinking times on this sheet count back from your arrival time, so they move with it. If your surgery date or time changes, call the clinic for new medication stop dates. Check with your surgeon's office if you have questions about resuming your medications after surgery.</div>
         <div style="font-size:11px;color:var(--dim2);margin-top:8px;">Alta Bates Summit Medical Center Preoperative Clinic &middot; Generated ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
       </div>`;
     return `<div class="patient-sheet ps-${this.sheetSize}">` + header + medList + dietHtml + timeline + footer + '</div>';
