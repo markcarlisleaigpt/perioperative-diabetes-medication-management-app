@@ -1310,9 +1310,61 @@ function getSGLT2iResults(ctx, details, selected) {
     comboFlags.push(metOverlay.note);
     resumption = (resumption || '') + metOverlay.resumption;
   }
-  // Restart guidance is issued only where the drug was actually stopped; a continuing
-  // patient has nothing to restart.
+  // Restart guidance is issued where the drug is stopped for DAYS. Deliberately excludes
+  // 'combo-continue-hold' - that pill is stopped only on the morning of surgery and its
+  // metformin component has its own restart rule, so it gets no self-restart wording.
   const sglt2iHeld = decisions.some(d => d.rec === 'hold' || d.rec === 'hold-bariatric');
+  // ---- After Surgery block ----
+  // RESTART is NOT one instruction. Clinical review 2026-09-03 found the single
+  // wording contradicted SPAQI for two populations and contradicted this card's own
+  // clinician text for one of them.
+  //   BARIATRIC / very-low-carbohydrate diet: SPAQI Figure 2c, postoperative row, is
+  //   explicit - "Do not resume SGLT2i" (T2DM) / "Do not resume SGLT2i until discussed
+  //   with prescriber" (no T2DM). BJA p.18: most patients restart once normal oral
+  //   intake resumes, "with the exception of patients undergoing bariatric surgery who
+  //   continue modified diets". Eating normally is NOT the signal for them, and the
+  //   clinician resumption string already said so.
+  //   METFORMIN COMBINATION PILLS: restarting the pill restarts metformin, whose own
+  //   rule requires renal reassessment and a 48 h post-contrast hold. A prior review
+  //   already caught this on the clinician side; the patient sheet reintroduced it.
+  //   MAJOR / CARDIAC: a deliberate non-restart for AKI is invisible to the patient.
+  //   R10 is "restart ONLY WHEN normal oral intake resumes" - a necessary condition,
+  //   grade E. Do not render it as a sufficient trigger outside ambulatory surgery.
+  // The discharge-plan override is unconditional: this sheet is printed at the PREOP
+  // visit and can be weeks older than any postoperative decision.
+  const noSelfRestart = sType === 'bariatric' || details.ketoDiet === true;
+  const metComboPill = drugs.some(d => d.combo && d.combo.includes('metformin'));
+  const ambulatoryCase = sType === 'minor' || sType === 'colonoscopy';
+  const restartBullet = !sglt2iHeld ? ''
+    : noSelfRestart
+      ? `<li><strong>Do not start this medicine again on your own.</strong> Your surgeon, or the doctor who prescribes it, will tell you when. This is different from other operations: the diet you follow afterwards keeps the risk going, so eating and drinking normally is not the signal here.</li>`
+    : metComboPill
+      ? `<li><strong>Do not start this pill again until the doctor who prescribes it says so.</strong> It contains two medicines, and the other one needs your kidney function checked first.</li>`
+    : ambulatoryCase
+      ? `<li><strong>Start taking this medicine again when you are eating and drinking normally.</strong> You do not need to wait for anyone to call you. If you are unwell, being treated for an infection, or still cannot keep food and fluids down, wait until you can, and ask your doctor if you are not sure.</li>`
+      : `<li><strong>Start taking this medicine again when you are eating and drinking normally</strong> — as long as your recovery has been straightforward. If anything went wrong during or after your surgery, or you were treated for an infection or a kidney problem, ask the doctor who prescribes it before you restart.</li>`;
+  const overrideBullet = sglt2iHeld
+    ? `<li><strong>If your discharge instructions say something different</strong>, or a doctor told you after your surgery not to restart this medicine, follow that instead of this sheet.</li>`
+    : '';
+  // Sick-day rule. SPAQI Table 5 (British multisociety) lists patient education
+  // "including sick-day rules"; ADA 2026 S16 says to avoid SGLT2i in severe illness,
+  // ketonemia and prolonged fasting. Nothing on the sheet told a patient to STOP -
+  // and for a CONTINUING patient this block was the whole postoperative instruction.
+  const sickDayBullet = `<li><strong>If you cannot eat, or cannot keep fluids down, stop taking this medicine</strong> and call. Start it again only once you are eating and drinking normally.</li>`;
+  // Timing is anchored to EXPOSURE, not to the operation. For a held patient the drug
+  // is not on board during the postoperative week - it is on board from the day they
+  // restart. The tail is closed explicitly so week one does not read as an all-clear.
+  const timingBullet = sglt2iHeld
+    ? `<li><strong>The first few days after you start taking it again are when problems are most likely.</strong> These symptoms matter at any time while you are taking this medicine, so do not wait just because it has been more than a week.</li>`
+    : `<li><strong>Problems are most likely in the first week after surgery</strong>, and most often in the first few days. These symptoms matter at any time while you are taking this medicine, so do not wait just because it has been more than a week.</li>`;
+  const returnPrecautions = `<ul class="ps-steps" role="list">`
+    + restartBullet + overrideBullet + sickDayBullet
+    + `<li><strong>Call the doctor who prescribes this medicine, or go to the emergency department</strong> — if you get stomach or belly pain, feel sick to your stomach, throw up, feel unusually weak or tired, feel generally unwell (even if it feels like the flu), or find yourself breathing fast or deeply. If you cannot reach them quickly, or you are getting worse, go to the emergency department.</li>`
+    + `<li><strong>If someone with you notices you are confused, very drowsy, or not yourself</strong>, that counts too — they should call, or take you to the emergency department.</li>`
+    + `<li><strong>A normal blood sugar reading does not rule this out.</strong> These medicines can let acid build up in the blood while blood sugar still looks normal, so do not wait for a high reading before you call.</li>`
+    + timingBullet
+    + `<li><strong>Say that you take an SGLT2 medicine</strong>, and give the name printed at the top of this section, whoever you speak to.</li>`
+    + `</ul>`;
   const evidenceNote = mode === 'FDA'
     ? 'Source: ADA Standards of Care 2026 and AHA/ACC Perioperative Guideline 2024 (Class 1, LOE C-LD): hold SGLT2 inhibitors before scheduled surgery (3 days for canagliflozin/dapagliflozin/empagliflozin; 4 days for ertugliflozin). SPAQI BJA 2026 provides the separate risk-stratified pathway.'
     : 'Source: SPAQI Multidisciplinary Consensus (Oprea et al., BJA 2026); HbA1c-stratified eDKA meta-analysis (Wang et al., Clin Pharmacol Ther 2025;117:1661-9), as reported in SPAQI: across 22 trials and 80,235 patients, eDKA risk was increased at HbA1c >7.9% but not at 7.9% or below.';
@@ -1348,7 +1400,7 @@ function getSGLT2iResults(ctx, details, selected) {
     // rapid or deep breathing are reported presentations. "Flu-like" is INSTITUTIONAL -
     // in no source consulted, and here on Mark's instruction, 2026-09-02.
     patient: { daysBefore: patientDaysBefore, nightBefore: patientNightBefore, morningOf: patientMorning, dietary: carbPatient,
-      returnPrecautions: `<ul class="ps-steps" role="list">${sglt2iHeld ? `<li><strong>Start taking this medicine again when you are eating and drinking normally.</strong> You do not need to wait for anyone to call you. If you are unwell, being treated for an infection, or still cannot keep food and fluids down, wait until you can, and ask your doctor if you are not sure.</li>` : ''}<li><strong>Call the doctor who prescribes this medicine, or go to the emergency department</strong> — if you get stomach or belly pain, feel sick to your stomach, throw up, feel unusually weak or tired, feel generally unwell and flu-like, or find yourself breathing fast or deeply.</li><li><strong>A normal blood sugar reading does not rule this out.</strong> These medicines can let acid build up in the blood while blood sugar still looks normal, so do not wait for a high reading before you call.</li><li><strong>Most problems happen in the first week after surgery</strong>, and most often in the first few days. Take extra care until you are eating and drinking normally again.</li><li><strong>Say that you take an SGLT2 medicine</strong> and give its name, whoever you speak to.</li></ul>` },
+      returnPrecautions },
     flags,
     comboFlag: comboFlags.length ? comboFlags.join(' ') : null,
     provenance: spaqiProvenance,
@@ -3036,8 +3088,8 @@ class PerioperativeDMApp {
     const returnCards = results.filter(r => r.patient && r.patient.returnPrecautions);
     const returnHtml = returnCards.length
       ? `<div class="ps-block">
-           <div class="patient-section-label">After Surgery</div>
-           ${returnCards.map(r => `<div class="patient-section-text">${monoData(r.patient.returnPrecautions)}</div>`).join('')}
+           <div class="patient-section-label">After Surgery - Your SGLT2 Medicine</div>
+           ${returnCards.map(r => `<div class="ps-item"><div class="ps-item-drug">${r.drugNames.join(', ')}</div><div class="patient-section-text">${monoData(r.patient.returnPrecautions)}</div></div>`).join('')}
          </div>`
       : '';
     return `<div class="patient-sheet ps-${this.sheetSize}">` + header + medList + dietHtml + timeline + returnHtml + footer + '</div>';
