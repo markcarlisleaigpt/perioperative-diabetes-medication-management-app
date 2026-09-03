@@ -1310,6 +1310,9 @@ function getSGLT2iResults(ctx, details, selected) {
     comboFlags.push(metOverlay.note);
     resumption = (resumption || '') + metOverlay.resumption;
   }
+  // Restart guidance is issued only where the drug was actually stopped; a continuing
+  // patient has nothing to restart.
+  const sglt2iHeld = decisions.some(d => d.rec === 'hold' || d.rec === 'hold-bariatric');
   const evidenceNote = mode === 'FDA'
     ? 'Source: ADA Standards of Care 2026 and AHA/ACC Perioperative Guideline 2024 (Class 1, LOE C-LD): hold SGLT2 inhibitors before scheduled surgery (3 days for canagliflozin/dapagliflozin/empagliflozin; 4 days for ertugliflozin). SPAQI BJA 2026 provides the separate risk-stratified pathway.'
     : 'Source: SPAQI Multidisciplinary Consensus (Oprea et al., BJA 2026); HbA1c-stratified eDKA meta-analysis (Wang et al., Clin Pharmacol Ther 2025;117:1661-9), as reported in SPAQI: across 22 trials and 80,235 patients, eDKA risk was increased at HbA1c >7.9% but not at 7.9% or below.';
@@ -1320,7 +1323,32 @@ function getSGLT2iResults(ctx, details, selected) {
     badge,
     badgeType,
     clinician: { daysBefore, nightBefore, morningOf, dietary: carbClinician, monitoring, resumption, evidence: evidenceNote },
-    patient: { daysBefore: patientDaysBefore, nightBefore: patientNightBefore, morningOf: patientMorning, dietary: carbPatient },
+    // RETURN PRECAUTIONS. SPAQI Recommendations 9-10, postoperative phase: "Most cases
+    // of eDKA have been detected after surgery ... these patients should be educated
+    // before discharge regarding symptoms of eDKA and advised to contact the prescribing
+    // physician should they develop abdominal pain, nausea, or vomiting." The clinician
+    // view already said "Educate patient on eDKA symptoms"; the sheet gave them nothing
+    // to hand over. Issued to EVERY SGLT2i patient, held or continuing - residual risk
+    // after a hold is lower but not zero, the same reasoning that gives held patients
+    // the carbohydrate drink.
+    //
+    // TIMING - evidence search 2026-09-02. The clinic feedback proposed "within 3 weeks
+    // post-op". Nothing supports 21 days as a boundary. Snel et al 2026 (Acta
+    // Anaesthesiol Scand), a systematic review with expert adjudication of 128
+    // perioperative cases, found median 2 days to diagnosis (IQR 1-5) and 86% within one
+    // week; a 1169-patient retrospective cohort found 20 of 21 cases by day 14. Reports
+    // exist out to 120 days, but that review downgraded cases for implausible
+    // exposure-to-event timing, so the tail is not a basis for a monitoring period.
+    // Neither ADA 2026 nor SPAQI 2026 sets a numbered postoperative window: SPAQI
+    // recommends NO routine postoperative monitoring after an adequate washout, and
+    // otherwise monitoring until normal oral intake resumes. The sheet is therefore
+    // front-loaded and STATUS-based, not calendar-based.
+    //
+    // SYMPTOMS: abdominal pain, nausea and vomiting are SPAQI. Weakness/fatigue and
+    // rapid or deep breathing are reported presentations. "Flu-like" is INSTITUTIONAL -
+    // in no source consulted, and here on Mark's instruction, 2026-09-02.
+    patient: { daysBefore: patientDaysBefore, nightBefore: patientNightBefore, morningOf: patientMorning, dietary: carbPatient,
+      returnPrecautions: `<ul class="ps-steps" role="list">${sglt2iHeld ? `<li><strong>Start taking this medicine again when you are eating and drinking normally.</strong> You do not need to wait for anyone to call you. If you are unwell, being treated for an infection, or still cannot keep food and fluids down, wait until you can, and ask your doctor if you are not sure.</li>` : ''}<li><strong>Call the doctor who prescribes this medicine, or go to the emergency department</strong> — if you get stomach or belly pain, feel sick to your stomach, throw up, feel unusually weak or tired, feel generally unwell and flu-like, or find yourself breathing fast or deeply.</li><li><strong>A normal blood sugar reading does not rule this out.</strong> These medicines can let acid build up in the blood while blood sugar still looks normal, so do not wait for a high reading before you call.</li><li><strong>Most problems happen in the first week after surgery</strong>, and most often in the first few days. Take extra care until you are eating and drinking normally again.</li><li><strong>Say that you take an SGLT2 medicine</strong> and give its name, whoever you speak to.</li></ul>` },
     flags,
     comboFlag: comboFlags.length ? comboFlags.join(' ') : null,
     provenance: spaqiProvenance,
@@ -3004,7 +3032,15 @@ class PerioperativeDMApp {
         <div style="margin-bottom:6px;"><strong>Important:</strong> These recommendations were generated based on information available at your preoperative visit. Please verify your exact arrival time with your surgeon's office, as surgery times can change. The eating and drinking times on this sheet count back from your arrival time, so they move with it. If your surgery date or time changes, call the clinic for new medication stop dates. Check with your surgeon's office if you have questions about resuming your medications after surgery.</div>
         <div style="font-size:11px;color:var(--dim2);margin-top:8px;">Alta Bates Summit Medical Center Preoperative Clinic &middot; Generated ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
       </div>`;
-    return `<div class="patient-sheet ps-${this.sheetSize}">` + header + medList + dietHtml + timeline + footer + '</div>';
+    // After the timeline: it is the only block about the period after surgery.
+    const returnCards = results.filter(r => r.patient && r.patient.returnPrecautions);
+    const returnHtml = returnCards.length
+      ? `<div class="ps-block">
+           <div class="patient-section-label">After Surgery</div>
+           ${returnCards.map(r => `<div class="patient-section-text">${monoData(r.patient.returnPrecautions)}</div>`).join('')}
+         </div>`
+      : '';
+    return `<div class="patient-sheet ps-${this.sheetSize}">` + header + medList + dietHtml + timeline + returnHtml + footer + '</div>';
   }
   // Reader-selected type scale. Per-session, resets with New Assessment, never
   // printed on the sheet. CSS only - see the size scale block in the stylesheet.
