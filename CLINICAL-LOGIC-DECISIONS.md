@@ -413,7 +413,75 @@ The clause is appended OUTSIDE the disposition rules so it survives every branch
 multi-drug rule - the 24 h diet applies whichever GLP-1 agents are listed. Tirzepatide shares
 the same card.
 
-### No resumption instructions on the patient sheet, for any drug (Mark, 2026-08-14)
+### SUPERSEDED 2026-09-02 - the patient sheet now carries restart guidance for SGLT2 inhibitors
+
+**The section below records the 2026-08-14 decision, which was to say NOTHING about restarting
+any medication on the patient sheet. That decision has been reversed for SGLT2 inhibitors only.
+The reasoning is kept in full because it predicted, correctly, both defects that the reversal
+then introduced.**
+
+**What changed (Mark, 2026-09-02).** The preoperative clinic asked for postoperative return
+precautions. Those arrived with a restart question attached, and Mark's decision was: restart
+when eating and drinking normally, patient decides, no waiting for a call. The sheet now ends
+with an **After Surgery** block, issued to SGLT2 inhibitor patients and no one else.
+
+**How the 2026-08-14 counter-argument is answered.** That argument was that a resumption line on
+ONE drug, while eight others say nothing, reads as a rule being withheld for the rest. The block
+is therefore titled **"After Surgery - Your SGLT2 Medicine"** and prints the drug name above the
+bullets, exactly as every other block on the sheet does. It is scoped by its own heading rather
+than reading as a general resumption rule. The heading was generic in the first implementation
+and clinical review flagged precisely this: a patient on glargine and glipizide read a block
+called "After Surgery" as the complete postoperative picture.
+
+**Both hazards this record predicted DID occur, and both were caught by clinical review
+2026-09-03, after the work had already shipped.**
+
+- **Bariatric staged diets.** The record said bariatric patients "reliably do not eat normally
+  after discharge". The first implementation gave every held patient identical wording - restart
+  when eating and drinking normally - which for a bariatric patient is not a signal but a trap.
+  SPAQI Figure 2c, postoperative row, is explicit: *"Do not resume SGLT2i"* (T2DM), *"Do not
+  resume SGLT2i until discussed with prescriber"* (no T2DM); BJA p.18 names bariatric surgery as
+  the exception to restarting on normal oral intake. The card's OWN clinician string already said
+  hold until tolerating a regular diet. The two halves of one card contradicted each other.
+- **The combination pill.** The record said the combination limb "silently restarted the
+  metformin component against that card's 48 h and renal-reassessment rule". The new patient
+  wording did the same thing again, on the sheet the patient takes home.
+
+**The current rule.** Restart splits four ways, and `sglt2iHeld` gates the whole thing so a
+continuing patient never sees it:
+
+| Population | Patient wording |
+|---|---|
+| Bariatric surgery, or ketogenic/VLCD | Do NOT restart on your own; the surgeon or prescriber decides. States that the postoperative diet is why their case differs. |
+| Any pill containing metformin | Do NOT restart until the prescriber says so; names the second component and the kidney check. |
+| Minor procedure or colonoscopy | Restart when eating and drinking normally; no need to wait for a call. The only setting a source endorses that in. |
+| Major noncardiac, cardiac | Restart when eating and drinking normally, **conditioned on an uncomplicated recovery**; ask the prescriber if anything went wrong, or if treated for infection or a kidney problem. |
+
+Plus, for every held patient, an unconditional override: **discharge instructions and any doctor
+seen after surgery outrank this sheet**, which is printed at the preoperative visit and can be
+weeks older than any postoperative decision. That clause exists because a deliberate non-restart
+for AKI is invisible to a patient and no symptom wording can reach it.
+
+**Also added at the same review, and worth keeping separate from the restart decision:** a
+sick-day rule (*if you cannot eat, or cannot keep fluids down, stop taking this medicine*), which
+had never appeared anywhere on the sheet - for a CONTINUING patient the After Surgery block was
+otherwise the entire postoperative instruction set, so an intercurrent vomiting illness had no
+instruction attached to it at all.
+
+**What still carries the risk.** Unchanged: the clinician view keeps its full three-part
+resumption criteria on every card, and its bariatric "hold until tolerating regular diet
+long-term". The ketosis condition is deliberately absent from the patient wording - a patient
+cannot assess it, and the symptom bullets are the patient-facing proxy. Clinical review accepted
+that on its own terms, but noted it becomes a defect **in combination with** an unconditional
+"you do not need to wait for anyone to call you", which is why that clause is now scoped.
+
+**Nothing here applies to any other drug class.** GLP-1, tirzepatide, insulin and the oral agents
+still carry no patient-facing resumption instruction, and the 2026-08-14 reasoning below still
+governs them. Whether they should is open, and is recorded in the handoff.
+
+---
+
+### The original decision, superseded above (Mark, 2026-08-14)
 
 **The patient sheet says NOTHING about restarting any medication.** Verified by sweeping 720
 scenarios - every surgery type against every diabetes type, sixteen drug selections and three
