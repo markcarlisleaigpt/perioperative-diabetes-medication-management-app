@@ -271,6 +271,27 @@ const ASSERTIONS = [
       return null;
     },
   },
+  {
+    name: 'a colonoscopy patient gets the colonoscopy eating-and-drinking limb, never a co-treated or timed one',
+    // Until 2026-09-16 the SGLT2i card tested the two co-treated limbs BEFORE surgery type, so
+    // a patient on a GLP-1 plus an SGLT2 inhibitor having a colonoscopy got the co-treated
+    // wording keyed to a GLP-1 fasting cutoff that the sheet never issues on a colonoscopy
+    // (478 of 480 combinations, enumerated by execution). The clinician chain was ordered
+    // differently again. Colonoscopy is now the first test in both chains. The colonoscopy
+    // limb carries the prep-day carbohydrate line and the last-drink line, and no timed
+    // 8-12 oz drink (Mark, 2026-09-16). The colour line was removed the same day.
+    check(card, scenario) {
+      if (scenario.surgeryType !== 'colonoscopy' || card.id !== 'sglt2i') return null;
+      const d = (card.patient && card.patient.dietary) || '';
+      if (!/While you are on clear liquids/.test(d)) return 'colonoscopy: SGLT2i dietary text lacks the prep-day carbohydrate line';
+      if (!/Your last drink before your cut-off/.test(d)) return 'colonoscopy: SGLT2i dietary text lacks the last-drink-before-cut-off line';
+      if (/before you stop/.test(d)) return 'colonoscopy: SGLT2i dietary text is the co-treated wording, not the colonoscopy limb';
+      if (TIMED_DRINK.test(d)) return 'colonoscopy: SGLT2i dietary text issues the timed 8-12 oz drink, which the prep governs';
+      if (/red, purple or orange/.test(d)) return 'colonoscopy: the colour line was removed on 2026-09-16 and has come back';
+      if (/gelatin/.test(d)) return 'colonoscopy: the SGLT2i dietary text names gelatin - the prep-day line names no beverages (Mark, 2026-09-16)';
+      return null;
+    },
+  },
 ];
 
 // Assertions over the WHOLE result set for one scenario, rather than one card. These
@@ -322,6 +343,22 @@ const SET_ASSERTIONS = [
       return null;
     },
   },
+  {
+    name: 'on a colonoscopy the "follow the preparation instructions" bullet appears exactly once',
+    // The SGLT2i limb omits its prep bullet when an incretin is present, because the GLP-1
+    // card prints the same bullet directly above it. The omission keys on hasAnyIncretin and
+    // the bullet on carriesGlp1Diet - two predicates that agree today by coincidence of the
+    // drug database. If they ever disagree, a colonoscopy patient gets an SGLT2i carbohydrate
+    // instruction with no statement anywhere that the prep governs. Clinical review 2026-09-16.
+    check(results, scenario) {
+      if (scenario.surgeryType !== 'colonoscopy') return null;
+      const carriers = results.filter(c => c.id === 'sglt2i' || c[DIET_PROPERTY]);
+      if (!carriers.length) return null;
+      const n = results.filter(c => /Follow the preparation instructions/.test((c.patient && c.patient.dietary) || '')).length;
+      if (n !== 1) return `colonoscopy: the prep bullet appears ${n} times across the cards (expected exactly once)`;
+      return null;
+    },
+  },
 ];
 
 // ------------------------------------------------------------- driver ----
@@ -348,6 +385,9 @@ function run() {
     { name: 'combination pen alone', ids: new Set([COMBO_PEN]), insulinDetails: COMBO_PEN_DETAILS, hasIncretin: true, varyDose: true },
     { name: 'combination pen + SGLT2i', ids: new Set([COMBO_PEN, 'empagliflozin']), insulinDetails: COMBO_PEN_DETAILS, hasIncretin: true, varyDose: true },
     { name: 'GLP-1 + SGLT2i', ids: new Set(['sema-sc', 'empagliflozin']), insulinDetails: {}, hasIncretin: true },
+    // Added 2026-09-16 on clinical review: every SGLT2i scenario above is co-treated, so the
+    // whole SGLT2i-only population - timed drink, on-waking escape, colonoscopy limb - was unswept.
+    { name: 'SGLT2i alone', ids: new Set(['empagliflozin']), insulinDetails: {}, hasIncretin: false },
   ];
 
   const failures = [];

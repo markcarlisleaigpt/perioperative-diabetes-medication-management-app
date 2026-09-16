@@ -375,8 +375,9 @@ match. Both departures are intentional.
   conditioned to reach for it.
 - **Gelatin is out of the TIMED 8-12 oz drink only.** It remains in the general clear-liquid
   list, and it remains in the two co-treated branches, which carry no timed drink and only ask
-  that some of the 24 h clear liquid diet contain carbohydrate. The colonoscopy branch already
-  excluded it. **The reason to cite is dose and unit.** The step is specified as "8 to 12
+  that some of the 24 h clear liquid diet contain carbohydrate. The colonoscopy limb names no
+  beverages at all on its prep-day line and does not name gelatin on its last-drink line
+  (Mark, 2026-09-16, on clinical review - see the 2026-09-16 section). **The reason to cite is dose and unit.** The step is specified as "8 to 12
   ounces", which is a volume for a drink and has no clear meaning for gelatin, and a standard
   serving delivers roughly a third of the carbohydrate of the same volume of juice. A patient
   substituting gelatin gets a fraction of the intended load - the same silent-underdose failure
@@ -623,7 +624,8 @@ They are pointed at their preparation instructions, told to follow them, and giv
 step: make the LAST drink before the cut-off a carbohydrate-containing clear liquid, avoiding
 red, purple and orange, with a line telling them to follow the prep and notify the clinic if it
 does not permit this. **The red/purple/orange exclusion is new and is an assistant addition, not
-a Mark decision - it needs his sign-off.** The milk, pulp and alcohol exclusions, dropped in the
+a Mark decision - it needs his sign-off.** **Decided 2026-09-16: REMOVED. Colours are left to the
+preparation instructions (Mark).** The milk, pulp and alcohol exclusions, dropped in the
 rewrite, are restored to both this and the general instruction.
 
 **Arrival hyperglycemia is now disclosed to the clinician.** The drink goes to patients whose
@@ -704,8 +706,113 @@ the app should not restate fasting rules to those patients at all.
 tested incretin co-treatment before surgery type, so a patient on a GLP-1 and an SGLT2i having
 a colonoscopy received the 2 h timed drink with no prep deferral and no colour exclusion -
 introduced 2026-08-13, caught by clinical review 2026-08-14, reproduced before and after the
-fix. Colonoscopy is now tested ahead of the timed limbs, and behind the two limbs that issue
-no drink at all, so a held co-treated patient still gets none.
+fix. Colonoscopy was then tested ahead of the timed limbs but BEHIND the two co-treated limbs,
+on the stated ground that those two limbs "issue no drink at all". **That ground was inexact
+when written** (corrected 2026-09-16, next section): those limbs issue no TIMED drink, but they do
+tell the patient to make some of their clear liquids carbohydrate and to make the last drink
+before they stop a carbohydrate drink, naming juice, sports drinks, regular soda and gelatin
+with no colour exclusion. The gelatin section above describes them correctly ("carry no timed
+drink"); this paragraph did not.
+
+### The colonoscopy limb is tested first, in both chains (2026-09-16)
+
+**The defect.** Enumerated by executing the SGLT2i card across every co-treated colonoscopy
+combination - two selections (GLP-1 + SGLT2i, fixed-ratio pen + SGLT2i), two modes, five
+cutoffs, two diabetes types, AM/PM, and six hold-trigger states, 480 in all: **478 landed in a
+co-treated limb** and were told juice, a sports drink, regular soda or gelatin with no
+red/purple/orange exclusion and no "apple or white grape" qualifier. Only the two continuing,
+SPAQI, 2 h cutoff cases reached the colonoscopy limb. The handoff open item said "any cutoff
+other than 2 h"; it is every cutoff whenever the SGLT2i is held, FDA mode included, plus every
+non-2 h cutoff when it continues.
+
+**Why the co-treated limbs are wrong for a colonoscopy beyond the colours.** They are keyed to
+the GLP-1 fasting cutoff, and on a colonoscopy the GLP-1 card defers that cutoff to the
+preparation entirely (section above). So the clinician text said "clear liquids run until
+midnight (GLP-1/tirzepatide cutoff governs)" and referred to "the 24 h clear liquid diet",
+neither of which this sheet issues to a colonoscopy patient.
+
+**A second, latent defect.** The clinician chain and the patient chain did not share a branch
+order: the clinician chain tested colonoscopy behind the CONTINUING co-treated limb as well.
+For the two cases where the patient sheet did show the colonoscopy text, the clinician was told
+a timed 8-12 oz drink at 2 h before arrival had been issued. It had not.
+
+**The change.** `sType === 'colonoscopy'` is now the FIRST test in both `carbPatient` and
+`carbClinicianLead`. Every SGLT2i patient having a colonoscopy - co-treated or not, held or
+continuing, any cutoff, either mode - gets the colonoscopy limb. The held co-treated rule (no
+timed drink) is preserved, because the colonoscopy limb issues no timed drink. The clinician
+colonoscopy text gains a co-treatment sentence when an incretin is present, saying the GLP-1
+cutoff is not issued and no timed drink is given.
+
+**Two decisions by Mark, 2026-09-16, taken on the same day and applied to the colonoscopy limb:**
+
+1. **The red/purple/orange line is removed.** It had never been signed off (2026-08-13 above),
+   and the reorder would have carried it to every SGLT2i colonoscopy patient. Colours are the
+   preparation instructions' business. The milky/creamy, pulp and alcohol exclusions stay, as
+   their own bullet, in the wording the general instruction uses. The last-drink examples
+   still read "apple or white grape juice, a sports drink, or regular (non-diet) soda".
+2. **The prep-day carbohydrate line is carried for EVERY SGLT2i colonoscopy patient, and it
+   names no beverages.** "While you are on clear liquids - make sure some of what you drink
+   contains carbohydrate. Choose from the clear liquids your preparation instructions allow, and
+   not a diet, zero-sugar, sugar-free or no-sugar-added version. Fat-free broth does not count
+   either." As first written that line named juice, a sports drink, regular soda and gelatin;
+   the clinical review rated that MAJOR (naming an item reads as permitting it, and gelatin and
+   sports drinks are sold in exactly the colours a prep forbids). Mark chose to name nothing.
+   Co-treated patients had it from the co-treated limb and would otherwise have lost it in the
+   reorder; SGLT2i-only colonoscopy patients never had it. A prep day is a long clear-liquid
+   stretch and >12 h without carbohydrate is the eDKA trigger, so one wording now covers both.
+   The last-drink line is the only place beverages are named: "apple or white grape juice, a
+   sports drink, or regular (non-diet) soda". The exclusion sentence appears once, on the
+   prep-day line.
+
+The colonoscopy limb now reads, in order: follow the prep (omitted when a GLP-1 card prints
+it directly above - see next paragraph); while on clear liquids, some carbohydrate; last drink
+before the cut-off, carbohydrate; nothing milky, pulp or alcohol; if the prep does not allow
+drinks like these, follow the prep and tell the clinic; then the "why" paragraph.
+
+**Duplicate bullet suppressed.** The GLP-1 card's colonoscopy dietary text is exactly the
+"follow the preparation instructions" bullet, and it prints first (dietRank 0 against 1). With
+the reorder that bullet printed twice in a row on a co-treated sheet, so the SGLT2i limb omits
+it when an incretin is present. Verified in the browser at 375 px.
+
+**Sweep.** New per-card assertion on the SGLT2i card for a colonoscopy: the prep-day line and
+the last-drink-before-cut-off line must be present; the co-treated "before you stop" wording,
+the timed 8-12 oz drink, the removed colour line and gelatin must be absent. A new per-sheet
+assertion requires the "follow the preparation instructions" bullet exactly once across the
+cards on a colonoscopy, because the SGLT2i limb suppresses it on `hasAnyIncretin` while the
+GLP-1 card produces it on `carriesGlp1Diet` - two predicates that agree today by coincidence of
+the drug database. **The sweep gained an `SGLT2i alone` selection** (clinical review: every
+SGLT2i scenario in the matrix was co-treated, so the whole SGLT2i-only population, timed drink
+and on-waking escape included, had never been swept). The sweep now runs 28,080 scenarios. The
+first version of the assertion failed on the unfixed code in 2,592 scenarios; the final version
+was mutation-tested in a throwaway copy in both directions (routing reverted; prep-day line
+removed for the SGLT2i-only patient). The sweep still fixes the GLP-1 cutoff to midnight and
+the mode to SPAQI.
+
+**Clinical review, 2026-09-16 (clinical-reviewer, on the final text).** One MAJOR, resolved by
+the no-beverages wording above. MINORs applied the same day: the clinician co-treated sentence
+no longer claims the 24 h diet is deferred, because the medication-list row still prints
+"clear liquid diet starts 24 hours before arrival" on a colonoscopy (deliberate, 2026-08-14);
+the eating-and-drinking footer says "drinks ... them" and no longer prints on a colonoscopy
+sheet with no SGLT2i card, where it pointed at a drink that was not there; the clinician text
+says the app cannot see where the prep places its cut-off. Verified by the reviewer by
+execution: 480/480 co-treated colonoscopy combinations land in the colonoscopy limb; every
+incretin drug id paired with an SGLT2i prints the prep bullet exactly once; no other field on
+the SGLT2i card references the GLP-1 cutoff, the 24 h diet or a timed drink. The reviewer
+quoted SPAQI's colonoscopy section - "maintaining hydration and carbohydrate intake before
+colonoscopy ... will likely mitigate the risk of eDKA" - and panel a's "minimize preoperative
+NPO time for carbohydrates; recommend 50-100 g carbohydrates/day" in support of the prep-day
+line.
+
+> **OPEN, for Mark, raised by that review and not decided:**
+> - SPAQI panel a states a carbohydrate target (50-100 g/day). The prep-day line says "some".
+>   On a clear-liquid day where the patient chooses every gram, a number may be warranted.
+> - "Your last drink before your cut-off" nudges a carbohydrate drink to a boundary the app
+>   cannot see. Some low-volume preps (Suprep, Plenvu) mandate a water volume after each dose
+>   and then nothing; the escape bullet covers it, the clinician text now says so.
+> - The global footer line "the eating and drinking times on this sheet count back from your
+>   arrival time" is untrue on a colonoscopy sheet, where every time comes from the prep. Low.
+> - No bowel-preparation guideline is on disk; the colour convention was never verified against
+>   a source, which is one more reason the line was removed rather than kept.
 
 ### The GLP-1 card defers a colonoscopy patient to prep, at a stated cost (Mark, 2026-08-14)
 
