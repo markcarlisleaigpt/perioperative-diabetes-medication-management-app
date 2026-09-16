@@ -454,7 +454,7 @@ continuing patient never sees it:
 | Population | Patient wording |
 |---|---|
 | Bariatric surgery, or ketogenic/VLCD | Do NOT restart on your own; the surgeon or prescriber decides. States that the postoperative diet is why their case differs. |
-| Any pill containing metformin | Do NOT restart until the prescriber says so; names the second component and the kidney check. |
+| Any pill containing metformin | ~~Do NOT restart until the prescriber says so~~ **Withdrawn 2026-09-16 (Mark):** the pill follows the row for its surgery type below, like plain metformin. See "After Surgery for the other classes". |
 | Minor procedure or colonoscopy | Restart when eating and drinking normally; no need to wait for a call. The only setting a source endorses that in. |
 | Major noncardiac, cardiac | Restart when eating and drinking normally, **conditioned on an uncomplicated recovery**; ask the prescriber if anything went wrong, or if treated for infection or a kidney problem. |
 
@@ -476,9 +476,230 @@ cannot assess it, and the symptom bullets are the patient-facing proxy. Clinical
 that on its own terms, but noted it becomes a defect **in combination with** an unconditional
 "you do not need to wait for anyone to call you", which is why that clause is now scoped.
 
-**Nothing here applies to any other drug class.** GLP-1, tirzepatide, insulin and the oral agents
-still carry no patient-facing resumption instruction, and the 2026-08-14 reasoning below still
-governs them. Whether they should is open, and is recorded in the handoff.
+**The two sources behind the timing sentence, verified in full text 2026-09-16.** Snel et al,
+*A Systematic Review and Expert Evaluation of Perioperative SGLT2 Inhibitor-Associated
+Ketoacidosis Case Reports*, Acta Anaesthesiol Scand 2026;70(6):e70254, open access PMC13172662:
+169 reports, 128 met the ketoacidosis criteria, expert panel rated 53 likely / 38 possible / 27
+unlikely / 10 not assessable; onset median 2 days (IQR 1-5, range 0-120), 108 of 128 (86%)
+within one week; "temporal mismatch" was the commonest reason for an unlikely rating. The
+cohort is Takemura M, Ikemura K, Okuda M, *Factors and preventive strategies for perioperative
+euglycemic diabetic ketoacidosis in patients with type 2 diabetes receiving SGLT2 inhibitors*,
+J Pharm Health Care Sci 2025;11:79, doi 10.1186/s40780-025-00487-6, PMC12376744: 1,169 patients
+at the University of Osaka Hospital 2014-2023, 21 euDKA within 30 days (1.8%), diagnosed by day
+3 in 9, by day 7 in 17, by day 14 in 20; discontinuation for at least 3 days before surgery was
+protective (OR 0.047), and the protocol restarts when normal eating resumes. The sheet's
+"most likely in the first week, most often in the first few days" stands as written.
+
+**SUPERSEDED 2026-09-16 - the other classes now get an After Surgery block too.** See the next
+section. The 2026-08-14 reasoning below is kept because it still explains the shape chosen.
+
+### After Surgery for the other classes (Mark, 2026-09-16)
+
+Three decisions, asked one at a time:
+
+1. **Every drug the sheet told the patient to hold, skip, reduce, stop early or substitute gets
+   restart guidance**, framed generically. Mark: "1 can work but need some generic comments.
+   Even for metformin, I would let them restart unless their surgeon or prescriber has
+   recommended otherwise."
+2. **Shape: ONE generic block with named exceptions**, not per-drug bullets. Titled
+   "After Surgery - Your Other Diabetes Medicines" when the SGLT2 block is also printed, and
+   "After Surgery - Your Diabetes Medicines" when it is not. The drug names print above the
+   bullets, as every block does.
+3. **The metformin combination pill on the SGLT2 block follows the same rule.** Its
+   prescriber-only bullet ("needs your kidney function checked first") is withdrawn; the pill
+   takes the ambulatory or major wording like plain metformin. The clinician card keeps its 48 h
+   post-contrast and renal-reassessment rule, and the discharge-instructions override bullet is
+   the patient-facing half of that: it is the clinician's job to say "wait".
+
+**Clinical review of the first draft, 2026-09-16, and what it changed.** The first draft put one
+eating-contingent lead over every changed non-SGLT2 card. The review found that reaching
+INSULIN and the PUMP, which is the DKA direction - ADA 2026 S16 p.5: basal insulin, including
+via pump, is not held in type 1 diabetes even while NPO - and rated it BLOCKING twice (basal
+under an eating-contingent lead; the bariatric "do not restart on your own" lead on insulin),
+plus the pump being named as something that restarts when it was never stopped. It also found
+the GLP-1 card included on CONSIDER HOLDING although the app never holds it, the unconditional
+"you do not need to wait for anyone to call you" on major surgery where the SGLT2 block scopes
+it, sulfonylureas told "usual doses" against UpToDate's low-dose re-titration, a glitazone in
+heart failure with no named review, and a combination pill skipped only on the morning of
+surgery getting no restart line anywhere. All of those are fixed in the shipped block, below.
+
+**What prints.** The block appears only when some non-SGLT2, non-GLP-1, non-pump card actually
+changed what the patient does - a night-before instruction on a card not badged CONTINUE BASAL,
+a badge other than CONTINUE or CONTINUE BASAL, or a declared checklist disposition (the
+substituted fixed-ratio pen) - or a pump is selected. **The GLP-1 card is excluded**: the app
+never holds it, and CONSIDER HOLDING is advice to the clinician, so a GLP-1-only sheet prints
+nothing even with GI symptoms. A DPP-4 continuing for a minor procedure prints nothing; a
+metformin-containing DPP-4 pill at a minor procedure is held the morning of and does print.
+Bullets, in order, each present only when its drugs are:
+
+- **Oral agents lead** (metformin, DPP-4, sulfonylurea, meglitinide, glitazone, AGI, held or
+  skipped). Minor procedure or colonoscopy: *start taking these medicines again, at your usual
+  doses, as soon as you are eating and drinking normally - unless your surgeon, or the doctor
+  who prescribes them, told you to wait. You do not need to wait for anyone to call you.*
+  Major or cardiac: the same, *as long as your recovery has been straightforward*, and *if
+  anything went wrong ... or you were treated for an infection or a kidney problem, ask before
+  you restart* - the SGLT2 block's own scoping, mirrored. Bariatric: *your bariatric team
+  decides when each of these medicines restarts ... do not restart them on your own* - orals
+  only, never insulin.
+- **Sulfonylurea or meglitinide, named and REMOVED from the generic lead** (not on bariatric,
+  where the team decides): *start again only once you are eating full meals, not just fluids. If
+  you are eating less than usual, call ... because it can push your blood sugar too low. If you
+  take a high dose, your doctor may want you to start back at a lower dose first.* UpToDate:
+  restart only after eating well, low doses first for high-dose patients. The second review found
+  the first draft naming the drug under "at your usual doses ... no need to wait for a call" AND
+  under "call before you restart" on adjacent lines; a drug named in a specific bullet is now
+  never also named in the lead.
+- **Glitazone, named for every glitazone patient and removed from the lead**: *start again when
+  eating and drinking normally - but if your legs or belly have swollen, or you have become short
+  of breath since surgery, ask before you restart*, plus *because you have heart failure, ask
+  before you restart in any case* when HF is recorded. UpToDate: do not restart if the patient
+  develops heart failure or fluid retention - a postoperative event the sheet cannot see, so the
+  patient is given the signs. The card's own rule: monitor for fluid retention; formal review
+  in HF.
+- **Insulin, never under the eating-contingent lead, one bullet per kind.** Long-acting analogs
+  (glargine, detemir, degludec): *never skip it, even if you are not eating. Take it at your next
+  scheduled dose after surgery. If you are eating very little, do not assume your usual dose is
+  right - ask your diabetes doctor, who may lower it.* The never-skip half is ADA S16 (type 1,
+  basal is not held even while NPO); the may-lower half is the card's own clinician rule and
+  UpToDate's "often by more than 25 percent" postoperative reduction for type 2. **NPH, its own
+  bullet**: *do not skip it, but do not take your full dose while you are not eating - call for
+  a reduced dose until you are eating normally; if you cannot reach them before your next dose
+  is due, take half your usual dose rather than none, and check your blood sugar before bed and
+  on waking* (the app halves NPH preoperatively for its peak; ADA S16 practice point 5; the
+  half-dose fallback mirrors that). **Soliqua, its own bullet**: *restart at its usual time once
+  eating normally and any sickness has settled; it contains a second medicine taken with food;
+  until then use the separate long-acting insulin your clinic prescribed instead of it, at the
+  dose prescribed; if you were only given enough for the morning of surgery, call the same day
+  for more - do not go without it* - it is meal-anchored (FDA schedule, the card's own
+  rationale), is NOT described as long-acting insulin, names the listed basal as the substitute
+  when one is on the sheet, and after bariatric surgery defers to the team. Premixed: *usual
+  doses once eating regular meals; if not eating, do not take the usual dose - call, because you
+  may need a different insulin; if you cannot reach them and blood sugar is running high or you
+  feel unwell, go to the emergency department*, and for type 1: *you must not go without insulin
+  - if you cannot reach them before your next dose is due, take half your usual dose rather than
+  none.* The bariatric insulin line also covers the pump ("that includes your pump settings").
+  Mealtime: *start again with your first meal, dosed for what you eat.* Always: *if your
+  diabetes doctor gave you different insulin doses for after surgery, follow those.* Bariatric
+  adds, first: *your insulin doses will need adjusting ... your diabetes doctor or bariatric team
+  sets them. Do not stop your long-acting insulin on your own* - or, for a patient with no
+  long-acting insulin listed, *do not stop your insulin on your own*.
+- **Pump**: *was meant to keep running through surgery, with only your mealtime (bolus) doses
+  paused - start those again with your first meal. If your pump was stopped or taken off at any
+  point, do not go without insulin: make sure it is back on, or that you have been given another
+  insulin, before you leave.* Conditional, because the same sheet tells the patient the
+  anesthesiologist may pause the pump, and a patient converted to injections in hospital must
+  not read a flat "keeps running" as fact. Reached by id, not by the changed predicate, because
+  it is badged CONTINUE BASAL with a truthy night-before line.
+- **U-500**: *do not change the dose on your own. Follow your endocrinologist's instructions.*
+- Always: the discharge-instructions override.
+- When the SGLT2 block actually carries a restart line: *your SGLT2 medicine has its own
+  instructions above.* The pointer is gated on that, not on the block existing.
+
+**The SGLT2 block gained a line for a combination pill skipped only on the morning of surgery**
+(SGLT2i continuing, metformin or DPP-4 component held): *take it again at its next usual time
+after surgery, once you are eating and drinking normally*, scoped by surgery type exactly like
+every other restart line - *no need to wait for a call* after a minor procedure or colonoscopy,
+*as long as your recovery has been straightforward ... infection or a kidney problem, ask* after
+major or cardiac surgery - with the discharge override. The second review found the first draft
+unscoped, which made the table row above false; it is true now. Before this the only drug on
+such a sheet had no restart guidance at all.
+
+**No safety precautions for these classes** - no hypoglycaemia warning for insulin or
+sulfonylureas, no GI or aspiration warning for GLP-1. Offered as an option and not taken
+(2026-09-16); the restart rule was the ask. The sulfonylurea "push your blood sugar too low"
+clause is the one exception, carried because it is the reason for that drug's own rule.
+
+**Metformin: NO renal or contrast exception on the sheet - Mark, 2026-09-16, on clinical
+review, asked directly.** The review rated MAJOR that a patient whose morning-of line says the
+drug is held for kidney function (eGFR under 30), or who had contrast, is told two blocks later
+to restart when eating normally, and offered a targeted bullet keyed to the eGFR and contrast
+answers the app already holds. Mark chose to keep his rule in every case: the clinician card
+carries the 48 h post-contrast and renal-reassessment rule, and it is the clinician's job to
+say "wait". Recorded as an accepted tension, with the review's worked failure case: a
+metformin patient at eGFR 25 reads "held for kidney function" under Morning of Surgery and
+"start taking these medicines again" under After Surgery on the same sheet.
+
+**Split DPP-4 card fixed:** a card holding Janumet while Januvia continues now exposes
+`changedDrugNames` (the held pills only), and the After Surgery block names those, not the
+continuing drug. The drug-name header lists every included drug on its own line and each bullet
+repeats the names it covers, so a patient can see which line is theirs.
+
+**Renderer-level, so the sweep cannot see it.** Verified in the browser at 375 px, no
+horizontal overflow, across: orals plus basal insulin, major (recovery-conditioned lead,
+sulfonylurea bullet, basal bullet); metformin plus a continuing DPP-4, minor (only metformin
+named, no-call clause present); glargine plus lispro, bariatric, type 1 (bariatric insulin
+bullet, basal never-skip, mealtime bullet, no oral lead); pump alone, major, type 1 (pump
+bullet only); pump plus metformin, bariatric (bariatric oral lead plus pump bullet); GLP-1
+alone with GI symptoms (no block); pioglitazone with heart failure (named bullet); Synjardy
+alone, minor (SGLT2 block carries the next-usual-time line and the override); empagliflozin
+continuing plus metformin ("Other" title, no SGLT2 pointer); U-500 plus metformin (U-500
+bullet); Humalog Mix 75/25 major and bariatric (premixed bullet, bariatric insulin bullet);
+Januvia plus Janumet, minor (the known minor above). Sent for a second clinical review pass.
+
+**Metformin morning-of lines give no reason (Mark, 2026-09-16).** The second review noted that
+after a minor procedure the lead's "you do not need to wait for anyone to call you" reached a
+metformin patient whose Morning of Surgery line said *held because you are receiving contrast dye*
+or *your kidney function requires that this medication be held*, and asked whether that clause
+should be suppressed there. Mark's answer went to the premise: metformin is held for everyone on
+the day of the procedure, so the sheet should not single out a reason - an eGFR under 30 is a
+reason not to be on the drug at all, not a perioperative hold reason. All three metformin patient
+morning-of lines now read *Do NOT take this medication on the morning of surgery.* and nothing
+else; the clinician card keeps the eGFR bands and the 48 h contrast rule. The no-call clause
+therefore needs no special case.
+
+**Second clinical review, 2026-09-16, and the third-round fixes.** Rated CRITICAL: Soliqua and
+NPH under the analog basal bullet (fixed, own bullets); HIGH: the unscoped combination-pill line
+(fixed), "usual dose" for type 2 basal (fixed, may-lower clause), premixed "call for a dose"
+(fixed), sulfonylurea still named under the lead (fixed), the pump claim asserted as fact
+(fixed), the record's table row and Android paragraph (fixed); MEDIUM: bolus-only bariatric told
+not to stop a long-acting insulin it does not have (fixed), glitazone only in HF (fixed, every
+glitazone), split DPP-4 (fixed). Verified in the browser at 375 px, no overflow: Soliqua alone;
+NPH alone; Humulin 70/30 alone; repaglinide, minor (no lead, its own bullet); pioglitazone with
+and without HF; pump alone; Synjardy at major and at minor (scoped lines); Januvia plus Janumet
+(Janumet only named); metformin at eGFR 25 and with contrast (plain morning line); lispro alone,
+bariatric ("do not stop your insulin"); glargine 60 units plus orals, major. The reviewer also
+confirmed both citations against the primary sources (Snel: 128 cases, median 2 d, range 0-120,
+86% within a week; Takemura: 1,169 / 21 / 9-17-20). The Snel IQR 1-5 was read from the PMC full
+text by the session, not by the reviewer.
+
+**Third clinical review, 2026-09-16, targeted at the delta, and the round-four wording.** No
+blocking web finding. Rated HIGH: the Soliqua bullet told the patient to "keep using" a
+substitute basal the sheet prescribes for ONE morning (fixed: call the same day for more, do not
+go without it; a bariatric branch deferring to the team; the listed basal named as the
+substitute when both are selected); the NPH bullet referred back to "a reduced dose, as you were
+given before surgery", which a once-daily MORNING NPH patient never receives because the card has
+no dosing-time input for NPH (fixed by dropping the backreference and adding the half-dose
+fallback; the missing NPH dosing-time input is a pre-existing card gap, recorded in the handoff).
+MEDIUM, all fixed: no fallback when the NPH prescriber cannot be reached; a type 1 patient on
+premixed alone left with no interim basal; the bariatric insulin line never reaching a pump;
+Soliqua plus a separate basal reproducing the duplicate-basal confusion on the patient sheet; the
+comment above `sglt2iHeld` still describing the pre-delta behaviour; header order matching
+bullet order only by coincidence. LOW, left: meglitinides inherit the sulfonylurea high-dose
+clause (stricter than the card's own rule; defensible under the UpToDate topic); the glitazone
+bullet omits the liver clause (a patient cannot see an LFT; deliberate). The round-four wording
+follows the review's suggested corrections and was verified in the browser at 375 px (Soliqua
+major, bariatric and with glargine; NPH; 70/30 type 1; pump bariatric; four orals for header
+order; two basal analogs for the plural) but was NOT sent for a fourth review pass. Mark's
+sign-off covers it.
+
+**The half-dose fallbacks are the one clinical addition of round four that no source states in
+those words.** They mirror what the app itself does preoperatively (NPH halved; premixed evening
+dose reduced) and exist so that a patient who cannot reach a prescriber before the next dose is
+due is never left choosing between a full dose while not eating and no insulin at all.
+
+**Android parity.** This is web-only. The Android app has NO patient-facing After Surgery block of
+any kind - not the withdrawn metformin-combination line, not the 2026-09-02 SGLT2 block, not this
+one (checked by the second review: `lib/pdf_export.dart` emits only the night-before and
+morning-of sections). Raised as an open item in the handoff; any difference between the products
+is a defect regardless of which is right. **The third review, reading the Dart source (no Flutter
+toolchain to execute), found on Android: a Janumet patient having a minor procedure is told to
+take the pill as usual on the morning of surgery, because the Android DPP-4 card has no
+metformin-component split and the Android metformin card handles plain metformin only - CRITICAL
+against ADA S16 practice point 4 and against this web app, which holds it; the metformin
+morning-of lines still carry the kidney and contrast reasons removed here today, and the contrast
+one has no timing at all; and the SGLT2 multi-day stop still ends "Do not take it again until
+your doctor tells you it is safe to restart", under a night-before heading. All three are in the
+handoff as open items for the Android product.**
 
 ---
 

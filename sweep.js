@@ -258,9 +258,12 @@ const ASSERTIONS = [
   },
   {
     name: 'no resumption language on the patient sheet',
-    // The sheet is deliberately and completely silent about restarting
-    // medication. Resumption is a clinician decision made after surgery, and a
-    // printed "resume when eating normally" invites a patient to self-restart.
+    // Restart guidance lives ONLY in the renderer's After Surgery blocks (SGLT2i since
+    // 2026-09-02, every other changed class since 2026-09-16). The four timing fields swept
+    // here print under PREOPERATIVE headings, so resumption language in them would put a
+    // restart instruction under "Morning of Surgery". The original 2026-08-14 rule was that
+    // the whole sheet was silent about restarting; that is no longer true, but this
+    // assertion still holds for the fields it covers.
     check(card) {
       for (const f of PATIENT_FIELDS) {
         const text = card.patient?.[f];

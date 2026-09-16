@@ -1333,9 +1333,9 @@ function getSGLT2iResults(ctx, details, selected) {
     comboFlags.push(metOverlay.note);
     resumption = (resumption || '') + metOverlay.resumption;
   }
-  // Restart guidance is issued where the drug is stopped for DAYS. Deliberately excludes
-  // 'combo-continue-hold' - that pill is stopped only on the morning of surgery and its
-  // metformin component has its own restart rule, so it gets no self-restart wording.
+  // sglt2iHeld: the drug is stopped for DAYS. A 'combo-continue-hold' pill (stopped only on the
+  // morning of surgery) is NOT in this set - it used to get no restart wording at all, and since
+  // 2026-09-16 gets its own line via comboSkipped below, scoped by surgery type.
   const sglt2iHeld = decisions.some(d => d.rec === 'hold' || d.rec === 'hold-bariatric');
   // ---- After Surgery block ----
   // RESTART is NOT one instruction. Clinical review 2026-09-03 found the single
@@ -1347,7 +1347,8 @@ function getSGLT2iResults(ctx, details, selected) {
   //   intake resumes, "with the exception of patients undergoing bariatric surgery who
   //   continue modified diets". Eating normally is NOT the signal for them, and the
   //   clinician resumption string already said so.
-  //   METFORMIN COMBINATION PILLS: restarting the pill restarts metformin, whose own
+  //   METFORMIN COMBINATION PILLS (SUPERSEDED 2026-09-16 for the patient sheet - see the
+  //   "no longer get a prescriber-only restart" note below): restarting the pill restarts metformin, whose own
   //   rule requires renal reassessment and a 48 h post-contrast hold. A prior review
   //   already caught this on the clinician side; the patient sheet reintroduced it.
   //   MAJOR / CARDIAC: a deliberate non-restart for AKI is invisible to the patient.
@@ -1356,17 +1357,31 @@ function getSGLT2iResults(ctx, details, selected) {
   // The discharge-plan override is unconditional: this sheet is printed at the PREOP
   // visit and can be weeks older than any postoperative decision.
   const noSelfRestart = sType === 'bariatric' || details.ketoDiet === true;
-  const metComboPill = drugs.some(d => d.combo && d.combo.includes('metformin'));
+  // METFORMIN COMBINATION PILLS no longer get a prescriber-only restart (Mark, 2026-09-16):
+  // metformin restarts when the patient is eating and drinking normally unless the surgeon or
+  // prescriber said otherwise, on the sheet, for the pill and for plain metformin alike. The
+  // clinician card keeps its 48 h post-contrast and renal-reassessment rule; it is the
+  // clinician's job to say 'wait' where that applies. The discharge-instructions override
+  // bullet below is the patient-facing half of that.
   const ambulatoryCase = sType === 'minor' || sType === 'colonoscopy';
-  const restartBullet = !sglt2iHeld ? ''
+  // A metformin or DPP-4 combination pill skipped only on the morning of surgery (the SGLT2i
+  // component continues) used to get no restart line at all: sglt2iHeld is false, the pill is
+  // excluded from the other-classes block, and getMetforminResults returns null for a
+  // combination-only selection. Clinical review 2026-09-16. Mark's rule for metformin applies.
+  const comboSkipped = decisions.filter(d => d.rec === 'combo-continue-hold').map(d => `${d.drug.name} (${d.drug.brand})`);
+  const restartIssued = sglt2iHeld || comboSkipped.length > 0;
+  const restartBullet = !sglt2iHeld
+    ? (comboSkipped.length
+      ? (ambulatoryCase
+        ? `<li><strong>Take ${comboSkipped.join(' and ')} again at its next usual time after surgery, once you are eating and drinking normally</strong> — unless your surgeon, or the doctor who prescribes it, told you to wait. You do not need to wait for anyone to call you.</li>`
+        : `<li><strong>Take ${comboSkipped.join(' and ')} again at its next usual time after surgery, once you are eating and drinking normally</strong> — as long as your recovery has been straightforward, and unless your surgeon or the doctor who prescribes it told you to wait. If anything went wrong during or after your surgery, or you were treated for an infection or a kidney problem, ask before you restart.</li>`)
+      : '')
     : noSelfRestart
       ? `<li><strong>Do not start this medicine again on your own.</strong> Your surgeon, or the doctor who prescribes it, will tell you when. This is different from other operations: the diet you follow afterwards keeps the risk going, so eating and drinking normally is not the signal here.</li>`
-    : metComboPill
-      ? `<li><strong>Do not start this pill again until the doctor who prescribes it says so.</strong> It contains two medicines, and the other one needs your kidney function checked first.</li>`
     : ambulatoryCase
       ? `<li><strong>Start taking this medicine again when you are eating and drinking normally.</strong> You do not need to wait for anyone to call you. If you are unwell, being treated for an infection, or still cannot keep food and fluids down, wait until you can, and ask your doctor if you are not sure.</li>`
       : `<li><strong>Start taking this medicine again when you are eating and drinking normally</strong> — as long as your recovery has been straightforward. If anything went wrong during or after your surgery, or you were treated for an infection or a kidney problem, ask the doctor who prescribes it before you restart.</li>`;
-  const overrideBullet = sglt2iHeld
+  const overrideBullet = restartIssued
     ? `<li><strong>If your discharge instructions say something different</strong>, or a doctor told you after your surgery not to restart this medicine, follow that instead of this sheet.</li>`
     : '';
   // Sick-day rule. SPAQI Table 5 (British multisociety) lists patient education
@@ -1411,7 +1426,12 @@ function getSGLT2iResults(ctx, details, selected) {
     // post-op". Nothing supports 21 days as a boundary. Snel et al 2026 (Acta
     // Anaesthesiol Scand), a systematic review with expert adjudication of 128
     // perioperative cases, found median 2 days to diagnosis (IQR 1-5) and 86% within one
-    // week; a 1169-patient retrospective cohort found 20 of 21 cases by day 14. Reports
+    // week (verified in full text 2026-09-16, PMC13172662: 128 cases, median 2 d, IQR 1-5,
+    // range 0-120, 108/128 = 86% within a week; temporal mismatch was the commonest reason
+    // for an "unlikely" rating). A 1,169-patient retrospective cohort - Takemura, Ikemura,
+    // Okuda, J Pharm Health Care Sci 2025;11:79, doi 10.1186/s40780-025-00487-6, University of
+    // Osaka Hospital 2014-2023, verified 2026-09-16 - found 21 cases (1.8%): 9 by day 3, 17 by
+    // day 7, 20 by day 14. Reports
     // exist out to 120 days, but that review downgraded cases for implausible
     // exposure-to-event timing, so the tail is not a basis for a monitoring period.
     // Neither ADA 2026 nor SPAQI 2026 sets a numbered postoperative window: SPAQI
@@ -1423,7 +1443,7 @@ function getSGLT2iResults(ctx, details, selected) {
     // rapid or deep breathing are reported presentations. "Flu-like" is INSTITUTIONAL -
     // in no source consulted, and here on Mark's instruction, 2026-09-02.
     patient: { daysBefore: patientDaysBefore, nightBefore: patientNightBefore, morningOf: patientMorning, dietary: carbPatient,
-      returnPrecautions },
+      returnPrecautions, restartIssued },
     flags,
     comboFlag: comboFlags.length ? comboFlags.join(' ') : null,
     provenance: spaqiProvenance,
@@ -1526,6 +1546,7 @@ function getDPP4iResults(ctx, details, selected) {
   // every scenario, rather than the DPP-4 minor-procedure continuation.
   const metComboDrugs = allDrugs.filter(d => d.combo && d.combo.includes('metformin'));
   const plainDPP4 = allDrugs.filter(d => !(d.combo && d.combo.includes('metformin')));
+  let changedDrugNames = null; // set on the split minor-procedure card: only the held pills, for the After Surgery block
   if (isMinor && !metComboDrugs.length) {
     badge = 'CONTINUE'; badgeType = 'continue';
     morningOf = 'Continue at usual dose. DPP-4 inhibitors carry minimal hypoglycemia risk and continuation is supported for minor procedures.';
@@ -1539,6 +1560,7 @@ function getDPP4iResults(ctx, details, selected) {
       const pNames = plainDPP4.map(d => `${d.name} (${d.brand})`).join('; ');
       morningOf += ` Continue at usual dose: ${pNames}. A DPP-4 inhibitor on its own carries minimal hypoglycemia risk and continuation is supported for minor procedures.`;
       patientMorning += ` Take ${pNames} as usual.`;
+      changedDrugNames = metComboDrugs.map(d => `${d.name} (${d.brand})`);
       flags.push({ type: 'warn', text: `Split instruction on this card: ${mNames} is held for its metformin component while ${pNames} continues. Confirm the patient is not on duplicate DPP-4 therapy.` });
     }
   } else if (timing === 'PM') {
@@ -1570,6 +1592,7 @@ function getDPP4iResults(ctx, details, selected) {
     id: 'dpp4i',
     drugClass: 'DPP-4 Inhibitors',
     drugNames,
+    changedDrugNames,
     badge,
     badgeType,
     clinician: { nightBefore: null, morningOf, monitoring: null, resumption, evidence },
@@ -1601,20 +1624,23 @@ function getMetforminDisposition(details) {
     flags.push({ type: 'alert', text: `eGFR ${eGFR} mL/min/1.73m² is below 30. Metformin is contraindicated at this renal function level per FDA labeling. HOLD and reassess before restarting.` });
     morningOf = `HOLD — eGFR ${eGFR} mL/min/1.73m². Metformin is contraindicated below eGFR 30 (FDA labeling).`;
     renalReason = `eGFR ${eGFR} is below 30, where metformin is contraindicated (FDA labeling)`;
-    patientMorning = 'Do NOT take this medication on the morning of surgery. Your kidney function requires that this medication be held.';
+    // Patient sheet gives no reason (Mark, 2026-09-16): metformin is held for everyone on the day
+    // of the procedure, so naming kidney function here singles out a patient for a hold that is
+    // universal. eGFR under 30 is a reason not to be on the drug at all - clinician card only.
+    patientMorning = 'Do NOT take this medication on the morning of surgery.';
   } else if (eGFR < 45) {
     badge = 'HOLD'; badgeType = 'hold';
     flags.push({ type: 'warn', text: `eGFR ${eGFR} mL/min/1.73m² is between 30 and 45. Per FDA labeling, metformin should not be initiated in this range, and for patients already taking it the benefit/risk of continuing should be assessed. Hold perioperatively and reassess renal function before restarting.` });
     morningOf = `HOLD morning of surgery — eGFR ${eGFR} mL/min/1.73m². FDA: do not initiate at eGFR 30–45; for ongoing use assess benefit/risk. Hold and reassess before restarting.`;
     renalReason = `eGFR ${eGFR} is between 30 and 45; FDA labeling says do not initiate in this range and to assess benefit and risk for ongoing use`;
-    patientMorning = 'Do NOT take this medication on the morning of surgery. Your kidney function is reduced.';
+    patientMorning = 'Do NOT take this medication on the morning of surgery.'; // no reason on the sheet (Mark, 2026-09-16)
   } else {
     if (contrast === true) {
       badge = 'HOLD'; badgeType = 'hold';
       flags.push({ type: 'alert', text: 'Iodinated contrast within 48h of surgery — HOLD metformin regardless of eGFR. Risk of contrast-induced nephropathy and subsequent metformin-associated lactic acidosis.' });
       morningOf = `HOLD — iodinated contrast within 48h. Hold even with eGFR ${eGFR}.`;
       renalReason = 'iodinated contrast is planned within 48 hours of surgery';
-      patientMorning = 'Do NOT take this medication. You are receiving contrast dye within 48 hours of surgery.';
+      patientMorning = 'Do NOT take this medication on the morning of surgery.'; // no reason on the sheet (Mark, 2026-09-16); the 48 h contrast rule is clinician-facing
     } else {
       badge = 'HOLD MORNING OF SURGERY'; badgeType = 'hold';
       morningOf = `HOLD morning of surgery (eGFR ${eGFR} mL/min/1.73m²). ABSMC uses a conservative institutional hold on the day of surgery; AHA/ACC 2024 Class 2a states perioperative continuation is reasonable in patients with diabetes or impaired glucose tolerance, without a renal-function qualifier. The eGFR limits below are FDA labeling. Clinician may use judgment.`;
@@ -3115,7 +3141,108 @@ class PerioperativeDMApp {
            ${returnCards.map(r => `<div class="ps-item"><div class="ps-item-drug">${r.drugNames.join(', ')}</div><div class="patient-section-text">${monoData(r.patient.returnPrecautions)}</div></div>`).join('')}
          </div>`
       : '';
-    return `<div class="patient-sheet ps-${this.sheetSize}">` + header + medList + dietHtml + timeline + returnHtml + footer + '</div>';
+    // AFTER SURGERY for every class EXCEPT the SGLT2 inhibitor (Mark, 2026-09-16). The 2026-08-14
+    // decision was to say nothing about restarting any drug; the 2026-09-02 reversal added a
+    // scoped SGLT2 block. Mark's 2026-09-16 decisions: one generic block for the rest, named
+    // exceptions only, and metformin restarts like everything else unless the surgeon or
+    // prescriber said otherwise - NO renal or contrast exception on the sheet (Mark, same day,
+    // on clinical review; the clinician card carries that rule and it is the clinician's job
+    // to say wait). Printed only when some non-SGLT2 card actually changed what the patient
+    // does, so a sheet where everything continues prints nothing.
+    //
+    // Clinical review 2026-09-16 (first draft of this block) found the generic eating-
+    // contingent lead reaching INSULIN and the PUMP, which is the DKA direction: ADA 2026 S16
+    // - basal insulin, including via pump, is not held in type 1 diabetes even while NPO. So:
+    //   - insulin never sits under the eating-contingent lead. Basal goes back to its usual
+    //     dose at the next scheduled dose whether or not the patient is eating; mealtime
+    //     insulin with the first meal; premixed once eating regular meals, and never simply
+    //     skipped; the pump keeps running and only bolus dosing restarts; U-500 is the
+    //     endocrinologist's. The bariatric lead never reaches insulin either.
+    //   - the GLP-1 card is EXCLUDED: this app never holds it (CONSIDER HOLDING is advice to
+    //     the clinician), so there is nothing for the patient to restart.
+    //   - the pump is badged CONTINUE BASAL with a truthy nightBefore, which the checklist
+    //     special-cases; it is reached by id here, not by the 'changed' predicate.
+    //   - 'you do not need to wait for anyone to call you' is scoped to minor procedures and
+    //     colonoscopy, exactly as the SGLT2 block scopes it; major and cardiac carry the
+    //     straightforward-recovery condition instead.
+    //   - sulfonylureas and meglitinides are named (full meals, not just fluids), and a
+    //     glitazone is named when the patient has heart failure. Both are the cards' own
+    //     clinician rules, carried to the patient.
+    // Second clinical review, 2026-09-16, on the block above: Soliqua and NPH were both swept
+    // under "usual dose, whether or not you are eating" - wrong for a meal-anchored pen and for
+    // a peaked insulin; the T2DM basal wording lacked the "may need lowering" clause the card's
+    // own clinician rule carries; premixed was told to obtain a dose of the wrong agent; the
+    // sulfonylurea and glitazone names still sat under the "usual doses" lead they contradict;
+    // the pump bullet asserted as fact that the pump kept running. Each has its own bullet now,
+    // and a drug named in a specific bullet is not also named in the generic lead.
+    // Third review, same day: the Soliqua bullet told the patient to keep using a substitute
+    // basal the sheet prescribes for ONE morning (now: call the same day for more, do not go
+    // without it; bariatric branch defers to the team); the NPH bullet referred back to a
+    // reduced dose a morning-only NPH patient never got (now: explicit half-dose fallback);
+    // a type 1 patient on premixed alone had no interim basal (now: half-dose fallback);
+    // the bariatric insulin line skipped the pump; header order matched bullet order only
+    // by coincidence. The half-dose fallbacks mirror what this app does preoperatively.
+    const insulinId = (r) => /^(basal-|bolus-|premixed-)/.test(r.id);
+    const changedOther = results.filter(r => r.id !== 'sglt2i' && r.id !== 'glp1' && r.id !== 'pump' && r.patient
+      && (r.checklistDispo || (r.patient.nightBefore && r.badge !== 'CONTINUE BASAL') || (r.badge !== 'CONTINUE' && r.badge !== 'CONTINUE BASAL')));
+    const pumpCard = results.find(r => r.id === 'pump');
+    const u500Card = changedOther.find(r => r.id === 'u500');
+    const penCard = changedOther.find(r => r.id === 'basal-iglarlixi');
+    const nphCard = changedOther.find(r => r.id === 'basal-nph');
+    const basalCards = changedOther.filter(r => r.id.startsWith('basal-') && r.id !== 'basal-iglarlixi' && r.id !== 'basal-nph');
+    const premixedCards = changedOther.filter(r => r.id.startsWith('premixed-'));
+    const bolusCards = changedOther.filter(r => r.id.startsWith('bolus-'));
+    const oralCards = changedOther.filter(r => !insulinId(r) && r.id !== 'u500');
+    const suCards = oralCards.filter(r => r.id === 'sulfonylurea' || r.id === 'meglitinide');
+    const tzdCards = oralCards.filter(r => r.id === 'tzd');
+    const leadCards = oralCards.filter(r => r.id !== 'sulfonylurea' && r.id !== 'meglitinide' && r.id !== 'tzd');
+    const dn = (r) => (r.changedDrugNames || r.drugNames);
+    const names = (cards) => cards.map(r => dn(r).join(', ')).join('; ');
+    const bariatricCase = ctx.surgeryType === 'bariatric';
+    const ambulatory = ctx.surgeryType === 'minor' || ctx.surgeryType === 'colonoscopy';
+    const anyInsulin = basalCards.length || premixedCards.length || bolusCards.length || penCard || nphCard || (bariatricCase && pumpCard);
+    const listed = [...leadCards, ...suCards, ...tzdCards, ...basalCards, ...(nphCard ? [nphCard] : []), ...(penCard ? [penCard] : []), ...premixedCards, ...bolusCards, ...(pumpCard ? [pumpCard] : []), ...(u500Card ? [u500Card] : [])];
+    const sglt2Restart = results.some(r => r.id === 'sglt2i' && r.patient && r.patient.restartIssued);
+    const bariatricOralNames = names([...leadCards, ...suCards, ...tzdCards]);
+    const oralLead = bariatricCase
+      ? (oralCards.length ? `<li><strong>After bariatric surgery, your bariatric team decides when each of these medicines restarts:</strong> ${bariatricOralNames}. The diet you follow afterwards changes what is safe, so do not restart them on your own.</li>` : '')
+      : !leadCards.length ? ''
+      : ambulatory
+        ? `<li><strong>Start taking these medicines again, at your usual doses, as soon as you are eating and drinking normally:</strong> ${names(leadCards)} — unless your surgeon, or the doctor who prescribes them, told you to wait. You do not need to wait for anyone to call you.</li>`
+        : `<li><strong>Start taking these medicines again, at your usual doses, when you are eating and drinking normally:</strong> ${names(leadCards)} — as long as your recovery has been straightforward, and unless your surgeon or the doctor who prescribes them told you to wait. If anything went wrong during or after your surgery, or you were treated for an infection or a kidney problem, ask before you restart.</li>`;
+    const suBullet = (suCards.length && !bariatricCase)
+      ? `<li><strong>${names(suCards)}: start again only once you are eating full meals, not just fluids.</strong> If you are eating less than usual, call the doctor who prescribes it before you restart, because it can push your blood sugar too low. If you take a high dose, your doctor may want you to start back at a lower dose first.</li>`
+      : '';
+    const tzdBullet = (tzdCards.length && !bariatricCase)
+      ? `<li><strong>${names(tzdCards)}: start again when you are eating and drinking normally</strong> — but if your legs or belly have swollen, or you have become short of breath since surgery, ask the doctor who prescribes it before you restart.${ctx.hasHF ? ' Because you have heart failure, ask before you restart in any case.' : ''}</li>`
+      : '';
+    const insulinBullets = !anyInsulin ? '' : (
+      (bariatricCase ? `<li><strong>Your insulin doses will need adjusting after bariatric surgery.</strong> Your diabetes doctor or bariatric team sets them. ${pumpCard ? 'That includes your pump settings. ' : ''}${(basalCards.length || nphCard || penCard) ? 'Do not stop your long-acting (background) insulin on your own.' : 'Do not stop your insulin on your own.'}</li>` : '')
+      + (basalCards.length ? `<li><strong>Long-acting (background) insulin — ${names(basalCards)}: never skip ${basalCards.length > 1 ? 'them' : 'it'}, even if you are not eating.</strong> Take ${basalCards.length > 1 ? 'them' : 'it'} at your next scheduled dose after surgery. If you are eating very little, do not assume your usual dose is right — ask your diabetes doctor, who may lower it.</li>` : '')
+      + (nphCard ? `<li><strong>${names([nphCard])}: do not skip it, but do not take your full dose while you are not eating.</strong> Call the doctor who prescribes it for a reduced dose until you are eating normally. If you cannot reach them before your next dose is due, take half your usual dose rather than none, and check your blood sugar before bed and on waking.</li>` : '')
+      + (penCard ? (bariatricCase
+        ? `<li><strong>${names([penCard])}: do not restart it on your own after bariatric surgery</strong> — it contains a second medicine that is taken with food, and your bariatric team or diabetes doctor decides when. Until then use the separate long-acting insulin your clinic prescribed instead of it${basalCards.length ? ' (the long-acting insulin listed above)' : ''}, at the dose your team sets, and do not go without it.</li>`
+        : `<li><strong>${names([penCard])}: restart it at its usual time once you are eating normally and any sickness has settled.</strong> It contains a second medicine that is taken with food. Until then use the separate long-acting insulin your clinic prescribed instead of it${basalCards.length ? ' (the long-acting insulin listed above)' : ''}, at the dose prescribed. If you were only given enough for the morning of surgery, call the doctor who prescribes your insulin the same day for more — do not go without it.</li>`) : '')
+      + (premixedCards.length ? `<li><strong>${names(premixedCards)}: go back to your usual doses once you are eating regular meals.</strong> If you are not eating, do not take your usual dose — call the doctor who prescribes it, because you may need a different insulin until you are eating again. If you cannot reach them and your blood sugar is running high, or you feel unwell, go to the emergency department.${ctx.dmType === 'T1DM' ? ' Because you have type 1 diabetes you must not go without insulin: if you cannot reach them before your next dose is due, take half your usual dose rather than none, and check your blood sugar often.' : ''}</li>` : '')
+      + (bolusCards.length ? `<li><strong>Mealtime insulin — ${names(bolusCards)}: start again with your first meal, dosed for what you eat.</strong></li>` : '')
+      + `<li><strong>If your diabetes doctor gave you different insulin doses for after surgery, follow those.</strong></li>`);
+    const pumpBullet = pumpCard
+      ? `<li><strong>Your insulin pump was meant to keep running through surgery, with only your mealtime (bolus) doses paused</strong> — start those again with your first meal after surgery. If your pump was stopped or taken off at any point, do not go without insulin: make sure it is back on, or that you have been given another insulin, before you leave. If your diabetes doctor gave you different pump settings for after surgery, follow those.</li>`
+      : '';
+    const u500Bullet = u500Card
+      ? `<li><strong>${names([u500Card])}: do not change the dose on your own.</strong> Follow your endocrinologist's instructions.</li>`
+      : '';
+    const otherReturnHtml = listed.length
+      ? `<div class="ps-block">
+           <div class="patient-section-label">After Surgery - Your ${returnCards.length ? 'Other ' : ''}Diabetes Medicines</div>
+           <div class="ps-item"><div class="ps-item-drug">${listed.map(r => dn(r).join(', ')).join('<br>')}</div><div class="patient-section-text">${monoData(`<ul class="ps-steps" role="list">`
+             + oralLead + suBullet + tzdBullet + insulinBullets + pumpBullet + u500Bullet
+             + `<li><strong>If your discharge instructions say something different</strong>, or a doctor told you after your surgery not to restart one of them, follow that instead of this sheet.</li>`
+             + (sglt2Restart ? `<li><strong>Your SGLT2 medicine has its own instructions above.</strong></li>` : '')
+             + `</ul>`)}</div></div>
+         </div>`
+      : '';
+    return `<div class="patient-sheet ps-${this.sheetSize}">` + header + medList + dietHtml + timeline + returnHtml + otherReturnHtml + footer + '</div>';
   }
   // Reader-selected type scale. Per-session, resets with New Assessment, never
   // printed on the sheet. CSS only - see the size scale block in the stylesheet.
