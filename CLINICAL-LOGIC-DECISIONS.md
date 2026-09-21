@@ -1132,6 +1132,385 @@ The clinical reviewer recommended suppressing this instruction for bariatric/VLC
 
 ---
 
+## 5b. Clinician override (built 2026-09-19)
+
+**Designed 2026-08-14 (`Override-Design\override-design.md`), built unchanged 2026-09-19 after
+Mark answered the two questions the design left open**, with one departure from the design found
+by review and corrected (the "app recommendation" option was corrected as the design said it
+should, rather than blanking the badge). Settled earlier and unchanged: per-session,
+resets between patients, no audit trail anywhere the patient sees.
+
+### The four design decisions, all implemented as written
+
+1. **Scope: per-drug disposition plus free-text patient instruction.** Both, on one editor.
+2. **The flip is inert until text is typed.** Apply is disabled unless there is non-whitespace text AND a chosen disposition (that requirement was added 2026-09-19, below), so
+   the app never writes wording for a decision it did not make.
+3. **The app's own recommendation stays visible**, struck and dimmed beside the new badge, with
+   Undo. A clinician never edits blind and never forgets they departed.
+4. **"These instructions were reviewed by your preoperative clinic team" prints on EVERY patient
+   sheet**, overridden or not, so its presence carries no information about whether an override
+   happened.
+
+### The two questions the design left open, answered by Mark 2026-09-19
+
+- **One time slot per override.** A clinician needing to cover two slots writes one instruction
+   covering both. Multiple slots were offered and declined: the same sentence printed twice, or
+   two sentences that can contradict each other, are both worse than one.
+- **Soft warning on restart wording, not a block.** Text matching resume, restart, start again or
+   start taking raises a line under the textarea noting that restart guidance normally prints in
+   the After Surgery section. Apply still works. The clinician stays in control and is told what
+   the sheet's convention is.
+
+### How it is wired, and why that shape
+
+`getAllResults()` stays pure. Overrides are applied once, in `renderOutput()`, by
+`applyOverrides(results)`, and the clinician cards and `renderPatientSheet()` both read the
+same post-override array. **They cannot disagree**, which was the design's central requirement.
+The sweep therefore still exercises exactly the code it exercised before, unchanged, 28,080
+scenarios green.
+
+State is `this.overrides[cardId] = { badge, badgeType, slot, patientText, editing, draft, slotDraft, badgeDraft, sig }` on the app
+instance, next to `sheetSize`, cleared by `startOver()`. Nothing persists, nothing is stored,
+nothing leaves the browser.
+
+**On the patient sheet the checklist row and the timeline both move.** The row is built from the
+new badge AND the slot the typed text lands in - see the second and third review sections below for
+why both are needed - the multi-drug rule still wins, and all three time slots on that card are
+CLEARED before the typed text is placed in the chosen one.
+
+**Clearing all three slots prevents a contradiction BETWEEN THE THREE TIMELINE SLOTS, and nothing
+more.** That narrow claim is the one worth making. The first review of this build found four other
+parts of the sheet still computed from the app's own decision and still printing around the
+override, each of which could contradict it on the same page. All four are addressed below; the
+general form of the lesson is that an override changes a disposition, and every element keyed to
+that disposition has to be found, not assumed.
+
+**On the clinician card:** original badge struck and dimmed beside the new one; an accent strip
+carrying the typed text with Edit and Undo; the card's own patient-facing sections struck as
+superseded. Monitoring, resumption and evidence are untouched - they never print for the patient,
+so an override has no business changing them.
+
+### Deliberately out of scope, per the design
+
+- **The eating-and-drinking block is not overridable.** It is the section 5 matrix - held versus
+  continuing, GLP-1 co-treatment, cutoff timing, bowel prep, colonoscopy - not a per-drug
+  instruction. A disposition flip cannot express a change to it, and free text replacing it would
+  drop branches silently. Raise separately if clinicians ask.
+- No suppress-the-card option. No override of monitoring, resumption or evidence text.
+
+### The standing risk, restated
+
+**Free text bypasses everything that makes the sheet safe**: the PEMAT work, the line-measure cap,
+the reading level, every sweep assertion. The permanent warning under the textarea ("printed
+exactly as typed ... not checked for reading level") is the only mitigation and it is a weak one.
+That is inherent to the feature, not a defect in it. The restart-wording hint is a second, softer
+guard on the one convention the sheet is strictest about.
+
+### First clinical review of the build, 2026-09-19: five critical defects, all fixed
+
+The review executed the real renderer against the working tree. Every finding was a case of the
+sheet printing the app's ORIGINAL decision alongside the clinician's override.
+
+1. **"App recommendation" blanked the badge instead of preserving it.** The first option carries an
+   empty value, which was stored as `null` and assigned unconditionally. A clinician adding a
+   clarifying sentence without changing the disposition got a literal `null` badge, and the
+   checklist row then read "stop the night before" for a type 1 patient on basal insulin, which is
+   the ketoacidosis direction and contrary to ADA Standards of Care 2026. **Fixed:** the badge is
+   only replaced when one was chosen.
+2. **The checklist row followed the SLOT, not the badge.** `dispoCore` tests the days-before and
+   night-before fields before it reads the badge, which is right for an app-written card, where
+   the slot is the disposition. Under an override the two are independent, and badge and slot
+   combinations printed a contradiction - worst, CONSULT REQUIRED in a non-morning slot printing
+   "stop the night before". **First fix, and it was wrong in the other direction:** driving the row
+   from the badge alone. See the second review below.
+3. **The slot defaulted to the card's pre-override slot**, which is exactly wrong when the
+   disposition is flipped: a card overridden from HOLD to CONTINUE inherited the heading "Days
+   Before Surgery - Stop These Early" over "keep taking it". **Fixed:** choosing a disposition
+   moves the slot to the one that matches it, visibly, and the clinician can still change it.
+4. **`checklistDispo` was never cleared**, so the fixed-ratio pen ignored the override entirely:
+   one sheet said "do not take it, a different insulin is used instead", "take your usual dose",
+   and "use the separate long-acting insulin until you restart it". Double dose or none.
+   **Fixed:** cleared on override.
+5. **The After Surgery block was computed pre-override, and contradicted in both directions.** A
+   held SGLT2 inhibitor overridden to CONTINUE still told the patient to "start taking this
+   medicine again when you are eating and drinking normally", which a patient can read as an
+   instruction to stop now; and it used the held timing wording. A continuing one overridden to
+   HOLD got NO restart instruction at all and no discharge-override line. **Fixed:** the SGLT2
+   card now also returns `returnPrecautionsNeutral`, in which the restart, discharge-override and
+   timing bullets are replaced by wording true whichever way the drug goes, and the renderer swaps
+   it in for an overridden card. Every other bullet is the same string, not a copy, so the two
+   cannot drift. The cross-reference pointer from the other-classes block is now override-aware.
+
+Also fixed from that review:
+
+- **A stale override survived a change to the assessment.** An override written for a minor
+  procedure still applied after the surgery type was corrected to bariatric. Overrides are now
+  stamped with a signature of the context, details and drug list, dropped when it changes, and the
+  clinician is told on the Clinician Summary rather than left to notice.
+- **Typed text was inserted unescaped.** "If your sugar is <low>" printed as "If your sugar is",
+  the bracketed word parsed as a tag and silently dropped, while still showing in the editor.
+  Now escaped on the way into both the sheet and the strip.
+- **A half-typed instruction was destroyed** by any re-render, including opening another card's
+  editor. The draft now persists.
+- **A multi-drug card** (Januvia plus Janumet on one card) took one sentence and printed it under
+  both names, erasing the split instruction. The editor now names every drug the card covers and
+  warns that the text replaces the instruction for all of them.
+
+### Second clinical review, 2026-09-19: six more blocking defects, one of them a regression I caused
+
+The second pass proved by execution that nothing changed for a non-overridden sheet - 7,040
+scenarios, HEAD against the working tree, zero differences in either the patient sheet or the
+clinician cards, once the new review line is normalised out. Every finding below is on the
+override path only.
+
+1. **The badge-only checklist row was a REGRESSION.** With the slot thrown away, every
+   days-before override printed "do not take on the day of surgery" under the heading "Days Before
+   Surgery - Stop These Early" - 12,080 of 12,080 such renders. Before my fix that case printed
+   "stop early", which was right. A patient on a one-week GLP-1 hold could read the summary row and
+   take their weekly dose four days out. **Now:** the row combines badge and slot - a hold whose
+   text sits in the days-before slot reads "stop early".
+2. **A CONTINUE-family override printed no pointer below**, although an overridden card always has
+   text there. "Keep taking metformin, but only half your usual morning dose" summarised as "keep
+   taking as usual", full stop. **Now:** an overridden row always ends "- see below".
+3. **The multi-drug rule was bypassed.** My override branch ran before it, so a card covering
+   Januvia and Janumet took one sentence about Januvia and summarised both as "keep taking as
+   usual". Janumet carries metformin. Both the design and my own record said the rule still won;
+   neither was true. **Now:** the multi-drug test runs first, as it always did.
+4. **The other-classes After Surgery block was still computed pre-override** - I had fixed this for
+   the SGLT2 card and assumed the rest. A pump overridden to HOLD still printed "your insulin pump
+   was meant to keep running"; basal insulin overridden to HOLD still printed "never skip it, even
+   if you are not eating", on the same sheet as the clinician's stop instruction. **Now:** an
+   overridden card is pulled out of the per-drug bullets and given one neutral bullet.
+5. **A GLP-1 overridden to HOLD got no restart guidance anywhere.** That card is excluded from the
+   block on the reasoning that the app never holds it - which an override makes false. **Now:** an
+   overridden GLP-1 card is admitted to the block.
+6. **Clearing `checklistDispo` unconditionally broke the unchanged-badge case.** The fixed-ratio
+   pen states its own phrase precisely because its MODIFY DOSE badge misleads; clearing it made the
+   row read "dose changes" for a pen that must not be taken at all. **Now:** cleared only when the
+   disposition actually changed, and honoured inside the override branch when it survives.
+   **SUPERSEDED the same day** by Mark's decision to require a disposition: `checklistDispo` is now
+   always cleared, and the survival path is deleted.
+
+Also fixed: **the neutral After Surgery bullet had dropped SPAQI R10** - a patient overridden to
+HOLD was pointed at an instruction that says when to stop and nothing about starting again. It now
+carries "unless you were told otherwise, start taking it again once you are eating and drinking
+normally", suppressed on the bariatric and very-low-carbohydrate limb where SPAQI panel c says not
+to resume. **The stale-override notice survived only one render**, so a clinician who glanced at
+the patient tab lost both the override and the notice; it is now sticky with a Dismiss button and
+names the drugs affected. **Cancel left an abandoned draft** that reappeared next to the applied
+text on reopening, inviting a clinician to apply wording they had discarded. **The editor textarea
+did not escape `&`** on redisplay.
+
+**The lesson, recorded because I got it wrong twice in one session.** An override changes a
+disposition. Every element keyed to that disposition has to be found by enumeration, not by
+assumption - and a fix that replaces one input with another (slot with badge) is as likely to be
+wrong as the thing it replaced. Both of my fixes to the checklist row were incorrect before the
+third attempt combined the two inputs it actually depends on.
+
+**Known and accepted:** correcting the arrival time, the surgery date or an eGFR drops every
+override on every card, because the signature covers the whole assessment. It fails safe, it is
+now visible, and narrowing it would risk keeping an override against facts that moved.
+
+### Third clinical review, 2026-09-19: two more critical defects, and the root cause
+
+**The root cause, stated plainly: the design predates the sheet it is overriding.** It was written
+2026-08-14. The After Surgery blocks were built 2026-09-02 (SGLT2) and 2026-09-16 (every other
+class). The design therefore describes an override of a purely PREOPERATIVE sheet, and its three
+time slots are all preoperative. Each review pass has been discovering another piece of
+postoperative content the design never contemplated.
+
+1. **The neutral bullet promised a restart instruction that cannot exist.** It said "follow the
+   instruction printed above for when to stop it and when to start it again" - but the editor has
+   no postoperative slot, so nothing above can carry a restart. Worse, overriding a pump or a basal
+   card removed the never-go-without-insulin safeguard from the sheet entirely, for a type 1
+   patient. **Now:** the bullet says the clinic has written its own instruction above and to follow
+   that, and points to discharge instructions or the prescriber for restarting; and an overridden
+   insulin or pump card adds an unconditional "Never go without insulin" bullet.
+2. **A split card dropped one of its drugs.** `changedDrugNames` holds the subset the APP decided
+   to hold. An override covers every drug on the card, so a DPP-4 card overridden to "stop BOTH of
+   these" named only Janumet in the After Surgery block, and Januvia appeared nowhere. **Now:** the
+   name helper uses the full drug list for an overridden card.
+
+**Mark's decision, 2026-09-19: a disposition is REQUIRED whenever text is typed.** "Keep the app
+   recommendation" disables Apply. **SUPERSEDED by the fourth review below: it does NOT remove an
+   existing override - the Remove override button added there is the cancel.** The review had found the unchanged-badge case still
+   printing the app's own checklist phrase over the clinician's instruction - the fixed-ratio pen
+   saying "do not take it, a different insulin is used instead" above "take your usual Soliqua
+   dose". Requiring a disposition removes that whole class, and matches how the design described
+   the option. It costs one extra click when a clinician only wants to clarify. With a badge always
+   chosen, `checklistDispo` is always cleared and the survival path is gone.
+
+**Also fixed from that review:** the SGLT2 neutral bullet had dropped the caveats the primary path
+carries on every limb - "as long as your recovery has been straightforward ... infection or a
+kidney problem" on major and cardiac, "if you are unwell ... wait until you can" on ambulatory -
+rendering SPAQI R10 as a sufficient trigger, which this card's own comment explicitly forbids
+outside ambulatory surgery. Both are restored, split by surgery type. An in-progress disposition
+and slot choice now survive a re-render, as the text already did. A non-hold disposition placed in
+the days-before slot raises a hint, because that slot's heading reads "Stop These Early". The
+original badge is struck beside the new one only when it actually changed.
+
+**Three passes, and I introduced defects in two of them.** Recorded because the pattern matters
+more than the instances: each fix addressed the case in front of it rather than the class. The
+checklist row took three attempts - slot, then badge, then both - and the After Surgery blocks took
+two, because the first fix covered the SGLT2 card and assumed the rest. The general rule for this
+feature is that an override changes a disposition, and EVERY element keyed to that disposition has
+to be enumerated, including the ones added to the sheet after the override was designed.
+
+### Fourth clinical review, 2026-09-19: the release blocker is closed; two more found
+
+**The third pass's blocker is confirmed closed by execution:** twelve card types overridden to a
+hold, every one produced an After Surgery restart pointer. The reviewer also re-ran the regression
+sweep - 6,560 scenarios, HEAD against the working tree, no overrides set - and found zero
+differences in the patient sheet and the clinician cards beyond the two intended additions.
+
+1. **The option labelled "cancels the override" cancelled nothing.** Selecting it only disabled
+   Apply; Cancel then kept the override, so a clinician deliberately retracting one silently
+   failed and the sheet still carried their earlier instruction. The label was what made it
+   dangerous. **Now:** the label promises nothing, and the editor carries an explicit Remove
+   override button beside Cancel.
+2. **A CONTINUE-direction override still said "for when to start it again".** Nothing was stopped,
+   so there is nothing to restart, and a patient could infer their medicine had been held and not
+   take it after discharge. This is the third review's critical finding re-emerging pointing the
+   other way - the same pattern the lesson above describes. **Now:** the bullet splits on the
+   disposition, which is mandatory and therefore always known: a continued drug gets "if anything
+   about it is unclear, ask the doctor who prescribes it" instead.
+
+Also fixed: the plural in that bullet counted CARDS rather than drugs, so a split card naming two
+medicines said "this medicine ... start it again"; the closing insulin sentence printed twice when
+one insulin card was overridden and another was not; and a whitespace-only draft re-enabled Apply
+after a re-render.
+
+**One pre-existing contradiction in SHIPPED patient text was fixed at the same time.** The sick-day
+bullet told every SGLT2 patient "start it again only once you are eating and drinking normally" -
+including the bariatric and very-low-carbohydrate patients whose bullet directly above says not to
+restart on their own, and that eating normally is not the signal for them. That is the exact signal
+the limb exists to suppress, and the hazard is euglycemic ketoacidosis in a patient on a staged
+postoperative diet. The sick-day bullet now defers to the surgeon or prescriber on that limb only;
+every other patient's wording is unchanged. **This changes text on the live sheet, not only under
+an override, and is flagged to Mark as such.**
+
+### Fifth clinical review, 2026-09-19: the same class again, on two more unenumerated paths
+
+The four fixes from the fourth pass held under execution, and the regression sweep was re-run at
+23,040 scenarios with three classes of difference and no others: the Override button, the review
+footer line, and the intended bariatric sick-day rewording.
+
+1. **MODIFY DOSE and CONSULT REQUIRED were being treated as stops.** The direction split was
+   written as "CONTINUE or not", so a dose change or a change-nothing-yet told the patient when to
+   "start it again". A type 1 patient given a reduced basal dose could read that as confirmation
+   the insulin was stopped. **Now:** direction comes from one table with three values, and an
+   unrecognised badge asserts nothing rather than defaulting to a stop.
+2. **A bariatric oral override dropped the do-not-restart-on-your-own rule.** That rule is keyed
+   to the postoperative diet, not to the preoperative disposition, so an override has no business
+   removing it - the SGLT2 card already got this right and the other classes did not. **Now:** on a
+   bariatric case an overridden ORAL drug defers to the bariatric team (never an insulin or pump card -
+   see the sixth review below), and continue-direction and
+   dose-change overrides carry the team sentence too.
+
+Also fixed: a continue-direction override placed in the days-before slot printed under the heading
+"Days Before Surgery - Stop These Early". The heading is the bolder element and is what a patient
+scans, so it now drops its "Stop These Early" half when any overridden card in that slot is not a
+hold. A non-overridden sheet is untouched.
+
+**Five passes. The same failure has appeared five times in different clothes:** an element computed
+from the app's decision, surviving an override that reversed it. Checklist row, After Surgery
+block, split-card drug names, restart direction, bariatric deferral, section heading. The fix that
+finally generalised was replacing ad hoc conditionals with one direction table, so a badge cannot
+fall through to a default that asserts something. Anything added to this sheet later that depends
+on a disposition has to go in that table, not be tested separately.
+
+### Sixth clinical review, 2026-09-19: my bariatric fix reached insulin
+
+**One critical, and it was introduced by the fifth-pass fix.** The bariatric deferral - "do not
+start it again on your own: your bariatric team decides when" - was gated on the surgery type
+alone, against a group that can contain insulin. So a type 1 patient whose basal, NPH, premixed,
+U-500 or pump card was overridden to a hold was told to wait for the team before restarting
+insulin, beside a contradicting "do not stop your insulin on your own" in the same block. That is
+the ketoacidosis direction, and ADA Standards of Care 2026 section 16 is explicit that basal
+insulin is not held in type 1 diabetes even while nil by mouth.
+
+**The fix generalises the grouping instead of adding another condition.** Overridden cards are now
+grouped on TWO axes at once, direction and card kind, from one loop. An insulin, U-500 or pump
+card never receives the bariatric deferral in any surgery type; it gets the discharge-instructions
+wording plus "do not go without your insulin while you wait: if you are not sure, call before you
+skip a dose". Oral agents keep the deferral on a bariatric case. A sheet with both overridden
+prints both bullets, each with its own tail.
+
+**Also fixed: two editor hints that stated things no longer true.** The days-before hint quoted a
+heading ("Stop These Early") that the fifth-pass change means cannot print in the case that raises
+the hint. And "Replaces every instruction this card would otherwise print on the patient sheet"
+was never true: the eating-and-drinking block and the After Surgery section are not replaced, they
+adjust. The hint now names exactly what it replaces. That matters because these hints are the
+feature's only mitigation for free text, and a hint that is visibly wrong devalues the others.
+
+**Six passes, six appearances of one failure.** Every instance has been an element computed from
+the app's decision surviving an override that reversed it, or a condition tested ad hoc against a
+set that is not homogeneous. The two structural fixes that finally held are the direction table
+and the two-axis grouping: both replace a conditional with a table that every consumer reads.
+Anything added to this sheet that varies by disposition or by card kind belongs in those, not in a
+new `if`.
+
+### Seventh clinical review, 2026-09-21, and the SGLT2 restart fix Mark asked for
+
+The seventh pass confirmed the sixth-pass critical closed: 770 insulin-family override scenarios
+with no bariatric deferral anywhere, 112 oral scenarios keeping it, mixed sheets correct, and a
+2,240-scenario regression showing only the three known differences. It re-raised the SGLT2 restart
+bullet at HIGH rather than accepting it as an open item, on the ground that it was the last place
+on the sheet where a sentence computed from the app's decision survived an override reversing it.
+
+**Mark: fix it (2026-09-21).** The SGLT2 card now returns TWO neutral variants and
+`applyOverrides` picks between them using the same direction table the rest of the sheet reads.
+A card overridden to CONTINUE or CONTINUE BASAL gets "Follow the instruction for this medicine
+printed above. If anything about it is unclear, or you are not sure what to do after surgery, ask
+the doctor who prescribes it", with the discharge-instructions line; on the bariatric and
+very-low-carbohydrate limb it defers to the team instead. **Only a STOPPED direction keeps the
+restart trigger** with its ambulatory or major caveat - corrected 2026-09-21 on the eighth review,
+which found the pick was two-way over a three-way table, so a CONSULT REQUIRED override told the
+patient to restart while the checklist row said to change nothing until their doctor called. An
+unrecognised badge now also asserts nothing, which is what the table's default always promised. Every bullet below the first is the same
+string in BOTH NEUTRAL variants, not a copy, so those two cannot drift. (The ordinary
+`returnPrecautions` shares five of its eight bullets; its restart, discharge-override and timing
+bullets are its own. The eighth review caught this record overstating it.) **The direction table moved to
+module scope** so `applyOverrides` and the renderer read one definition.
+
+Two more from that review, both fixed: **the insulin predicate was defined twice**, eleven lines
+apart, and the second copy was the mechanism by which the sixth-pass critical could silently
+return for a future insulin card - there is one definition now. And **the drug names in the block
+header were in a different order from the bullets below them**, a consequence of the two-axis
+grouping; the header is now built from the same groups.
+
+**Still open, and recorded as accepted rather than fixed:** an override cannot change the
+eating-and-drinking block, so a GLP-1 held for weeks by a clinician still prints the 24 h clear
+liquid diet, and the checklist row still advertises it. That is the design's scope boundary and
+the conservative direction. Also noted: the insulin predicate matches card ids by prefix, so a new
+insulin card under a different prefix would be grouped as oral - worth converting to a property
+the card sets, like the diet flag, when the next insulin card is added.
+
+**Seven passes.** Six of them found something, and three of those were defects in my own previous
+fix. What worked in the end was not care but structure: two tables (direction, and grouping by
+direction and card kind) that every consumer reads, replacing conditionals that each had to be
+remembered separately.
+
+**Not changed, and why.** The GLP-1 24 h clear-liquid diet still prints when that card is
+overridden: the eating-and-drinking block is out of scope for this feature by design, and the diet
+exists for delayed gastric emptying that outlasts the last dose. Flagged by the review as a
+clinical judgement for Mark, not resolved here.
+
+**The sweep cannot see any of this.** It loads only the pure logic layer above the app class, and
+the entire feature is renderer-level. It stays green at 28,080 scenarios because the logic layer is
+untouched, which is evidence that nothing was broken elsewhere, not evidence that the feature works.
+
+**Verified in the browser after the fixes, 2026-09-19:** all five critical cases reproduced and
+confirmed fixed by execution, plus Apply disabled while empty; the restart hint appearing and
+clearing as text is typed; the struck original badge and the override strip; clinician sections
+struck as superseded; the typed text printing once in the chosen slot; a second selected drug
+untouched; Undo; New Assessment clearing state; the review line on every sheet; no horizontal
+overflow at 375 px or at any of the three text sizes; and no override control reaching paper -
+though note the print suppression actually comes from the whole clinician tab being hidden in
+print, not from `no-print` on each control.
+
+---
+
 ## 6. Scope boundary
 
 **In scope:** day-of-surgery *medication* instructions — take or hold that morning, for every drug class. This is core app function.

@@ -270,6 +270,27 @@ input[type="checkbox"], input[type="radio"] { width:16px; height:16px; cursor:po
 .patient-section-text { font-size:14px; line-height:1.75; color:#DDE4F0; }
 .patient-dietary { background:var(--accent-dim); border:1px solid rgba(255,180,84,.35); border-radius:2px; padding:12px; margin-top:10px; }
 .patient-dietary-label { font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:500; color:var(--accent); text-transform:uppercase; letter-spacing:.16em; padding-bottom:5px; border-bottom:1px solid rgba(255,180,84,.35); margin-bottom:7px; }
+/* Clinician override (design 2026-08-14, built 2026-09-19). Per-session, never stored. */
+.ov-btn { background:none; border:1px solid var(--line); color:var(--dim); font-family:inherit; font-size:11px; letter-spacing:.06em; text-transform:uppercase; padding:3px 9px; border-radius:2px; cursor:pointer; }
+.ov-btn:hover, .ov-btn:focus-visible { color:var(--accent); border-color:var(--accent); outline:none; }
+.result-card-header { position:relative; }
+.ov-btn-wrap { position:absolute; top:14px; right:14px; }
+.ov-editor { border:1px solid var(--accent); border-radius:2px; padding:14px; margin:0 0 14px 0; background:rgba(0,0,0,.15); }
+.ov-editor-title { font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); font-weight:700; margin-bottom:10px; }
+.ov-field { margin-bottom:10px; }
+.ov-field label { display:block; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--dim); margin-bottom:4px; }
+.ov-field select, .ov-field textarea { width:100%; background:var(--bg); color:var(--fg); border:1px solid var(--line); border-radius:2px; padding:7px 9px; font-family:inherit; font-size:13px; }
+.ov-field textarea { min-height:74px; resize:vertical; line-height:1.5; }
+.ov-hint { font-size:11px; color:var(--dim2); line-height:1.6; margin-top:6px; }
+.ov-hint.warn { color:var(--st-amber); }
+.ov-actions { display:flex; gap:8px; margin-top:10px; }
+.ov-actions button[disabled] { opacity:.4; cursor:not-allowed; }
+.ov-strip { border-left:3px solid var(--accent); padding:10px 12px; margin-bottom:12px; background:rgba(0,0,0,.15); }
+.ov-strip-label { font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); font-weight:700; margin-bottom:6px; }
+.ov-strip-text { font-size:13px; line-height:1.6; }
+.ov-strip-actions { display:flex; gap:8px; margin-top:8px; }
+.ov-superseded { opacity:.45; text-decoration:line-through; }
+.badge.ov-was { opacity:.45; text-decoration:line-through; margin-right:6px; }
 .patient-footer { border:1px solid var(--line); border-radius:2px; padding:16px; margin-top:8px; font-size:12px; color:var(--dim); line-height:1.7; background:var(--surface); }
 /* ===== PATIENT SHEET SIZE SCALE =====
    Three reader-selected type scales for the printed patient sheet (Mark,
@@ -797,6 +818,15 @@ const GUIDELINE_LINKS = [
   ['FDA label', 'https://dailymed.nlm.nih.gov/dailymed/lookup.cfm?setid=59a485b1-8299-5d02-e053-2a91aa0a42e3'],
 ];
 function escapeRegExp(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+// Typed override text goes into innerHTML. Unescaped, "<low>" was parsed as a tag and the word
+// vanished from the printed sheet while still showing in the editor (clinical review 2026-09-19).
+function escHtml(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+// Which way a clinician override points. Module scope: both applyOverrides() and the patient
+// sheet renderer read it, and every part of the sheet that varies by disposition must consult
+// this one table rather than test badges ad hoc - six review passes found that failure six times.
+const OV_DIRECTION = { 'HOLD': 'stopped', 'HOLD MORNING OF SURGERY': 'stopped', 'HOLD WHILE NPO': 'stopped',
+  'CONTINUE': 'continued', 'CONTINUE BASAL': 'continued', 'MODIFY DOSE': 'neither', 'CONSULT REQUIRED': 'neither' };
+const ovDir = (r) => OV_DIRECTION[r.badge] || 'neither'; // an unknown badge asserts nothing
 const GUIDELINE_REGEX = new RegExp(GUIDELINE_LINKS.map(g => escapeRegExp(g[0])).join('|'), 'g');
 const GUIDELINE_URL_MAP = GUIDELINE_LINKS.reduce((m, g) => { m[g[0]] = g[1]; return m; }, {});
 function linkifyGuidelines(text) {
@@ -1388,7 +1418,9 @@ function getSGLT2iResults(ctx, details, selected) {
   // "including sick-day rules"; ADA 2026 S16 says to avoid SGLT2i in severe illness,
   // ketonemia and prolonged fasting. Nothing on the sheet told a patient to STOP -
   // and for a CONTINUING patient this block was the whole postoperative instruction.
-  const sickDayBullet = `<li><strong>If you cannot eat, or cannot keep fluids down, stop taking this medicine</strong> and call. Start it again only once you are eating and drinking normally.</li>`;
+  const sickDayBullet = noSelfRestart
+    ? `<li><strong>If you cannot eat, or cannot keep fluids down, stop taking this medicine</strong> and call. Do not start it again until your surgeon, or the doctor who prescribes it, tells you to.</li>`
+    : `<li><strong>If you cannot eat, or cannot keep fluids down, stop taking this medicine</strong> and call. Start it again only once you are eating and drinking normally.</li>`;
   // Timing is anchored to EXPOSURE, not to the operation. For a held patient the drug
   // is not on board during the postoperative week - it is on board from the day they
   // restart. The tail is closed explicitly so week one does not read as an all-clear.
@@ -1402,6 +1434,41 @@ function getSGLT2iResults(ctx, details, selected) {
     + `<li><strong>A normal blood sugar reading does not rule this out.</strong> These medicines can let acid build up in the blood while blood sugar still looks normal, so do not wait for a high reading before you call.</li>`
     + timingBullet
     + `<li><strong>Say that you take an SGLT2 medicine</strong>, and give the name printed at the top of this section, whoever you speak to.</li>`
+    + `</ul>`;
+  // OVERRIDE-SAFE VARIANT (clinical review 2026-09-19). restartBullet, overrideBullet and
+  // timingBullet are all computed from THIS card's hold decision. A clinician override can
+  // reverse that decision, and the renderer cannot recompute them - the population splits
+  // (bariatric, metformin combination, ambulatory versus major) live in here. So the card
+  // hands out a variant in which those three are replaced by wording that is true whichever
+  // way the drug ends up going, and the renderer swaps it in for an overridden card. Every
+  // other bullet is the SAME string as above, not a copy, so the two cannot drift.
+  const returnPrecautionsNeutral = `<ul class="ps-steps" role="list">`
+    + (noSelfRestart
+      ? `<li><strong>Do not start this medicine again on your own.</strong> Your surgeon, or the doctor who prescribes it, will tell you when. This is different from other operations: the diet you follow afterwards keeps the risk going, so eating and drinking normally is not the signal here.</li>`
+      : ambulatoryCase
+        ? `<li><strong>Follow the instruction for this medicine printed above.</strong> Unless you were told otherwise, start taking it again once you are eating and drinking normally. If you are unwell, being treated for an infection, or still cannot keep food and fluids down, wait until you can, and ask your doctor if you are not sure. If your discharge instructions say something different, or a doctor told you after your surgery not to restart it, follow that instead of this sheet.</li>`
+        : `<li><strong>Follow the instruction for this medicine printed above.</strong> Unless you were told otherwise, start taking it again once you are eating and drinking normally — as long as your recovery has been straightforward. If anything went wrong during or after your surgery, or you were treated for an infection or a kidney problem, ask the doctor who prescribes it before you restart. If your discharge instructions say something different, follow that instead of this sheet.</li>`)
+    + sickDayBullet
+    + `<li><strong>Call the doctor who prescribes this medicine, or go to the emergency department</strong> — if you get stomach or belly pain, feel sick to your stomach, throw up, feel unusually weak or tired, feel generally unwell (even if it feels like the flu), or find yourself breathing fast or deeply. If you cannot reach them quickly, or you are getting worse, go to the emergency department.</li>`
+    + `<li><strong>If someone with you notices you are confused, very drowsy, or not yourself</strong>, that counts too — they should call, or take you to the emergency department.</li>`
+    + `<li><strong>A normal blood sugar reading does not rule this out.</strong> These medicines can let acid build up in the blood while blood sugar still looks normal, so do not wait for a high reading before you call.</li>`
+    + `<li><strong>Say that you take an SGLT2 medicine</strong>, and give the name printed at the top of this section, whoever you speak to.</li>`
+    + `<li><strong>These problems are most likely in the first week after surgery, and in the first few days after you start taking this medicine again if it was stopped.</strong> They matter at any time while you are taking it, so do not wait just because it has been more than a week.</li>`
+    + `</ul>`;
+  // CONTINUE-direction variant. "Start taking it again" presupposes a stop, and an override to
+  // CONTINUE stopped nothing - the same construction the fourth and fifth reviews removed from
+  // every other class. Mark asked for it fixed here too (2026-09-21). Every bullet below the
+  // first is the SAME string as the variant above, not a copy, so the three cannot drift.
+  const returnPrecautionsNeutralCont = `<ul class="ps-steps" role="list">`
+    + (noSelfRestart
+      ? `<li><strong>Follow the instruction for this medicine printed above.</strong> After bariatric surgery your bariatric team, or the doctor who prescribes it, decides your diabetes medicines, so check with them before you change anything.</li>`
+      : `<li><strong>Follow the instruction for this medicine printed above.</strong> If anything about it is unclear, or you are not sure what to do after surgery, ask the doctor who prescribes it. If your discharge instructions say something different, or a doctor told you after your surgery to stop it, follow that instead of this sheet.</li>`)
+    + sickDayBullet
+    + `<li><strong>Call the doctor who prescribes this medicine, or go to the emergency department</strong> — if you get stomach or belly pain, feel sick to your stomach, throw up, feel unusually weak or tired, feel generally unwell (even if it feels like the flu), or find yourself breathing fast or deeply. If you cannot reach them quickly, or you are getting worse, go to the emergency department.</li>`
+    + `<li><strong>If someone with you notices you are confused, very drowsy, or not yourself</strong>, that counts too — they should call, or take you to the emergency department.</li>`
+    + `<li><strong>A normal blood sugar reading does not rule this out.</strong> These medicines can let acid build up in the blood while blood sugar still looks normal, so do not wait for a high reading before you call.</li>`
+    + `<li><strong>Say that you take an SGLT2 medicine</strong>, and give the name printed at the top of this section, whoever you speak to.</li>`
+    + `<li><strong>These problems are most likely in the first week after surgery, and in the first few days after you start taking this medicine again if it was stopped.</strong> They matter at any time while you are taking it, so do not wait just because it has been more than a week.</li>`
     + `</ul>`;
   const evidenceNote = mode === 'FDA'
     ? 'Source: ADA Standards of Care 2026 and AHA/ACC Perioperative Guideline 2024 (Class 1, LOE C-LD): hold SGLT2 inhibitors before scheduled surgery (3 days for canagliflozin/dapagliflozin/empagliflozin; 4 days for ertugliflozin). SPAQI BJA 2026 provides the separate risk-stratified pathway.'
@@ -1443,7 +1510,7 @@ function getSGLT2iResults(ctx, details, selected) {
     // rapid or deep breathing are reported presentations. "Flu-like" is INSTITUTIONAL -
     // in no source consulted, and here on Mark's instruction, 2026-09-02.
     patient: { daysBefore: patientDaysBefore, nightBefore: patientNightBefore, morningOf: patientMorning, dietary: carbPatient,
-      returnPrecautions, restartIssued },
+      returnPrecautions, returnPrecautionsNeutral, returnPrecautionsNeutralCont, restartIssued },
     flags,
     comboFlag: comboFlags.length ? comboFlags.join(' ') : null,
     provenance: spaqiProvenance,
@@ -2267,6 +2334,10 @@ class PerioperativeDMApp {
     this.step = 'intro';
     this.outputTab = 'clinician';
     this.sheetSize = 'comfortable';
+    // Clinician overrides, per-session and per-card. Never stored, never sent anywhere,
+    // cleared by New Assessment exactly like sheetSize. Shape:
+    //   { [cardId]: { badge, badgeType, slot, patientText, editing, draft } }
+    this.overrides = {};
     this.searchQuery = '';
     this.expandedCats = new Set();
     this.state = {
@@ -2807,7 +2878,9 @@ class PerioperativeDMApp {
     return html;
   }
   renderOutput() {
-    const results = getAllResults(this.state.context, this.state.details, this.state.selected);
+    // Applied ONCE here, so the clinician cards and the patient sheet below read the same
+    // post-override objects and cannot disagree.
+    const results = this.applyOverrides(getAllResults(this.state.context, this.state.details, this.state.selected));
     const p = this.state.patient;
     const patientName = [p.firstName, p.lastName].filter(Boolean).join(' ') || 'Patient';
     return `
@@ -2820,6 +2893,7 @@ class PerioperativeDMApp {
         </div>
       </div>
       <div id="clinician-tab" class="tab-content ${this.outputTab==='clinician'?'active':''} no-print">
+        ${(this.overrideStaleNames && this.overrideStaleNames.length) ? `<div class="card" style="border-color:var(--st-amber);color:var(--st-amber);font-size:13px;"><strong>${this.overrideStaleNames.length} override${this.overrideStaleNames.length === 1 ? ' was' : 's were'} removed:</strong> ${this.overrideStaleNames.join('; ')}. The assessment changed after ${this.overrideStaleNames.length === 1 ? 'it was' : 'they were'} applied, so ${this.overrideStaleNames.length === 1 ? 'it no longer matches' : 'they no longer match'} this patient. Review the recommendations and override again if you still want to.<div class="ov-strip-actions no-print"><button class="ov-btn" onclick="window.app.dismissStale()">Dismiss</button></div></div>` : ''}
         ${results.map(r => this.renderClinicianCard(r)).join('')}
         <div class="card" style="font-size:12px;color:var(--dim2);line-height:1.7;">
           <div style="font-weight:700;color:var(--accent);margin-bottom:8px;">ABSMC PERIOPERATIVE GLYCEMIC GOALS</div>
@@ -2922,10 +2996,223 @@ class PerioperativeDMApp {
     }
     return `<div class="provenance"><div class="result-section-label">Why this recommendation</div>${rows.join('')}</div>`;
   }
+  // Overrides are applied to the RESULTS ARRAY, once, in renderOutput. Both the clinician
+  // cards and renderPatientSheet() then read the same post-override objects, so the two can
+  // never disagree - the design's central requirement. getAllResults() stays pure.
+  applyOverrides(results) {
+    // An override is written against one set of answers. Correcting a mis-entered field
+    // afterwards is routine, and a stale override would silently keep applying to facts that
+    // no longer hold (clinical review 2026-09-19: an override written for a minor procedure
+    // survived a correction to bariatric surgery). Overrides are stamped with a signature of
+    // the inputs and dropped when it changes; the clinician is told, not left to notice.
+    const sig = JSON.stringify([this.state.context, this.state.details, [...this.state.selected].sort()]);
+    // Sticky: a notice that vanishes on the next render is not a notice. Cleared only by
+    // dismissing it or by New Assessment (second clinical review 2026-09-19).
+    if (!this.overrideStaleNames) this.overrideStaleNames = [];
+    for (const id of Object.keys(this.overrides)) {
+      const ov = this.overrides[id];
+      if (!ov.patientText) continue;
+      if (ov.sig === undefined) { ov.sig = sig; continue; }
+      if (ov.sig !== sig) {
+        const card = results.find(r => r.id === id);
+        this.overrideStaleNames.push(card ? card.drugNames.join(', ') : id);
+        delete this.overrides[id];
+      }
+    }
+    return results.map(r => {
+      const ov = this.overrides[r.id];
+      if (!ov || !ov.patientText) return r;
+      // Every time slot is cleared and the typed text placed in the chosen one. Clearing all
+      // three is what makes a contradiction between slots impossible.
+      const patient = Object.assign({}, r.patient, { daysBefore: null, nightBefore: null, morningOf: null });
+      patient[ov.slot] = escHtml(ov.patientText);
+      // The After Surgery block is computed from this card's own hold decision, which the
+      // override may have just reversed. Swap in the disposition-neutral variant.
+      // Picked by the same direction table the rest of the sheet uses.
+      if (patient.returnPrecautionsNeutral) {
+        const dir = OV_DIRECTION[ov.badge || r.badge] || 'neither';
+        // Only a STOPPED direction gets the restart trigger. Continued, undirected (a dose
+        // change or a consult) and any unrecognised badge all get the variant that asserts
+        // nothing - 'start taking it again' presupposes a stop, and only a hold is one.
+        // Eighth clinical review 2026-09-21: the pick was two-way over a three-way table,
+        // which left CONSULT REQUIRED telling a patient to restart while the checklist row
+        // said to change nothing until their doctor calls.
+        patient.returnPrecautions = (dir !== 'stopped' && patient.returnPrecautionsNeutralCont)
+          ? patient.returnPrecautionsNeutralCont
+          : patient.returnPrecautionsNeutral;
+      }
+      return Object.assign({}, r, {
+        // "App recommendation" leaves the badge alone: a clinician adding a clarifying
+        // sentence without changing the disposition must not have it blanked. Clinical
+        // review 2026-09-19 - it was setting the badge to null, which rendered as a
+        // literal "null" and made the checklist row print the wrong instruction.
+        badge: ov.badge || r.badge, badgeType: ov.badgeType || r.badgeType,
+        // A card that states its own checklist disposition (the fixed-ratio pen) must not
+        // keep stating it over an override: it said "do not take it, a different insulin is
+        // used instead" while the override said to take it.
+        // Always cleared. A card that states its own checklist phrase does so because the badge
+        // vocabulary would mislead for it; under an override the clinician has chosen a badge
+        // (required since 2026-09-19), so that phrase can never be the true one.
+        // Always cleared: a disposition is required, so the card's own phrase can never be
+        // the true one under an override.
+        checklistDispo: null,
+        overridden: { wasBadge: r.badge, wasBadgeType: r.badgeType, slot: ov.slot, text: ov.patientText, wasPatient: r.patient },
+        patient,
+      });
+    });
+  }
+  openOverride(cardId) {
+    const ov = this.overrides[cardId];
+    this.overrides[cardId] = Object.assign({ badge: null, badgeType: null, slot: null, patientText: null }, ov, { editing: true });
+    this.render();
+  }
+  cancelOverride(cardId) {
+    const ov = this.overrides[cardId];
+    if (!ov || !ov.patientText) delete this.overrides[cardId]; // nothing applied yet: drop it entirely
+    else { ov.editing = false; ov.draft = undefined; ov.slotDraft = undefined; ov.badgeDraft = undefined; } // an abandoned draft must not resurface next to the applied text
+    this.render();
+  }
+  undoOverride(cardId) { delete this.overrides[cardId]; this.render(); }
+  dismissStale() { this.overrideStaleNames = []; this.render(); }
+  overrideSlotChanged(cardId) {
+    const slot = document.getElementById(`ov-slot-${cardId}`);
+    const ov = this.overrides[cardId];
+    if (ov && slot) ov.slotDraft = slot.value;
+    this.overrideDaysHint(cardId);
+  }
+  // A non-hold disposition placed in the days-before slot prints under the fixed heading
+  // "Days Before Surgery - Stop These Early". The heading is the bolder element, so a patient
+  // can act on it against the instruction (third clinical review 2026-09-19).
+  overrideDaysHint(cardId) {
+    const sel = document.getElementById(`ov-badge-${cardId}`);
+    const slot = document.getElementById(`ov-slot-${cardId}`);
+    const hint = document.getElementById(`ov-days-${cardId}`);
+    if (!sel || !slot || !hint) return;
+    const badge = (sel.value || '').split('|')[0];
+    const holdFamily = badge === 'HOLD' || badge === 'HOLD MORNING OF SURGERY' || badge === 'HOLD WHILE NPO';
+    hint.hidden = !(slot.value === 'daysBefore' && badge && !holdFamily);
+  }
+  // Live read of the editor, so Apply can be disabled while the text is empty and the
+  // restart-wording hint can appear as it is typed. No re-render: that would lose the caret.
+  // When the disposition is flipped, the slot the app was printing in is usually the wrong
+  // one - a card overridden from HOLD to CONTINUE inherited "Days Before Surgery - Stop These
+  // Early" as the heading over "keep taking it" (clinical review 2026-09-19). Moving the slot
+  // to the one that matches the new badge is visible on screen and can still be changed.
+  overrideBadgeChanged(cardId) {
+    const sel = document.getElementById(`ov-badge-${cardId}`);
+    const slot = document.getElementById(`ov-slot-${cardId}`);
+    if (!sel || !slot) return;
+    const badge = (sel.value || '').split('|')[0];
+    const natural = {
+      'CONTINUE': 'morningOf', 'CONTINUE BASAL': 'morningOf', 'HOLD': 'daysBefore',
+      'HOLD MORNING OF SURGERY': 'morningOf', 'HOLD WHILE NPO': 'morningOf',
+      'MODIFY DOSE': 'nightBefore', 'CONSULT REQUIRED': 'morningOf',
+    }[badge];
+    if (natural) slot.value = natural;
+    const ovb = this.overrides[cardId];
+    if (ovb) ovb.badgeDraft = sel.value; // survives a re-render, like the text draft
+    this.overrideInput(cardId);
+    const ov = this.overrides[cardId];
+    if (ov) ov.slotDraft = slot.value;
+  }
+  overrideInput(cardId) {
+    const ta = document.getElementById(`ov-text-${cardId}`);
+    const btn = document.getElementById(`ov-apply-${cardId}`);
+    const hint = document.getElementById(`ov-resume-${cardId}`);
+    if (!ta || !btn) return;
+    const text = ta.value.trim();
+    const ov = this.overrides[cardId];
+    if (ov) ov.draft = ta.value; // survives a re-render triggered from another card
+    const slot = document.getElementById(`ov-slot-${cardId}`);
+    if (ov && slot) ov.slotDraft = slot.value;
+    const sel = document.getElementById(`ov-badge-${cardId}`);
+    btn.disabled = !text || !(sel && sel.value);
+    if (hint) hint.hidden = !/\b(resume|restart|start again|start it again|start taking)\b/i.test(text);
+    this.overrideDaysHint(cardId);
+  }
+  applyOverride(cardId) {
+    const ta = document.getElementById(`ov-text-${cardId}`);
+    const sel = document.getElementById(`ov-badge-${cardId}`);
+    const slot = document.getElementById(`ov-slot-${cardId}`);
+    const text = ta ? ta.value.trim() : '';
+    // The flip is inert until text is typed: the app never writes wording for a decision it
+    // did not make (Mark, 2026-08-14, decision 2).
+    const chosen = sel && sel.value;
+    // A disposition is required as well (Mark, 2026-09-19, on the third clinical review).
+    // With "app recommendation" applied, the checklist row kept stating the app's decision
+    // over the clinician's instruction - worst, the fixed-ratio pen printed "do not take it,
+    // a different insulin is used instead" above "take your usual dose".
+    if (!text || !chosen) return;
+    const [badge, badgeType] = chosen.split('|');
+    this.overrides[cardId] = {
+      badge: badge || null, badgeType: badgeType || null,
+      slot: (slot && slot.value) || 'morningOf',
+      patientText: text, editing: false, draft: undefined, slotDraft: undefined, badgeDraft: undefined,
+      sig: JSON.stringify([this.state.context, this.state.details, [...this.state.selected].sort()]),
+    };
+    this.render();
+  }
+  renderOverrideEditor(r) {
+    const ov = this.overrides[r.id] || {};
+    const cur = (ov.draft !== undefined ? ov.draft : ov.patientText) || '';
+    const curBadge = ov.badgeDraft !== undefined ? ov.badgeDraft : (ov.badge ? `${ov.badge}|${ov.badgeType}` : '');
+    // The app's own badge vocabulary, nothing invented. The first option is also how a
+    // clinician backs out of a disposition change while keeping their text.
+    const BADGES = [
+      ['CONTINUE', 'continue'], ['CONTINUE BASAL', 'continue'], ['HOLD', 'hold'],
+      ['HOLD MORNING OF SURGERY', 'hold'], ['HOLD WHILE NPO', 'hold'],
+      ['MODIFY DOSE', 'modify'], ['CONSULT REQUIRED', 'consult'],
+    ];
+    // Defaults to the slot this card currently prints in, so the common case is one click.
+    const defaultSlot = ov.slotDraft || ov.slot || (r.patient.daysBefore ? 'daysBefore' : r.patient.nightBefore ? 'nightBefore' : 'morningOf');
+    const SLOTS = [['daysBefore', 'Days before surgery'], ['nightBefore', 'The night before'], ['morningOf', 'The morning of surgery']];
+    const isResume = /\b(resume|restart|start again|start it again|start taking)\b/i.test(cur);
+    return `
+      <div class="ov-editor no-print">
+        <div class="ov-editor-title">Override this recommendation</div>
+        <div class="ov-field">
+          <label for="ov-badge-${r.id}">Disposition</label>
+          <select id="ov-badge-${r.id}" onchange="window.app.overrideBadgeChanged('${r.id}')">
+            <option value="">Keep the app recommendation (${r.overridden ? r.overridden.wasBadge : r.badge})</option>
+            ${BADGES.map(([b, t]) => `<option value="${b}|${t}" ${curBadge === `${b}|${t}` ? 'selected' : ''}>${b}</option>`).join('')}
+          </select>
+        </div>
+        <div class="ov-field">
+          <label for="ov-slot-${r.id}">When this prints on the patient sheet</label>
+          <select id="ov-slot-${r.id}" onchange="window.app.overrideSlotChanged('${r.id}')">
+            ${SLOTS.map(([v, lbl]) => `<option value="${v}" ${defaultSlot === v ? 'selected' : ''}>${lbl}</option>`).join('')}
+          </select>
+        </div>
+        <div class="ov-field">
+          <label for="ov-text-${r.id}">Patient instruction (required)</label>
+          <textarea id="ov-text-${r.id}" oninput="window.app.overrideInput('${r.id}')" placeholder="What the patient should do. Printed exactly as typed.">${cur.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</textarea>
+          <div class="ov-hint">Replaces this card's <strong>Days Before</strong>, <strong>Night Before</strong> and <strong>Morning of Surgery</strong> instructions. It does not change the eating-and-drinking block or the After Surgery section, which adjust on their own.</div>
+          <div class="ov-hint warn">Your words are printed exactly as typed. They are not reviewed by the app and are not checked for reading level.</div>
+          ${r.drugNames.length > 1 ? `<div class="ov-hint warn">This card covers <strong>${r.drugNames.length}</strong> medicines: ${r.drugNames.join(', ')}. Your text replaces the instruction for <strong>all</strong> of them, so it must cover every one.</div>` : ''}
+          <div class="ov-hint warn" id="ov-resume-${r.id}" ${isResume ? '' : 'hidden'}>Restart guidance normally prints in the After Surgery section, not under a preoperative heading. Check this is where you want it.</div>
+          <div class="ov-hint warn" id="ov-days-${r.id}" hidden>This slot normally carries multi-day stop instructions. Check it is where you want an instruction that is not a stop.</div>
+        </div>
+        <div class="ov-actions">
+          <button class="btn-primary" id="ov-apply-${r.id}" onclick="window.app.applyOverride('${r.id}')" ${(cur.trim() && curBadge) ? '' : 'disabled'}>Apply</button>
+          <button onclick="window.app.cancelOverride('${r.id}')">Cancel</button>
+          ${r.overridden ? `<button onclick="window.app.undoOverride('${r.id}')">Remove override</button>` : ''}
+        </div>
+      </div>`;
+  }
   renderClinicianCard(r) {
-    const badgeHtml = `<span class="badge badge-${r.badgeType}">${r.badge}</span>`;
-    const sectionHtml = (label, text) => text
-      ? `<div class="result-section">
+    const ov = this.overrides[r.id];
+    const editing = !!(ov && ov.editing);
+    const o = r.overridden;
+    // The app's original recommendation stays on screen, struck and dimmed, with Undo
+    // (Mark, 2026-08-14, decision 3): nobody edits blind, and nobody forgets they departed.
+    const badgeHtml = (o && o.wasBadge !== r.badge)
+      ? `<span class="badge badge-${o.wasBadgeType} ov-was">${o.wasBadge}</span><span class="badge badge-${r.badgeType}">${r.badge}</span>`
+      : `<span class="badge badge-${r.badgeType}">${r.badge}</span>`;
+    // A card's own patient-facing sections are struck as superseded once an override
+    // replaces them. Clinician-only sections (monitoring, resumption, evidence) are
+    // untouched - they never print for the patient, so an override has no business there.
+    const sectionHtml = (label, text, supersedable) => text
+      ? `<div class="result-section${(supersedable && o) ? ' ov-superseded' : ''}">
           <div class="result-section-label">${label}</div>
           <div class="result-section-text">${monoData(text)}</div>
          </div>` : '';
@@ -2934,17 +3221,20 @@ class PerioperativeDMApp {
     return `
       <div class="result-card">
         <div class="result-card-header">
+          <div class="ov-btn-wrap no-print"><button class="ov-btn" onclick="window.app.openOverride('${r.id}')">${o ? 'Edit override' : 'Override'}</button></div>
           ${badgeHtml}
           <h3>${r.drugClass}</h3>
           <div class="drug-list">${r.drugNames.join(' · ')}</div>
         </div>
         <div class="result-card-body">
+          ${editing ? this.renderOverrideEditor(r) : ''}
+          ${o ? `<div class="ov-strip"><div class="ov-strip-label">Overridden by clinician · ${({daysBefore:'Days before surgery',nightBefore:'The night before',morningOf:'The morning of surgery'})[o.slot]}</div><div class="ov-strip-text">${escHtml(o.text)}</div><div class="ov-strip-actions no-print"><button class="ov-btn" onclick="window.app.openOverride('${r.id}')">Edit</button><button class="ov-btn" onclick="window.app.undoOverride('${r.id}')">Undo</button></div></div>` : ''}
           ${this.renderProvenance(r)}
           ${comboHtml}
           ${flagsHtml}
-          ${sectionHtml('Days Before Surgery - Stop This Medication Early', r.clinician.daysBefore)}
-          ${sectionHtml('Night Before Surgery', r.clinician.nightBefore)}
-          ${sectionHtml('Morning of Surgery', r.clinician.morningOf)}
+          ${sectionHtml('Days Before Surgery - Stop This Medication Early', r.clinician.daysBefore, true)}
+          ${sectionHtml('Night Before Surgery', r.clinician.nightBefore, true)}
+          ${sectionHtml('Morning of Surgery', r.clinician.morningOf, true)}
           ${sectionHtml('Dietary Instructions', r.clinician.dietary)}
           ${sectionHtml('Monitoring', r.clinician.monitoring)}
           ${sectionHtml('Resumption', r.clinician.resumption)}
@@ -3011,7 +3301,39 @@ class PerioperativeDMApp {
     //     held while Januvia continues; Synjardy morning-held while Jardiance
     //     continues outright). A single disposition cannot be true for both, so
     //     a multi-drug card states nothing and points below.
+    // The badge vocabulary, factored out so an overridden card and an ordinary one read the
+    // same phrases from one place.
+    const dispoByBadge = (r) => {
+    switch (r.badge) {
+      case 'CONTINUE': return 'keep taking as usual';
+      case 'CONTINUE BASAL': return 'keep using as usual - see below';
+      // Pointer retained: the AGI and meglitinide morning-of strings are
+      // conditional on whether the patient is permitted breakfast.
+      case 'HOLD MORNING OF SURGERY': return 'take as usual through the day and night before - see below';
+      case 'HOLD': return 'do not take on the day of surgery - see below';
+      case 'HOLD WHILE NPO': return 'do not take while you are not eating - see below';
+      case 'MODIFY DOSE': return 'dose changes - see below';
+      case 'CONSULT REQUIRED': return 'do not change anything until your doctor tells you - see below';
+      default: return 'see your instructions below';
+    }
+    };
     const dispoCore = (r) => {
+      // An OVERRIDDEN card: the row must agree with BOTH the new badge and the slot the typed
+      // text actually prints in, and must always point below, because an overridden card always
+      // has text there. Second clinical review 2026-09-19 found the first fix had swung too far:
+      // driving the row from the badge alone made every days-before override read "do not take on
+      // the day of surgery" over the heading "Days Before Surgery - Stop These Early", which is
+      // worse than the slot-driven behaviour it replaced; CONTINUE printed with no pointer below;
+      // and the multi-drug rule was bypassed entirely.
+      if (r.overridden) {
+        // The multi-drug rule still wins, as the design says: one typed sentence cannot be
+        // trusted to describe every drug on a card that covers several.
+        if (r.drugNames.length > 1) return 'see your instructions below';
+        // The badge vocabulary has no days-before phrase - a multi-day stop is not a day-of one.
+        const holdFamily = r.badge === 'HOLD' || r.badge === 'HOLD MORNING OF SURGERY' || r.badge === 'HOLD WHILE NPO';
+        const phrase = (r.patient.daysBefore && holdFamily) ? 'stop early' : dispoByBadge(r).replace(/ - see below$/, '');
+        return phrase + ' - see below';
+      }
       // A card may state its own checklist disposition where the badge vocabulary would
       // mislead. The fixed-ratio insulin/GLP-1 pen is badged MODIFY DOSE, but its dose does
       // not change - the pen is not taken and a different medicine is substituted.
@@ -3032,18 +3354,7 @@ class PerioperativeDMApp {
         if (r.badge === 'HOLD WHILE NPO') return 'see your instructions below';
         return 'stop the night before - see below';
       }
-      switch (r.badge) {
-        case 'CONTINUE': return 'keep taking as usual';
-        case 'CONTINUE BASAL': return 'keep using as usual - see below';
-        // Pointer retained: the AGI and meglitinide morning-of strings are
-        // conditional on whether the patient is permitted breakfast.
-        case 'HOLD MORNING OF SURGERY': return 'take as usual through the day and night before - see below';
-        case 'HOLD': return 'do not take on the day of surgery - see below';
-        case 'HOLD WHILE NPO': return 'do not take while you are not eating - see below';
-        case 'MODIFY DOSE': return 'dose changes - see below';
-        case 'CONSULT REQUIRED': return 'do not change anything until your doctor tells you - see below';
-        default: return 'see your instructions below';
-      }
+      return dispoByBadge(r);
     };
     // GLP-1 and tirzepatide (both are the 'glp1' card): the medication itself
     // continues, so a bare 'keep taking as usual' is true but hides the thing that
@@ -3113,8 +3424,12 @@ class PerioperativeDMApp {
            </div>`
         : '';
     };
+    // The heading is the bolder element and is what a patient scans. A continue-direction
+    // override placed in this slot made it assert a stop the clinician did not order
+    // (fifth clinical review 2026-09-19), so the heading drops its "Stop These Early" half.
+    const daysBeforeAsserts = !results.some(r => r.overridden && r.patient.daysBefore && ovDir(r) !== 'stopped');
     const timeline =
-      bucket('Days Before Surgery - Stop These Early', 'daysBefore') +
+      bucket(daysBeforeAsserts ? 'Days Before Surgery - Stop These Early' : 'Days Before Surgery', 'daysBefore') +
       bucket('The Night Before Surgery', 'nightBefore') +
       bucket('The Morning of Surgery', 'morningOf');
     // Only the SGLT2i and GLP-1 cards carry eating and drinking rules. Everyone
@@ -3130,6 +3445,7 @@ class PerioperativeDMApp {
         <div style="margin-bottom:6px;"><strong>Questions?</strong> Call the ABSMC Preoperative Clinic: <strong>(510) 869-8865</strong></div>
         ${hasDietGuidance ? '' : '<div style="margin-bottom:6px;"><strong>Eating and drinking:</strong> follow the instructions from the Preoperative Clinic.</div>'}
         <div style="margin-bottom:6px;">These instructions apply to your <strong>diabetes medications only</strong>.</div>
+        <div style="margin-bottom:6px;">These instructions were reviewed by your preoperative clinic team.</div>
         <div style="margin-bottom:6px;"><strong>Important:</strong> These recommendations were generated based on information available at your preoperative visit. Please verify your exact arrival time with your surgeon's office, as surgery times can change. The eating and drinking times on this sheet count back from your arrival time, so they move with it. If your surgery date or time changes, call the clinic for new medication stop dates. Check with your surgeon's office if you have questions about resuming your medications after surgery.</div>
         <div style="font-size:11px;color:var(--dim2);margin-top:8px;">Alta Bates Summit Medical Center Preoperative Clinic &middot; Generated ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
       </div>`;
@@ -3183,9 +3499,33 @@ class PerioperativeDMApp {
     // the bariatric insulin line skipped the pump; header order matched bullet order only
     // by coincidence. The half-dose fallbacks mirror what this app does preoperatively.
     const insulinId = (r) => /^(basal-|bolus-|premixed-)/.test(r.id);
-    const changedOther = results.filter(r => r.id !== 'sglt2i' && r.id !== 'glp1' && r.id !== 'pump' && r.patient
+    // An overridden card is pulled OUT of the per-drug bullets below and given one neutral
+    // bullet instead. Those bullets assert what the app decided - "never skip it", "your pump
+    // was meant to keep running" - and an override can reverse that, which the second clinical
+    // review found printing directly against the clinician's own instruction on the same sheet.
+    // The GLP-1 card is admitted here when overridden, although it is excluded otherwise: the
+    // reason for excluding it is that this app never holds it, and an override makes that false.
+    const overriddenOther = results.filter(r => r.overridden && r.id !== 'sglt2i');
+    // Split by direction. "For when to start it again" presupposes a stop, and on a CONTINUE
+    // override nothing was stopped - the fourth clinical review found the third review's
+    // CRITICAL re-emerging pointing the other way. The disposition is mandatory now, so the
+    // direction is always known.
+    const ovIsInsulin = (r) => /^(basal-|bolus-|premixed-)/.test(r.id) || r.id === 'u500' || r.id === 'pump';
+    const OV_GROUPS = [];
+    for (const dir of ['stopped', 'continued', 'neither']) {
+      for (const kind of ['oral', 'insulin']) {
+        const cards = overriddenOther.filter(r => ovDir(r) === dir && (ovIsInsulin(r) ? 'insulin' : 'oral') === kind);
+        if (cards.length) OV_GROUPS.push({ dir, kind, cards });
+      }
+    }
+    // The never-go-without-insulin safeguard is not keyed to the preoperative disposition, so an
+    // override must not remove it. Third clinical review 2026-09-19: overriding a pump or a basal
+    // card took that sentence off the sheet entirely for a type 1 patient.
+    const overriddenInsulin = overriddenOther.filter(ovIsInsulin); // ONE definition: see ovIsInsulin above
+    const isOverridden = (r) => !!r.overridden;
+    const changedOther = results.filter(r => r.id !== 'sglt2i' && r.id !== 'glp1' && r.id !== 'pump' && !isOverridden(r) && r.patient
       && (r.checklistDispo || (r.patient.nightBefore && r.badge !== 'CONTINUE BASAL') || (r.badge !== 'CONTINUE' && r.badge !== 'CONTINUE BASAL')));
-    const pumpCard = results.find(r => r.id === 'pump');
+    const pumpCard = results.find(r => r.id === 'pump' && !isOverridden(r));
     const u500Card = changedOther.find(r => r.id === 'u500');
     const penCard = changedOther.find(r => r.id === 'basal-iglarlixi');
     const nphCard = changedOther.find(r => r.id === 'basal-nph');
@@ -3196,13 +3536,22 @@ class PerioperativeDMApp {
     const suCards = oralCards.filter(r => r.id === 'sulfonylurea' || r.id === 'meglitinide');
     const tzdCards = oralCards.filter(r => r.id === 'tzd');
     const leadCards = oralCards.filter(r => r.id !== 'sulfonylurea' && r.id !== 'meglitinide' && r.id !== 'tzd');
-    const dn = (r) => (r.changedDrugNames || r.drugNames);
+    // An override replaces the instruction for EVERY drug on the card, so the app's own
+    // subset (changedDrugNames, the held pills on a split DPP-4 card) no longer describes it.
+    // Third clinical review 2026-09-19: a split card overridden to stop BOTH pills named only
+    // one of them in the After Surgery block.
+    const dn = (r) => (r.overridden ? r.drugNames : (r.changedDrugNames || r.drugNames));
     const names = (cards) => cards.map(r => dn(r).join(', ')).join('; ');
     const bariatricCase = ctx.surgeryType === 'bariatric';
     const ambulatory = ctx.surgeryType === 'minor' || ctx.surgeryType === 'colonoscopy';
     const anyInsulin = basalCards.length || premixedCards.length || bolusCards.length || penCard || nphCard || (bariatricCase && pumpCard);
-    const listed = [...leadCards, ...suCards, ...tzdCards, ...basalCards, ...(nphCard ? [nphCard] : []), ...(penCard ? [penCard] : []), ...premixedCards, ...bolusCards, ...(pumpCard ? [pumpCard] : []), ...(u500Card ? [u500Card] : [])];
-    const sglt2Restart = results.some(r => r.id === 'sglt2i' && r.patient && r.patient.restartIssued);
+    const overriddenInsulinBullet = overriddenInsulin.length
+      ? `<li><strong>Never go without insulin.</strong> If any insulin instruction on this sheet is unclear, or you cannot follow it, call the doctor who prescribes it before you skip a dose.${anyInsulin ? '' : ' If your diabetes doctor gave you different insulin doses for after surgery, follow those.'}</li>`
+      : '';
+    const listed = [...OV_GROUPS.flatMap(g => g.cards), ...leadCards, ...suCards, ...tzdCards, ...basalCards, ...(nphCard ? [nphCard] : []), ...(penCard ? [penCard] : []), ...premixedCards, ...bolusCards, ...(pumpCard ? [pumpCard] : []), ...(u500Card ? [u500Card] : [])];
+    // Post-override: an overridden SGLT2 card carries the neutral block, which always
+    // carries an instruction, so the pointer is correct either way.
+    const sglt2Restart = results.some(r => r.id === 'sglt2i' && r.patient && (r.patient.restartIssued || r.overridden));
     const bariatricOralNames = names([...leadCards, ...suCards, ...tzdCards]);
     const oralLead = bariatricCase
       ? (oralCards.length ? `<li><strong>After bariatric surgery, your bariatric team decides when each of these medicines restarts:</strong> ${bariatricOralNames}. The diet you follow afterwards changes what is safe, so do not restart them on your own.</li>` : '')
@@ -3229,6 +3578,27 @@ class PerioperativeDMApp {
     const pumpBullet = pumpCard
       ? `<li><strong>Your insulin pump was meant to keep running through surgery, with only your mealtime (bolus) doses paused</strong> — start those again with your first meal after surgery. If your pump was stopped or taken off at any point, do not go without insulin: make sure it is back on, or that you have been given another insulin, before you leave. If your diabetes doctor gave you different pump settings for after surgery, follow those.</li>`
       : '';
+    // Plural counts DRUGS, not cards: one split card can name two medicines.
+    const drugCount = (cards) => cards.reduce((n, r) => n + dn(r).length, 0);
+    const ovPlural = (cards) => drugCount(cards) > 1;
+    const ovThem = (c) => ovPlural(c) ? 'them' : 'it';
+    const ovHead = (c) => `<li><strong>${names(c)}: your clinic has written its own instruction for ${ovPlural(c) ? 'these medicines' : 'this medicine'} above.</strong> Follow what is printed there.`;
+    const ovTail = (g) => {
+      const c = g.cards, them = ovThem(c);
+      if (g.dir === 'stopped') {
+        // INSULIN NEVER GETS THE BARIATRIC DEFERRAL. Basal insulin is not withheld while a
+        // patient waits for a team decision - ADA Standards of Care 2026 section 16, and this
+        // app's own rule that a type 1 patient is never left without it.
+        if (g.kind === 'insulin') return ` For when to start ${them} again, follow your discharge instructions, or ask the doctor who prescribes ${them}. Do not go without your insulin while you wait: if you are not sure, call before you skip a dose.</li>`;
+        return bariatricCase
+          ? ` Do not start ${them} again on your own: after bariatric surgery your bariatric team decides when, because the diet you follow afterwards changes what is safe.</li>`
+          : ` For when to start ${them} again, follow your discharge instructions, or ask the doctor who prescribes ${them}.</li>`;
+      }
+      const ask = ` If anything about ${them} is unclear${g.dir === 'neither' ? ', or you are not sure what to do after surgery' : ''}, ask the doctor who prescribes ${them}.`;
+      const bari = (bariatricCase && g.kind === 'oral') ? ` After bariatric surgery your bariatric team decides your diabetes medicines, so check with them before you change anything.` : '';
+      return ask + bari + '</li>';
+    };
+    const overriddenBullet = OV_GROUPS.map(g => ovHead(g.cards) + ovTail(g)).join('');
     const u500Bullet = u500Card
       ? `<li><strong>${names([u500Card])}: do not change the dose on your own.</strong> Follow your endocrinologist's instructions.</li>`
       : '';
@@ -3236,7 +3606,7 @@ class PerioperativeDMApp {
       ? `<div class="ps-block">
            <div class="patient-section-label">After Surgery - Your ${returnCards.length ? 'Other ' : ''}Diabetes Medicines</div>
            <div class="ps-item"><div class="ps-item-drug">${listed.map(r => dn(r).join(', ')).join('<br>')}</div><div class="patient-section-text">${monoData(`<ul class="ps-steps" role="list">`
-             + oralLead + suBullet + tzdBullet + insulinBullets + pumpBullet + u500Bullet
+             + overriddenBullet + overriddenInsulinBullet + oralLead + suBullet + tzdBullet + insulinBullets + pumpBullet + u500Bullet
              + `<li><strong>If your discharge instructions say something different</strong>, or a doctor told you after your surgery not to restart one of them, follow that instead of this sheet.</li>`
              + (sglt2Restart ? `<li><strong>Your SGLT2 medicine has its own instructions above.</strong></li>` : '')
              + `</ul>`)}</div></div>
@@ -3267,6 +3637,8 @@ class PerioperativeDMApp {
     this.step = 'intro';
     this.outputTab = 'clinician';
     this.sheetSize = 'comfortable';
+    this.overrides = {};
+    this.overrideStaleNames = [];
     this.searchQuery = '';
     this.expandedCats = new Set();
     this.state = {
