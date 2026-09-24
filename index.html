@@ -965,19 +965,35 @@ function getSGLT2iResults(ctx, details, selected) {
       // Mark, 2026-08-13; decision record section 2a.
       const coIncretin = hasAnyIncretin(selected);
       const incretinCutoff = details.glp1NpoCutoff || 'midnight';
-      // Scoped to the branches where a long POSTOPERATIVE carbohydrate-free stretch is
-      // actually anticipated. It is NOT anticipated for a minor procedure or a
-      // colonoscopy: a midnight cutoff, an 07:30 arrival, a ~09:00 procedure and eating
-      // by ~11:00 is about 11 h, under the institutional 12 h threshold - and SPAQI
-      // panel a carries no fasting-keyed stop branch for those procedures at all.
-      // Before this scope test the rule held them anyway, overriding an explicit
-      // clinician No on a premise that is false for them. Clinical review 2026-08-13.
-      // NOTE: 'bariatric' is unreachable here - isFixedHold catches it above and holds
-      // unconditionally. Kept so the set matches the decision record, and so that
-      // relaxing isFixedHold later does not silently switch this rule on.
-      const longFastBranch = (sType === 'majorNoncardiac' || sType === 'cardiac' || sType === 'bariatric');
-      const cutoffForcesFast = coIncretin && incretinCutoff !== '2h' && longFastBranch;
-      if (details.prolongedFasting === true || cutoffForcesFast) {
+      // Applies at every surgery type EXCEPT colonoscopy, see below (Mark, 2026-09-24).
+      // From 2026-08-13 it was scoped
+      // to major noncardiac, cardiac and bariatric, on the arithmetic that a minor case
+      // with a midnight cutoff clears in about 11 h. That arithmetic assumed the last
+      // carbohydrate is taken AT the cutoff, and an early slot. Neither holds: only the
+      // 2 h eating-and-drinking branch schedules a timed carbohydrate drink. The 4/6/8 h
+      // and midnight branches say "your last drink before you stop ... do not set an
+      // alarm or stay up for it", so a midnight cutoff before a noon minor procedure is
+      // about 16 h without carbohydrate, and before a 09:00 one about 13 h. The 2 h
+      // cutoff stays exempt because that sheet does issue the timed drink.
+      // NOT for a patient without diabetes: their threshold is 24 h, asked separately,
+      // and a fasting cutoff alone cannot establish a 24 h window (Mark, 2026-09-24).
+      // NOT for a colonoscopy either (Mark, 2026-09-24, on clinical review): that sheet
+      // follows the bowel prep, never issues the GLP-1 cutoff and never schedules a timed
+      // drink whatever the cutoff, so the field cannot tell a long fast from a short one.
+      // The clinician's 12 h answer decides, as for an SGLT2-only colonoscopy patient.
+      const noDiabetes = (dmType === 'noDM');
+      const cutoffForcesFast = coIncretin && incretinCutoff !== '2h' && !noDiabetes && sType !== 'colonoscopy';
+      // The clinician's fasting answer. 12 h for a patient with diabetes, or whose
+      // diabetes status is not recorded (the conservative default). 24 h for a patient
+      // without diabetes: SPAQI pp.15-16 calls their eDKA risk negligible, and "All case
+      // reports of eDKA in patients with HF without diabetes mellitus have poor oral
+      // intake or prolonged preoperative fasting (>24 h) as a common denominator".
+      // 24 h sits below every reported case; it is not a measured threshold. Separate
+      // fields, so an answer never changes meaning if the diabetes type is changed
+      // after it was given (Mark, 2026-09-24).
+      const fastAnswer = noDiabetes ? details.prolongedFasting24h : details.prolongedFasting;
+      const fastHours = noDiabetes ? 24 : 12;
+      if (fastAnswer === true || cutoffForcesFast) {
         // Provenance depends on the branch. In MAJOR NONCARDIAC the source itself
         // recommends discontinuing on anticipated prolonged fasting: Box p.12 R3a
         // (T2DM), R4 (no T2DM). ELSEWHERE -- minor procedure, colonoscopy, cardiac --
@@ -988,10 +1004,10 @@ function getSGLT2iResults(ctx, details, selected) {
         // announces itself as a departure like any other institutional trigger.
         const fastingR = (sType === 'majorNoncardiac') ? (dmType === 'T2DM' ? 'R3a' : 'R4') : null;
         const baseLabel = fastingR
-          ? 'anticipated >12 h without carbohydrate'
-          : 'anticipated >12 h without carbohydrate (guideline silent for this procedure type)';
+          ? `anticipated >${fastHours} h without carbohydrate`
+          : `anticipated >${fastHours} h without carbohydrate (guideline silent for this procedure type)`;
         // Name the cutoff when it, rather than the clinician, is what fired this.
-        const autoFast = cutoffForcesFast && details.prolongedFasting !== true;
+        const autoFast = cutoffForcesFast && fastAnswer !== true;
         // R3a and R4 are both keyed to anticipated POSTOPERATIVE fasting. When the
         // cutoff fires this trigger and the clinician has NOT reported that fast, the
         // source's condition is not established and printing "Held per SPAQI" would
@@ -1014,10 +1030,11 @@ function getSGLT2iResults(ctx, details, selected) {
           // R-number against a question that does not distinguish the two.
           note: autoFast
             ? `Fired by the GLP-1 or tirzepatide fasting cutoff, not by the clinician, who did not report an anticipated >12 h carbohydrate-free window.${fastingR ? ` Deliberately NOT attributed to ${fastingR}: that recommendation is keyed to anticipated postoperative fasting, which has not been reported here, so this hold is institutional.` : ''} Only a 2 h cutoff leaves a co-treated patient in the same position as everyone else`
-            : (fastingR ? 'Box p.12. R3a/R4 address anticipated postoperative fasting; this app asks one combined pre- and postoperative question, and the 12 h threshold is institutional' : null),
+            : (fastingR ? `Box p.12. R3a/R4 address anticipated postoperative fasting; this app asks one combined pre- and postoperative question, and the ${fastHours} h threshold is institutional${noDiabetes ? ' (24 h for a patient without diabetes, ABSMC: SPAQI p.16, "All case reports of eDKA in patients with HF without diabetes mellitus have poor oral intake or prolonged preoperative fasting (>24 h) as a common denominator." A floor below the reported heart-failure cases, not a measured threshold)' : ''}` : null),
         });
       }
-      if (details.surgeryOver3h === true) {
+      // Not for a patient without diabetes: the 24 h window replaces it (Mark, 2026-09-24).
+      if (details.surgeryOver3h === true && !noDiabetes) {
         // INSTITUTIONAL EXTENSION - no R-number. >3 h is an INTRAOPERATIVE MONITORING
         // trigger in the source (R7), never a preoperative hold. Do not cite R7 here.
         overrideTriggers.push({ label: 'expected surgical duration >3 h', institutional: true });
@@ -1057,7 +1074,7 @@ function getSGLT2iResults(ctx, details, selected) {
     // view rather than printed under every intake question.
     const permissiveBlanks = [];
     if (details.a1cOver8 === null || details.a1cOver8 === undefined) permissiveBlanks.push('no A1c value supplied (treated as not over 8%)');
-    if (details.surgeryOver3h === null || details.surgeryOver3h === undefined) permissiveBlanks.push('expected surgical duration (treated as under 3 h)');
+    if (dmType !== 'noDM' && (details.surgeryOver3h === null || details.surgeryOver3h === undefined)) permissiveBlanks.push('expected surgical duration (treated as under 3 h)');
     if (details.ketoDiet === null || details.ketoDiet === undefined) permissiveBlanks.push('ketogenic or very-low-carbohydrate diet (treated as not on one)');
     if (details.dkaHistory !== true && details.dkaHistory !== false) permissiveBlanks.push('history of DKA (treated as no history)');
     const sourceTriggers = overrideTriggers.filter(t => t.institutional === false);
@@ -1179,6 +1196,13 @@ function getSGLT2iResults(ctx, details, selected) {
       note = 'Continuation is recommended (R1) for major noncardiac surgery in a patient without diabetes.';
     }
     if (note) flags.push({ type: 'info', text: note });
+    // Clinical review 2026-09-24 (HIGH): R1 is scoped to patients "not expected to fast
+    // from carbohydrates >12 h preoperatively". A patient without diabetes is asked about
+    // 24 h instead, so a continuation here may sit outside R1, and outside the >3 h hold
+    // that used to cover SPAQI R7b. Say so rather than let "R1" imply SPAQI endorses it.
+    if (dmType === 'noDM' && rec === 'CONTINUE' && !(details.ketoDiet === true || sType === 'bariatric')) {
+      flags.push({ type: 'info', text: 'ABSMC threshold for a patient without diabetes: the 12 h, surgery >3 h and GLP-1 cutoff triggers do not apply; held for an anticipated >24 h carbohydrate-free window, a ketogenic diet or bariatric surgery, current insulin use, A1c >8% or a history of DKA. SPAQI R1 assumes no carbohydrate fast >12 h before surgery, so a patient expected to fast 12-24 h is continued beyond what the Box states.' + (sType === 'majorNoncardiac' ? ' SPAQI R7b would monitor for eDKA during major noncardiac surgery >3 h with a >12 h carbohydrate fast in a patient without diabetes; this app issues no R7b monitoring instruction.' : '') + ' (Mark, 2026-09-24)' });
+    }
   }
   // ctx.arrivalTime is needed for the strict-clock stop-date computation below.
   // It was previously only defined inside getGLP1Results, so every SGLT2i HOLD
@@ -2348,6 +2372,7 @@ class PerioperativeDMApp {
         sglt2iMode: 'SPAQI',
         a1cOver8: null,
         prolongedFasting: null,
+        prolongedFasting24h: null,
         surgeryOver3h: null,
         sglt2iDoseTime: null,
         dkaHistory: null,
@@ -2368,8 +2393,11 @@ class PerioperativeDMApp {
     // The >12 h carbohydrate-fast question forces a hold in every branch, so it must
     // be answered rather than silently defaulting to no-trigger. Surgery >3 h and A1c
     // may be left blank; both default to no trigger by decision (2026-07-31).
-    if (this.state.details.sglt2iMode === 'SPAQI' && hasAnySGLT2i(this.state.selected) && this.state.details.prolongedFasting === null) {
-      alert('Answer the question about more than 12 hours without carbohydrate intake before generating instructions. It determines whether the SGLT2 inhibitor is held.');
+    // A patient without diabetes is asked about 24 h instead (Mark, 2026-09-24).
+    const noDiabetes = this.state.context.dmType === 'noDM';
+    const fastAnswer = noDiabetes ? this.state.details.prolongedFasting24h : this.state.details.prolongedFasting;
+    if (this.state.details.sglt2iMode === 'SPAQI' && hasAnySGLT2i(this.state.selected) && (fastAnswer === null || fastAnswer === undefined)) {
+      alert(`Answer the question about more than ${noDiabetes ? 24 : 12} hours without carbohydrate intake before generating instructions. It determines whether the SGLT2 inhibitor is held.`);
       return false;
     }
     // Dose time of day is what makes a stop DATE computable. Without it a held
@@ -2651,7 +2679,7 @@ class PerioperativeDMApp {
           <div class="evidence-strip">
             ${details.sglt2iMode === 'FDA'
               ? '<strong>FDA/ADA Default:</strong> Hold canagliflozin, dapagliflozin, and empagliflozin at least 3 days; ertugliflozin at least 4 days before elective surgery. No minor-procedure or colonoscopy continuation exception in this mode.'
-              : '<strong>SPAQI (2026) — risk-stratified:</strong> Continue for minor procedures/colonoscopy (any patient); major noncardiac surgery (T2DM and non-diabetic); and cardiac surgery in non-diabetics and in T2DM with heart failure or CKD. Hold for type 1 diabetes; ketogenic/very-low-carb diet or bariatric surgery; and cardiac surgery in T2DM without heart failure or CKD. Any of the following forces a hold regardless of the above: anticipated >12 h without carbohydrate, expected surgery >3 h, current insulin use, history of DKA, or most recent A1c >8% — the latter four are institutional criteria with no SPAQI recommendation number. Any of these four questions left blank - A1c, expected surgical duration, ketogenic diet, history of DKA - is treated as not present and permits continuation; the clinician view lists whichever were left blank. For a patient co-treated with a GLP-1 RA or tirzepatide having major noncardiac or cardiac surgery, a fasting cutoff earlier than 2 h before arrival satisfies the >12 h trigger on its own, whatever is answered here.'}
+              : '<strong>SPAQI (2026) — risk-stratified:</strong> Continue for minor procedures/colonoscopy (any patient); major noncardiac surgery (T2DM and non-diabetic); and cardiac surgery in non-diabetics and in T2DM with heart failure or CKD. Hold for type 1 diabetes; ketogenic/very-low-carb diet or bariatric surgery; and cardiac surgery in T2DM without heart failure or CKD. Any of the following forces a hold regardless of the above: anticipated >12 h without carbohydrate, expected surgery >3 h, current insulin use, history of DKA, or most recent A1c >8% — the latter four are institutional criteria with no SPAQI recommendation number. For a patient without diabetes the window is 24 h, and neither surgery length nor a GLP-1 fasting cutoff holds. Any of these four questions left blank - A1c, expected surgical duration (not asked for a patient without diabetes), ketogenic diet, history of DKA - is treated as not present and permits continuation; the clinician view lists whichever were left blank. For a patient co-treated with a GLP-1 RA or tirzepatide, at any surgery type except colonoscopy, a fasting cutoff earlier than 2 h before arrival satisfies the >12 h trigger on its own, whatever is answered here (not for a patient without diabetes).'}
           </div>
           ${details.sglt2iMode === 'SPAQI' ? `
             <hr class="divider">
@@ -2668,6 +2696,16 @@ class PerioperativeDMApp {
               </div>
             </div>
             <hr class="divider">
+            ${this.state.context.dmType === 'noDM' ? `
+            <div class="question" style="font-size:14px;">Do you anticipate this patient will go more than 24 hours without carbohydrate intake at any point around surgery, including after the procedure until they resume eating or drinking carbohydrates? <span style="font-size:12px;font-weight:400;color:var(--dim2)">(no diabetes: 24 h, not 12 h; surgery length and a GLP-1 fasting cutoff do not trigger a hold)</span></div>
+            <div class="btn-row">
+              <div class="check-label ${details.prolongedFasting24h===true?'selected':''}" onclick="window.app.updateDetails('prolongedFasting24h',true)">
+                <span class="custom-radio"></span> Yes
+              </div>
+              <div class="check-label ${details.prolongedFasting24h===false?'selected':''}" onclick="window.app.updateDetails('prolongedFasting24h',false)">
+                <span class="custom-radio"></span> No
+              </div>
+            </div>` : `
             <div class="question" style="font-size:14px;">Do you anticipate this patient will go more than 12 hours without carbohydrate intake at any point around surgery, including after the procedure until they resume eating or drinking carbohydrates? <span style="font-size:12px;font-weight:400;color:var(--dim2)">(NPO/poor intake well beyond the day of surgery)</span></div>
             <div class="btn-row">
               <div class="check-label ${details.prolongedFasting===true?'selected':''}" onclick="window.app.updateDetails('prolongedFasting',true)">
@@ -2686,7 +2724,7 @@ class PerioperativeDMApp {
               <div class="check-label ${details.surgeryOver3h===false?'selected':''}" onclick="window.app.updateDetails('surgeryOver3h',false)">
                 <span class="custom-radio"></span> No
               </div>
-            </div>
+            </div>`}
             <hr class="divider">
             <div class="question" style="font-size:14px;">When does the patient take their SGLT2 inhibitor?</div>
             <div class="btn-row">
@@ -3645,7 +3683,7 @@ class PerioperativeDMApp {
       patient: { firstName: '', lastName: '', dob: '', arrivalTime: '', surgeryDate: '' },
       context: { dmType: null, surgeryType: null, surgeryTiming: null, hasHF: null, hasCKD: null, arrivalTime: '', surgeryDate: '' },
       selected: new Set(),
-      details: { sglt2iMode: 'SPAQI', a1cOver8: null, prolongedFasting: null, surgeryOver3h: null, sglt2iDoseTime: null, dkaHistory: null, ketoDiet: null, eGFR: '', contrastWithin48h: null, giSymptoms: null, glp1NpoCutoff: 'midnight', insulinDetails: {} },
+      details: { sglt2iMode: 'SPAQI', a1cOver8: null, prolongedFasting: null, prolongedFasting24h: null, surgeryOver3h: null, sglt2iDoseTime: null, dkaHistory: null, ketoDiet: null, eGFR: '', contrastWithin48h: null, giSymptoms: null, glp1NpoCutoff: 'midnight', insulinDetails: {} },
     };
     this.render();
   }

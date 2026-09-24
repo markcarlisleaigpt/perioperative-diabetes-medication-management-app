@@ -3,7 +3,7 @@
 **Scope of this document:** SGLT2 inhibitor pathway, WEB app. Extensible to other drug classes later.
 **Status:** implemented on branch `design-mission-mcc`; not promoted to production.
 **Decision-maker:** Mark Carlisle, MD. Every entry below was decided by him; nothing here is an assistant inference unless explicitly marked.
-**Last updated:** 2026-08-11
+**Last updated:** 2026-09-24 (section 13)
 
 ## How to read this
 
@@ -18,7 +18,8 @@ Where the source is silent, that is stated rather than papered over.
 ## Primary source
 
 `G:\My Drive\PCMD\Projects\Perioperative-Diabetes-App\Source-Articles\`
-- `British Journal of Anaesthesia - article in press (1).pdf` — Oprea et al., SPAQI consensus. R1–R10 Box on p.12; Figure 2 reproduced p.18.
+- `British Journal of Anaesthesia - article in press (1).pdf` — Oprea et al., SPAQI consensus. R1–R10 Box on p.12; Figure 2 reproduced p.18. **Final citation: Br J Anaesth 2026;136:1776–99, doi 10.1016/j.bja.2026.02.031** (given by the Garcia editorial; page numbers in this record refer to the in-press copy).
+- `Haziri 2026 BJA 137-440 ...pdf` and `Garcia 2026 BJA 137-413 ...pdf` — supporting evidence added 2026-09-24; see section 13.
 - `SGLT2 SPAQI Algorithm Part 1.jpg.pdf` — Figure 2 panels a, b.
 - `SGLT2 SPAQI Algorithm Part 2.jpg.pdf` — Figure 2 panels c, d.
 
@@ -83,6 +84,8 @@ Hold if either universal trigger below fires.
 
 For non-diabetics the source says *consider* stopping on anticipated prolonged fasting (**R4**); we harden "consider" into a hold. Minor conservative departure.
 
+> **SUPERSEDED IN PART 2026-09-24 (Mark) - see section 13.** A patient without diabetes is now asked about a **24 h** carbohydrate-free window, not 12 h, and the >3 h and GLP-1 cutoff triggers no longer apply to them. The hold on a Yes is still the hardened R4 in major noncardiac surgery, and institutional elsewhere.
+
 **HF/CKD status must still be collected** even though it does not change the output in this branch — it is the entire branch condition for cardiac surgery, and the correct R-number (R1 vs R2) cannot be emitted without it.
 
 ---
@@ -130,6 +133,8 @@ window stops being a judgment call: their own fasting cutoff settles it.
 | 6 h before arrival | **Trigger satisfied - HOLD** |
 | 4 h before arrival | **Trigger satisfied - HOLD** |
 | 2 h before arrival | No automatic trigger; the clinician's answer decides, as for everyone else |
+
+> **SUPERSEDED 2026-09-24 (Mark) - see section 13.** The scoping below was widened: the trigger now applies at minor procedures as well as major noncardiac and cardiac surgery (bariatric is a fixed hold anyway), for patients with diabetes (or unrecorded status) only. Colonoscopy stays exempt, now for a different reason (13a). The arithmetic below assumed the last carbohydrate is taken AT the cutoff and an early slot; the sheet tells the patient not to set an alarm or stay up, so a midnight cutoff before a noon minor case is about 16 h. Kept for the record.
 
 **Scoped to major noncardiac, cardiac and bariatric surgery (clinical review, 2026-08-13).**
 As first written the rule had no surgery-type condition, so it held minor-procedure and
@@ -180,6 +185,8 @@ Verified across all five cutoffs, both diabetes statuses, and both provenance br
 **Independent trigger:** either 2a or 2b holds. They are not redundant in practice — a 3.5-hour case with normal postoperative diet trips 2b but not 2a.
 
 Generated text must **never** cite R7 for a hold.
+
+**Not for a patient without diabetes (Mark, 2026-09-24).** The 24 h window replaces it for that group; the question is not shown to them. Kept for everyone else when Mark reviewed it on 2026-09-22 ("there is reason for it") - the rationale above, avoiding monitoring the institution does not provide.
 
 ### 2c. Risk-factor holds — INSTITUTIONAL EXTENSION
 
@@ -2083,6 +2090,157 @@ least 13 characters per line, which nothing here approaches.
 Rendered samples of all three, with the builder that regenerates them, are committed at
 `Patient-Sheet-Samples\`. They are in the project deliberately: session scratchpads do not
 persist and these samples were lost twice.
+
+## 13. Decisions of 2026-09-24 (Mark), after two new papers
+
+Asked one at a time, all collected before any edit. Sources: Haziri et al., *Perioperative
+discontinuation of SGLT2 inhibitors and cardiac complications after noncardiac surgery*, Br J
+Anaesth 2026;137:440-9 (Basel cohorts, 451 patients, 90-day heart failure or CV death 1.7%
+continued vs 11.5% held >=3 days, adjusted OR 1.58 per day held; observational, 31 events); and
+Garcia, Dixit, Legrand, *Balancing the evidence with the SPAQI recommendations*, Br J Anaesth
+2026;137:413-9 (editorial, no new data). Both in Source-Articles.
+
+### 13a. GLP-1 or tirzepatide cutoff earlier than 2 h holds at minor procedures too - BUILT
+
+Mark: "hold for everyone if cutoff earlier than 2 hours". Removes the 2026-08-13 scoping to
+major noncardiac, cardiac and bariatric (section 2a). Why the scoping was wrong: only the 2 h
+eating-and-drinking branch schedules a timed carbohydrate drink. The 4, 6, 8 h and midnight
+branches say "your last drink before you stop - make that one a carbohydrate drink too. Do not
+set an alarm or stay up for it", so the last carbohydrate is realistically about 22:00. Midnight
+cutoff, noon minor case: about 16 h. Midnight cutoff, 09:00 case: about 13 h. An 8 h cutoff works
+only when it falls in the evening (07:30 arrival, 23:30 cutoff, about 11.5 h), which depends on
+an optional arrival time; Mark chose the single rule. The clinician override covers the early
+case that would have been fine. **Diabetic patients (and unrecorded diabetes status) only** - see
+13b.
+
+**Colonoscopy is NOT included (Mark, 2026-09-24, on the clinical review of this build).** As first
+built the rule reached colonoscopy too, and the review (MEDIUM) found that there it depends on a
+field that means nothing: a colonoscopy sheet follows the bowel prep, never issues the GLP-1
+cutoff, and never schedules a timed drink whatever the cutoff. The default (midnight) held every
+co-treated colonoscopy patient; a clinician who picked 2 h continued the same patient. Offered:
+always hold, or never auto-hold. **Mark: never auto-hold** - the clinician's 12 h answer decides,
+as for an SGLT2-only colonoscopy patient, and the prep-day carbohydrate line keeps the window
+short. Net effect of 13a: minor procedures only; major noncardiac and cardiac already had it.
+
+**Evidence weighed against (clinical review, recorded at its request):** SPAQI p.9 cites Ramadan
+data (fasting 12-16 h daily for a month) as reassurance about fasting on an SGLT2i, and Haziri
+associates each day held with more heart failure or CV death (observational, major surgery).
+Holding a minor-procedure patient 72 h over a 13-16 h fast is the conservative choice for
+ketoacidosis and not a free one.
+
+### 13b. Patients without diabetes: 24 h, and nothing else except diet - BUILT
+
+A patient without diabetes holds ONLY for a ketogenic / very-low-carbohydrate diet or bariatric
+surgery (unchanged), or an anticipated **>24 h** carbohydrate-free window, before and after
+surgery combined. The 24 h question REPLACES, for this group, the 12 h question, the >3 h
+trigger and the GLP-1 cutoff trigger (Mark: "use 24 hours for non-diabetics, it replaces the
+other two"). A separate field (`prolongedFasting24h`) so an answer never changes meaning if
+the diabetes type is edited after it was given. Insulin use, A1c >8 and DKA history are left as
+built; they describe a diabetic patient.
+
+**Basis, SPAQI pp.15-16 (the in-press copy):** patients without diabetes taking SGLT2is for
+cardiorenal indications "are at negligible risk of eDKA"; no cases in the non-diabetic cohorts
+of DAPA-HF, EMPEROR-Reduced or EMPEROR-Preserved; none in DAPA-CKD participants with
+normoglycaemia or prediabetes; one in EMPA-KIDNEY, "starving due to a medical illness"; and
+**"All case reports of eDKA in patients with HF without diabetes mellitus have poor oral intake
+or prolonged preoperative fasting (>24 h) as a common denominator."** The panel continues them
+for all surgery except bariatric. Garcia adds one event in about 30,000 patient-years without
+diabetes (Baigent, Lancet 2022). Haziri's authors speculate that stopping is "likely even worse" in this group; their cohort was 89.6% diabetic with no subgroup analysis, so this is their opinion, not a finding.
+
+**What this goes beyond (clinical review 2026-09-24, HIGH, accepted as a labelling fix).** The
+Box scopes R1 to patients "not expected to fast from carbohydrates >12 h preoperatively", and
+that limb explicitly covers "major noncardiac or cardiac surgery, if no T2DM". R7b recommends
+intraoperative eDKA monitoring for "major noncardiac surgery >3 h, who fast from carbohydrates
+>12 h, if no T2DM (E)", which the >3 h hold used to cover. (Figure 2 panel b, column without
+T2DM, prints "No routine monitoring" at that step, so the figure and the Box disagree.) A patient
+without diabetes expected to fast 12-24 h is therefore continued beyond what the Box states. The
+decision stands (Mark); the clinician view now says so in a flag on every continuing card for a
+patient without diabetes, rather than letting "R1" imply SPAQI endorses it. Worked case from the
+review: heart failure, no diabetes, empagliflozin plus semaglutide, midnight cutoff, 4 h
+hemicolectomy at 13:00 - about 15 h fasting before surgery, about 20 h before food - continues.
+
+**What 24 h is and is not.** It sits below every reported case. It is NOT a measured threshold:
+the cases are a handful of reports, and no source compares ketoacidosis risk against heart
+failure risk by hours fasted. 24 h was chosen over 30-36 h (Mark's reasoning that the reported
+cases' total window was longer than their >24 h preoperative fast) because nothing beyond 24 h
+is in the source text. Measured, like 12 h, over the combined pre- and postoperative window,
+which is stricter than SPAQI's preoperative phrasing.
+
+**No monitoring or handover line** (Mark): post-operative teams are not expected to recognise a
+rising anion gap as eDKA. **Caveat recorded:** SPAQI ref 118 (Hoque et al., Perioper Med 2025,
+PMID 40616115; from the abstract, full text not read) - an 82-year-old without diabetes, on
+empagliflozin for heart failure, held it 72 h before a planned bowel resection and was found
+INTRAOPERATIVELY to have profound metabolic acidosis with normal glucose and raised
+beta-hydroxybutyrate. So a 72 h hold did not prevent it, and it surfaced before any
+postoperative fast: the preoperative period - bowel preparation and restricted intake - is where
+this case points. (Corrected on clinical review; the first draft of this entry said "afterwards"
+and blamed the postoperative fast.)
+
+### 13c. Bariatric patients on other classes are not asked the surgery type - ACCEPTED TENSION
+
+The After Surgery renderer reads `ctx.surgeryType` for every oral and insulin class, but
+`CONTEXT_NEEDS` asks it only for SGLT2, GLP-1, tirzepatide, DPP-4 and basal insulin. So a
+bariatric patient on metformin, a sulfonylurea, meglitinide, TZD, AGI, mealtime or premixed
+insulin, or a pump, with no other selected drug that asks it, receives the non-bariatric restart
+wording ("start taking these medicines again ... when you are eating and drinking normally")
+instead of "your bariatric team decides". Offered: add `surgeryType` to those eight entries.
+**Mark: leave as is.** Recorded so it is not raised again as new. (The earlier open item that
+the surgery-type question could be removed for basal insulin was WRONG: the basal sheet carries
+a bariatric insulin line.)
+
+### 13d. SPAQI R9 post-operative monitoring is not carried out - ACCEPTED DEPARTURE
+
+R9: monitor for eDKA until normal oral intake in every patient with T2DM continuing through
+major noncardiac surgery. ABSMC does not. Offered: hold T2DM without HF or CKD for major surgery
+(within SPAQI, since R2 is only "consider continuing"), or hold every T2DM patient except for
+minor procedures and colonoscopy. **Mark: keep as built.** His reasoning: the combined 12 h
+window, plus the >3 h, insulin, A1c >8 and DKA-history holds, leave only low-risk patients who
+resume carbohydrate within hours, close to SPAQI's own no-labs group (p.17: ambulatory patients
+without PONV who are eating normally). **The gap, stated:** SPAQI's R1 and R2 already assume no
+fast over 12 h and still pair continuation with R9, because surgical stress is a risk factor in
+its own right (p.9). The recovery that does not go to plan - ileus, PONV, a complication - is
+unmonitored in hospital (Snel 2026: median onset day 2). After discharge the sheet covers it
+(symptom warnings; stop the drug if unable to eat or keep fluids down).
+
+### 13e. Confirmed as built, no change
+
+- **Insulin use holds at every surgery type.** Its source is SPAQI Figure 2 footnote a -
+  "Consider for patient with T2DM who had: prolonged fasting for carbohydrates >12 h, <50 g
+  carbohydrate diet, history of insulin use or DKA, or HbA1c >8%" - attached to the
+  DAY-OF-SURGERY box "No routine monitoring for eDKA" (and, for minor procedures, the
+  intraoperative box). It is a "consider testing" criterion, not a post-operative rule and not a
+  hold; section 2c already records the transformation into a hold, for the same reason as today:
+  ABSMC does not test. Mark had recalled it as a post-operative ketone rule; corrected from the
+  figure.
+- **Symptom warnings go to every SGLT2 patient, held or continued.** Mark's written summary said
+  "for anyone who continues"; kept as built because the ketosis tendency persists after a hold
+  (Garcia; Tallarico, JAMA Surg 2025), and the Hoque case above shows a 72 h hold does not remove it.
+- **Ambulatory surgery stays under major noncardiac** (the 2026-08-18 decision), although SPAQI
+  groups "low-risk or ambulatory procedures" with minor (pp.9, 17) and Garcia reads SPAQI the same
+  way. With 13a and 13b every trigger applies in both categories, so for SGLT2 it mostly changes
+  the R-number printed; moving it would change the DPP-4, GLP-1 and Soliqua cards.
+
+### 13f. Verification of the build
+
+A 138,240-scenario grid (diabetes type including unrecorded, surgery type, HF, CKD, risk
+factors, both fasting answers, surgery length, ketogenic diet, GLP-1 cutoff, and SGLT2i alone /
+with semaglutide / with tirzepatide / with glargine) was run on the committed code and on the
+build. Every SGLT2i badge was checked against a rule written from Mark's decisions rather than
+from the code: zero disagreements. Every changed scenario fell in the two intended groups, and
+no other card's output changed in any scenario. `sweep.js` now sweeps patients without diabetes
+(42,120 scenarios) and asserts all three rules; each was mutation-tested after the colonoscopy
+decision (restoring the major/cardiac-only scoping: 1,296 failures; removing the non-diabetic
+exemption: 3,888; removing the colonoscopy exemption: 1,296).
+
+**Clinical review of the build, 2026-09-24: nothing blocking.** One HIGH (the R1 citation for a
+patient without diabetes fasting 12-24 h - fixed as a labelling note, 13b), three MEDIUM (the
+colonoscopy cutoff dependence - decided by Mark, 13a; the clinician note paraphrasing the SPAQI
+24 h sentence too broadly - now quoted verbatim with its heart-failure scope; the Hoque case
+timing - corrected, 13b), two LOW (summary strip; Haziri speculation labelled). The reviewer
+also noted Android runs an older SGLT2 model (holds T2DM major and cardiac by default) and has
+none of this - out of scope by Mark's standing decision, recorded in the handoff.
+
+**Second clinical review, 2026-09-24, of the fixes: safe to ship.** Confirmed every fix, including a co-treated T2DM colonoscopy patient who answers the 12 h question Yes still holding, and the continuing co-treated colonoscopy sheet being consistent. Three wording items, fixed before commit: the new flag for a patient without diabetes now names every trigger that still applies to them (insulin, A1c >8, DKA history) and carries the R7b clause only for major noncardiac surgery (for cardiac it contradicted the card's own monitoring text); a stale code comment corrected.
 
 ## Open items
 

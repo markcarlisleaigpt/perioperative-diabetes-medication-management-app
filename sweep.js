@@ -89,7 +89,10 @@ const TIMINGS = ['AM', 'PM'];
 // The app's canonical values. 'type1'/'type2' match NEITHER branch of
 // `isT1 = dmType === 'T1DM' || !dmType`, so this axis swept nothing at all until
 // 2026-08-18 - the same class of error the surgeryType comment above warns about.
-const DM_TYPES = ['T1DM', 'T2DM'];
+// 'noDM' added 2026-09-24: a patient without diabetes has had its own SGLT2i rule since
+// then (a 24 h window replacing the 12 h, >3 h and GLP-1 cutoff triggers), and until then
+// that whole population was unswept.
+const DM_TYPES = ['T1DM', 'T2DM', 'noDM'];
 // '' is the not-entered case, which must apply the conservative metformin hold.
 // The rest straddle every eGFR threshold in the app: 30, 45, and above.
 const EGFRS = ['', '25', '35', '50', '60', '90'];
@@ -314,14 +317,41 @@ const SET_ASSERTIONS = [
       // outside that branch would fail on scenarios where its absence is correct.
       if (scenario.dmType !== 'T2DM') return null;
       // Bariatric is a FIXED hold too (isFixedHold covers T1DM, ketogenic diet and
-      // bariatric), so it never evaluates the fasting trigger either.
-      if (!['majorNoncardiac', 'cardiac'].includes(scenario.surgeryType)) return null;
+      // bariatric), so it never evaluates the fasting trigger either. Minor, major and
+      // cardiac are asserted: since 2026-09-24 the trigger applies at minor
+      // procedures as well (Mark - only the 2 h cutoff schedules a carbohydrate drink).
+      // Colonoscopy is exempt: that sheet follows the prep and never issues the cutoff, so
+      // the clinician's 12 h answer decides there (Mark, 2026-09-24, on clinical review).
+      if (scenario.surgeryType === 'bariatric') return null;
       const sglt2i = results.find(c => c.id === 'sglt2i');
       if (!sglt2i) return null;
       const prov = JSON.stringify(sglt2i.provenance || {});
+      if (scenario.surgeryType === 'colonoscopy') {
+        return /satisfied by GLP-1 or tirzepatide co-treatment/.test(prov)
+          ? 'colonoscopy: the GLP-1 cutoff trigger fired, but a colonoscopy sheet never issues that cutoff'
+          : null;
+      }
       if (!/satisfied by GLP-1 or tirzepatide co-treatment/.test(prov)) {
         return 'SGLT2i provenance does not declare the incretin co-treatment trigger';
       }
+      return null;
+    },
+  },
+  {
+    name: 'a patient without diabetes is never held by the GLP-1 fasting cutoff',
+    // Mark, 2026-09-24: for a patient without diabetes the 24 h window REPLACES the 12 h
+    // question, the >3 h trigger and the GLP-1 cutoff trigger. This sweep fixes the cutoff
+    // at midnight, so a co-treated patient without diabetes is exactly the case that would
+    // show the incretin trigger if the exemption were lost.
+    check(results, scenario) {
+      if (scenario.dmType !== 'noDM') return null;
+      const sglt2i = results.find(c => c.id === 'sglt2i');
+      if (!sglt2i) return null;
+      const prov = JSON.stringify(sglt2i.provenance || {});
+      // Only the GLP-1 half is exercised here: the sweep fixes surgeryOver3h to null and the
+      // fasting answers to false, so a surgery-length or 12 h check could never fire and would
+      // be decoration. Those two were verified by a separate 138,240-scenario grid on 2026-09-24.
+      if (/satisfied by GLP-1 or tirzepatide co-treatment/.test(prov)) return 'noDM: the GLP-1 cutoff trigger fired';
       return null;
     },
   },
@@ -377,7 +407,7 @@ function run() {
   }
   // An enum the app does not recognise sweeps nothing while still reporting PASS.
   for (const dm of DM_TYPES) {
-    if (dm !== 'T1DM' && dm !== 'T2DM') throw new Error(`DM_TYPES contains "${dm}" - the app tests 'T1DM'/'T2DM'`);
+    if (dm !== 'T1DM' && dm !== 'T2DM' && dm !== 'noDM') throw new Error(`DM_TYPES contains "${dm}" - the app tests 'T1DM'/'T2DM'/'noDM'`);
   }
   if (!DRUG_DB.basalInsulin.drugs.some(d => d.id === COMBO_PEN)) {
     throw new Error(`${COMBO_PEN} not found in basalInsulin - drug id renamed?`);
