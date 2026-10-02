@@ -139,7 +139,26 @@ const TIMED_DRINK = /8 to 12 ounces/i;
 // The fixed-ratio pen's card id.
 const PEN_CARD = () => 'basal-' + COMBO_PEN;
 
+// Development history that must never reach a reader: a person's name, a dated
+// decision, a review note, or a remark about what the clinic used to do. These belong
+// in commit messages and source comments, not in anything a clinician or patient sees.
+const DEV_NOTES = /\bMark\b|\b20\d\d-\d\d-\d\d\b|[Cc]linical review|[Nn]ew practice|does not currently|decision record|before-bed escape/;
+
+function strings(value, out = []) {
+  if (typeof value === 'string') out.push(value);
+  else if (Array.isArray(value)) value.forEach(v => strings(v, out));
+  else if (value && typeof value === 'object') Object.values(value).forEach(v => strings(v, out));
+  return out;
+}
+
 const ASSERTIONS = [
+  {
+    name: 'no rendered text carries development notes (names, dates, review history)',
+    check(card) {
+      const hit = strings(card).find(s => DEV_NOTES.test(s));
+      return hit ? `"${hit.match(DEV_NOTES)[0]}" in: ${hit.slice(0, 160)}` : null;
+    },
+  },
   {
     name: 'the pen card never carries a hold-suggesting flag',
     // The GI-symptom flag from getGLP1Disposition says 'consider holding medication'.
