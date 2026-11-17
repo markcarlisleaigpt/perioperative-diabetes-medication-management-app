@@ -38,6 +38,16 @@ body::before {
     repeating-linear-gradient(90deg, rgba(79,195,247,.025) 0 1px, transparent 1px 48px);
 }
 .container { max-width:680px; margin:0 auto; padding:16px; min-height:100vh; position:relative; z-index:1; }
+/* The column was built for a phone and capped at 680px, so on a clinic monitor it sat as
+   a narrow strip of phone-sized type. On wide screens the whole column is scaled up -
+   width and type together, so line length stays readable. Screen only: phones and the
+   printed sheet are untouched. min-height is divided back so the page does not scroll. */
+@media screen and (min-width: 1100px) {
+  .container { zoom:1.25; min-height:calc(100vh / 1.25); }
+}
+@media screen and (min-width: 1500px) {
+  .container { zoom:1.45; min-height:calc(100vh / 1.45); }
+}
 @keyframes fadeInUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
 @keyframes slideDown { from{opacity:0} to{opacity:1} }
 /* ===== HEADER — console masthead ===== */
@@ -524,14 +534,14 @@ const DRUG_DB = {
     drugs: [
       { id: 'glargine-u100', name: 'Glargine U-100', brand: 'Lantus / Basaglar / Semglee / Rezvoglar', needsDosingTime: true, needsFrequency: true },
       { id: 'glargine-u300', name: 'Glargine U-300', brand: 'Toujeo', needsDosingTime: true, needsFrequency: true, concentrated: true, concentratedNote: 'Extended duration >36h — morning of dose reductions persist longer than standard glargine.' },
-      { id: 'detemir', name: 'Detemir', brand: 'Levemir', needsFrequency: true },
+      { id: 'detemir', name: 'Detemir', brand: 'Levemir', needsDosingTime: true, needsFrequency: true },
       // Duration is NOT concentration. U-100 degludec is not concentrated, but it has the
       // same ~42h effective duration as the U-200 pen below, and the same consequence:
       // a reduction persists well past the day it is given. Flagged separately so the
       // note does not require falsely marking the drug concentrated (Mark, 2026-08-18).
       { id: 'degludec-u100', name: 'Degludec U-100', brand: 'Tresiba', needsDosingTime: true, needsFrequency: true, durationNote: 'Effective duration ~42h — dose reductions persist longer than standard basal analogs.' },
       { id: 'degludec-u200', name: 'Degludec U-200', brand: 'Tresiba FlexTouch', needsDosingTime: true, needsFrequency: true, concentrated: true, concentratedNote: 'Same units as U-100 degludec; effective duration ~42h.' },
-      { id: 'nph', name: 'NPH Insulin', brand: 'Humulin N / Novolin N', isNPH: true, needsFrequency: true },
+      { id: 'nph', name: 'NPH Insulin', brand: 'Humulin N / Novolin N', isNPH: true, needsDosingTime: true, needsFrequency: true },
       // Fixed-ratio insulin/GLP-1 combination. Filed under basalInsulin because the pen is
       // dosed in INSULIN UNITS and the dose machinery lives here; the GLP-1 half is carried
       // by getInsulinGLP1ComboCard() below. minDose/maxDose are the pen's deliverable range
@@ -606,6 +616,28 @@ function pctOrUnits(base, lo, hi, pctLo, pctHi) {
 function halfDose(base) {
   if (!base || isNaN(base) || base <= 0) return null;
   return `${round(base * 0.5)} units`;
+}
+// A typed dose of 0 or less is treated as not entered. dosePct() returns null for it, and
+// the callers that only tested isNaN() printed the word "null" where a dose belongs.
+function doseNum(v) {
+  const n = parseFloat(v);
+  return n > 0 ? n : NaN;
+}
+// The day before surgery is a CLEAR LIQUID day, not a day of meals, for two groups: anyone
+// issued the 24 h clear liquid diet (a GLP-1 RA, tirzepatide, or a fixed-ratio insulin/GLP-1
+// pen), and anyone having a colonoscopy. The cards for mealtime insulin, premixed insulin,
+// sulfonylureas and meglitinides were written for a patient who eats normally until the fast
+// begins, so on that day they said nothing - or said "take your dinner dose WITH dinner" to
+// a patient the same sheet had put on clear liquids. No rule for that day is invented here:
+// the clinician is told the sheet does not cover it, and the one sentence that contradicted
+// the diet is made conditional on actually eating a meal.
+function clearLiquidDay(ctx, selected) {
+  return hasAnyIncretin(selected) || ctx.surgeryType === 'colonoscopy';
+}
+function clearLiquidDayFlag(ctx, selected, what) {
+  if (!clearLiquidDay(ctx, selected)) return null;
+  const why = ctx.surgeryType === 'colonoscopy' ? 'bowel preparation' : 'the 24 h clear liquid diet issued with the GLP-1 RA or tirzepatide';
+  return { type: 'warn', text: `CLEAR LIQUID DAY: this patient is on clear liquids rather than meals for about a day before arrival (${why}). The patient sheet does not adjust the ${what} taken during that day, and usual doses taken without meals carry a risk of hypoglycemia. This app applies no rule for that day: decide the doses and state them to the patient with Override.` };
 }
 function drugDisplayName(drug) {
   return `${drug.name} (${drug.brand})`;
@@ -821,6 +853,8 @@ function escapeRegExp(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 // Typed override text goes into innerHTML. Unescaped, "<low>" was parsed as a tag and the word
 // vanished from the printed sheet while still showing in the editor (clinical review 2026-09-19).
 function escHtml(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+// For text placed inside a double-quoted attribute, such as an input's value.
+function escAttr(s) { return escHtml(s == null ? '' : s).replace(/"/g, '&quot;'); }
 // Which way a clinician override points. Module scope: both applyOverrides() and the patient
 // sheet renderer read it, and every part of the sheet that varies by disposition must consult
 // this one table rather than test badges ad hoc - six review passes found that failure six times.
@@ -845,10 +879,14 @@ function linkifyGuidelines(text) {
 function flagLabel(t) { return t === 'alert' ? 'Alert' : t === 'info' ? 'Info' : 'Caution'; }
 
 // Renders numeric/dosing tokens (doses, targets, intervals, times) in IBM Plex Mono.
-const DATA_RE = /(?:POD\s?#?\d+)|(?:U-?\d{3})|(?<![A-Za-z][-\u2013]?)(?:\d[\d\u2013\-\/.,:]*\d|\d)(?:\s?(?:mg\/dL|mg|units?|days?|hours?|hrs?|h\b|%|AM|PM))?/g;
+// A number that follows a letter (optionally through a hyphen) is part of a name - GLP-1,
+// SGLT2, HbA1c, R3a, var(--dim2) - and is left alone. That is done by CAPTURING the letter
+// prefix and returning the match untouched, not with a lookbehind: a lookbehind is a syntax
+// error before Safari 16.4, and a syntax error here stops the whole app from loading.
+const DATA_RE = /(?:POD\s?#?\d+)|(?:U-?\d{3})|([A-Za-z][-\u2013]?)?(?:\d[\d\u2013\-\/.,:]*\d|\d)(?:\s?(?:mg\/dL|mg|units?|days?|hours?|hrs?|h\b|%|AM|PM))?/g;
 function monoData(text) {
   if (!text) return text;
-  return text.replace(DATA_RE, (m) => `<span class="mono-data">${m}</span>`);
+  return text.replace(DATA_RE, (m, namePrefix) => namePrefix ? m : `<span class="mono-data">${m}</span>`);
 }
 // ================================================================
 // ALGORITHM FUNCTIONS
@@ -1139,7 +1177,7 @@ function getSGLT2iResults(ctx, details, selected) {
       const d = decisions.find(x => x.drug.id === drug.id);
       if (d && d.rec === 'continue' && comboComponentHolds(drug.combo)) {
         // SGLT2i continues but combo pill also has metformin/DPP4i which would hold
-        comboFlags.push(`COMBINATION PRODUCT: ${drug.name} (${drug.brand}) contains both ${drug.name} and ${drug.combo.filter(c => c !== 'sglt2i').join(' and ')}. Although the SGLT2 inhibitor component would normally continue in this scenario, the other component(s) should be held on the day of surgery. Since these cannot be separated, HOLD the entire ${drug.brand} pill on the morning of surgery. Discuss with the prescribing physician — they may wish to prescribe the components separately for the perioperative period.`);
+        comboFlags.push(`COMBINATION PRODUCT: ${drug.name} (${drug.brand}) contains both an SGLT2 inhibitor and ${drug.combo.filter(c => c !== 'sglt2i').map(c => ({ metformin: 'metformin', dpp4i: 'a DPP-4 inhibitor' })[c] || c).join(' and ')}. Although the SGLT2 inhibitor component would normally continue in this scenario, the other component(s) should be held on the day of surgery. Since these cannot be separated, HOLD the entire ${drug.brand} pill on the morning of surgery. Discuss with the prescribing physician — they may wish to prescribe the components separately for the perioperative period.`);
         d.rec = 'combo-continue-hold';
       } else if (d && drug.combo.includes('dpp4i')) {
         // SGLT2i+DPP-4 combination products are excluded from the DPP-4 card, so the
@@ -1208,6 +1246,9 @@ function getSGLT2iResults(ctx, details, selected) {
   // It was previously only defined inside getGLP1Results, so every SGLT2i HOLD
   // threw a ReferenceError.
   const arrivalTime = ctx.arrivalTime || '';
+  // "Now", for one question only: has the computed stop date already gone by? ctx.now lets
+  // a test fix the clock; the running app never sets it.
+  const now = ctx.now ? new Date(ctx.now) : new Date();
   // Generate instruction text
   decisions.forEach(({ drug, rec, holdDays }) => {
     const dName = `${drug.name} (${drug.brand})`;
@@ -1215,8 +1256,22 @@ function getSGLT2iResults(ctx, details, selected) {
       daysBefore = daysBefore || '';
       const stop = computeSglt2iStopDate(ctx.surgeryDate, arrivalTime, details.sglt2iDoseTime, holdDays * 24);
       const dosedAt = details.sglt2iDoseTime === 'evening' ? 'evening dosing assumed 20:00' : 'morning dosing assumed 06:00';
+      // The sheet is often printed inside the hold window - a preoperative visit two days
+      // before a case that needs a three-day stop. The date arithmetic is still right, but
+      // "your last dose is Sunday" printed on a Tuesday tells the patient nothing they can
+      // act on and hides from the clinician that the interval may already be broken. The
+      // test is whether the FIRST dose to be skipped has come due: until then the patient
+      // has simply taken their last dose and nothing is wrong.
+      let stopPassed = false;
       if (stop && stop.lastDose) {
-        daysBefore += `HOLD ${dName}: last dose ${fmtDate(stop.lastDose)} (${details.sglt2iDoseTime}; ${dosedAt}). ${stop.daysSkipped ? `Skips ${stop.daysSkipped} dose${stop.daysSkipped === 1 ? '' : 's'} beforehand: ${fmtDayList(stop.skipped)}${stop.dayOfDoseSkipped ? ', plus the morning-of-surgery dose' : ''}. ` : (stop.dayOfDoseSkipped ? 'The morning-of-surgery dose is also skipped. ' : '')}At least ${holdDays*24} h (${holdDays} days) before the scheduled arrival time. `;
+        const firstSkip = new Date(stop.lastDose.getFullYear(), stop.lastDose.getMonth(), stop.lastDose.getDate() + 1, stop.lastDose.getHours(), 0, 0, 0);
+        stopPassed = now.getTime() >= firstSkip.getTime();
+      }
+      if (stopPassed) {
+        flags.push({ type: 'alert', text: `STOP DATE ALREADY PASSED: the last permissible dose of ${dName} was ${fmtDate(stop.lastDose)}, and a dose that should have been skipped has already come due. If the patient has taken it since then, the ${holdDays*24} h interval cannot be met for this surgery date. Establish when the last dose was actually taken, and decide with the surgical and anesthesia team how to proceed. This app does not adjust the plan for a shortened hold. The patient sheet tells the patient to stop now and to call the clinic if a dose was taken after that date.` });
+      }
+      if (stop && stop.lastDose) {
+        daysBefore += `HOLD ${dName}: last dose ${fmtDate(stop.lastDose)} (${details.sglt2iDoseTime}; ${dosedAt}). ${stop.daysSkipped ? `Skips ${stop.daysSkipped} dose${stop.daysSkipped === 1 ? '' : 's'} beforehand: ${fmtDayList(stop.skipped)}${stop.dayOfDoseSkipped ? ', plus the morning-of-surgery dose' : ''}. ` : (stop.dayOfDoseSkipped ? 'The morning-of-surgery dose is also skipped. ' : '')}At least ${holdDays*24} h (${holdDays} days) before the scheduled arrival time. ${stopPassed ? 'THIS DATE HAS ALREADY PASSED - see the alert on this card. ' : ''}`;
       } else {
         daysBefore += `HOLD ${dName}: last dose must be at least ${holdDays*24} hours before the scheduled arrival time. Counted as a strict clock, not calendar days. `;
         if (stop && stop.error === 'missing') {
@@ -1227,7 +1282,9 @@ function getSGLT2iResults(ctx, details, selected) {
           daysBefore += 'No calendar date is shown because no dose occurrence cleared the required interval from the recorded arrival time. Verify the surgery date and arrival time. ';
         }
       }
-      if (stop && stop.lastDose) {
+      if (stopPassed) {
+        patientDaysBefore = (patientDaysBefore || '') + `STOP taking ${dName} now. Your last dose needed to be on or before ${fmtDate(stop.lastDose)}, which is at least ${holdDays*24} hours (${holdDays} full days) before you arrive. Do not take it again before your surgery. If you have taken it after ${fmtDate(stop.lastDose)}, call the Preoperative Clinic as soon as you get these instructions. If your surgery date changes, call the clinic for new dates. `;
+      } else if (stop && stop.lastDose) {
         patientDaysBefore = (patientDaysBefore || '') + `STOP taking ${dName} several days before your surgery. Your last dose is ${fmtDate(stop.lastDose)}. ${stop.daysSkipped ? `Do NOT take it on ${fmtDayList(stop.skipped)}${stop.dayOfDoseSkipped ? ', and do not take it on the morning of surgery' : ''}. ` : (stop.dayOfDoseSkipped ? 'Do not take it on the morning of surgery. ' : '')}Your last dose needs to be at least ${holdDays*24} hours (${holdDays} full days) before you arrive, so if your surgery date changes, call the clinic for new dates. `;
       } else {
         patientDaysBefore = (patientDaysBefore || '') + `STOP taking ${dName} several days before your surgery. Your last dose must be at least ${holdDays*24} hours \u2014 that is ${holdDays} full days \u2014 before you arrive for surgery. `;
@@ -1485,7 +1542,12 @@ function getSGLT2iResults(ctx, details, selected) {
   // first is the SAME string as the variant above, not a copy, so the three cannot drift.
   const returnPrecautionsNeutralCont = `<ul class="ps-steps" role="list">`
     + (noSelfRestart
-      ? `<li><strong>Follow the instruction for this medicine printed above.</strong> After bariatric surgery your bariatric team, or the doctor who prescribes it, decides your diabetes medicines, so check with them before you change anything.</li>`
+      // noSelfRestart is bariatric surgery OR a ketogenic diet. The sentence named bariatric
+      // surgery for both, so a ketogenic-diet patient having some other operation was told
+      // about a bariatric team they do not have.
+      ? (sType === 'bariatric'
+        ? `<li><strong>Follow the instruction for this medicine printed above.</strong> After bariatric surgery your bariatric team, or the doctor who prescribes it, decides your diabetes medicines, so check with them before you change anything.</li>`
+        : `<li><strong>Follow the instruction for this medicine printed above.</strong> Because of the diet you follow, check with the doctor who prescribes it before you change anything.</li>`)
       : `<li><strong>Follow the instruction for this medicine printed above.</strong> If anything about it is unclear, or you are not sure what to do after surgery, ask the doctor who prescribes it. If your discharge instructions say something different, or a doctor told you after your surgery to stop it, follow that instead of this sheet.</li>`)
     + sickDayBullet
     + `<li><strong>Call the doctor who prescribes this medicine, or go to the emergency department</strong> — if you get stomach or belly pain, feel sick to your stomach, throw up, feel unusually weak or tired, feel generally unwell (even if it feels like the flu), or find yourself breathing fast or deeply. If you cannot reach them quickly, or you are getting worse, go to the emergency department.</li>`
@@ -1815,17 +1877,20 @@ function getSulfonylureResults(ctx, details, selected) {
   if (nightBeforeAgents.length) {
     const names = nightBeforeAgents.map(d => `${d.name} (${d.brand})`).join('; ');
     nightBeforeText = `HOLD the EVENING DOSE the night before surgery: ${names}. These long-acting agents have extended duration and holding the evening dose prevents nocturnal or early morning hypoglycemia.`;
-    patientNight = `SKIP your evening dose the night before surgery: ${names}. Do not take it that night.`;
+    patientNight = `SKIP any evening dose of ${names} the night before surgery. Do not take it that night.`;
   }
   if (morningAgents.length) {
     const names = morningAgents.map(d => `${d.name} (${d.brand})`).join('; ');
     morningText += `HOLD morning of surgery: ${names}. `;
-    patientMorning += `Do NOT take ${names} on the morning of surgery. `;
   }
   if (nightBeforeAgents.length) {
     morningText += 'Do not take any evening-hold agents on the morning of surgery either.';
-    patientMorning += 'Do not take any of your evening-held diabetes pills on the morning of surgery.';
   }
+  // One sentence naming every pill on the card. It used to say "your evening-held diabetes
+  // pills" for the long-acting agents, which is the app's own shorthand, not the patient's.
+  patientMorning = `Do NOT take ${drugs.map(d => `${d.name} (${d.brand})`).join(' or ')} on the morning of surgery.`;
+  const suClear = clearLiquidDayFlag(ctx, selected, 'sulfonylurea doses');
+  if (suClear) flags.push(suClear);
   if (timing === 'PM' && morningAgents.length) {
     flags.push({ type: 'warn', text: `PM surgery: ${morningAgents.map(d=>d.name).join(', ')} (short-acting sulfonylurea) — hold on morning of surgery regardless of breakfast. Risk of hypoglycemia if taken while eating less than usual.` });
   }
@@ -1860,6 +1925,8 @@ function getMeglitinideResults(ctx, details, selected) {
     morningOf = 'HOLD morning of surgery. Patient is NPO — no meal with which to pair dose.';
     patientMorning = 'Take this medication as usual through the day and night before surgery. Do NOT take it on the morning of surgery.';
   }
+  const megClear = clearLiquidDayFlag(ctx, selected, 'meglitinide doses');
+  if (megClear) flags.push(megClear);
   const evidence = 'Source: ADA Standards of Care 2026, section 16 perioperative practice point 4: metformin and other oral glucose-lowering agents should be held on the day of surgery or procedure. SAMBA Updated Consensus 2024. Short half-life (~1h) means lower hypoglycemia risk than sulfonylureas, but hold while NPO.';
   const resumption = 'Resume with first full meal postoperatively. No monitoring required for resumption.';
   return {
@@ -2062,8 +2129,8 @@ function getBasalInsulinResults(ctx, details, selected) {
     const dd = details.insulinDetails[drug.id] || {};
     const dosingTime = dd.dosingTime || (drug.needsDosingTime ? null : 'evening');
     const freq = dd.frequency || (drug.needsFrequency ? null : 'once');
-    const eveningDose = parseFloat(dd.eveningDose);
-    const morningDose = parseFloat(dd.morningDose);
+    const eveningDose = doseNum(dd.eveningDose);
+    const morningDose = doseNum(dd.morningDose);
     let nightBefore = '';
     let morningOf = '';
     let patientNight = '';
@@ -2085,14 +2152,25 @@ function getBasalInsulinResults(ctx, details, selected) {
     if (drug.isNPH) {
       // NPH — 50% reduction
       if (freq === 'once') {
+        // ONE dose a day, taken either in the evening or in the morning, and the card now
+        // asks which. It used to assume evening and, for PM surgery, ALSO issue "half your
+        // usual morning dose" - a second injection for a patient who takes one, read from a
+        // morning-dose field the once-daily form does not show (so a number typed under
+        // "twice daily" and then abandoned still printed). The single dose lives in
+        // eveningDose whichever time of day it is taken, as for the once-daily analogs.
         const dt = dosingTime || 'evening';
         const doseStr = isNaN(eveningDose) ? 'reduce by 50%' : `${dosePct(eveningDose, 50)} (50% of your usual ${eveningDose} units)`;
-        nightBefore = `REDUCE ${drug.name} (${drug.brand}) by 50% the night before surgery: ${doseStr}. NPH has a peak effect that can cause hypoglycemia while fasting.`;
-        morningOf = timing === 'PM'
-          ? `REDUCE morning dose by 50%: ${isNaN(morningDose) ? 'half your usual morning dose' : `${dosePct(morningDose, 50)}`}. Check blood glucose before administering.`
-          : `Do NOT take a separate morning NPH dose for AM surgery (unless on twice-daily regimen).`;
-        patientNight = `Take HALF of your usual ${drug.brand} dose tonight: ${isNaN(eveningDose) ? 'half your usual dose' : doseStr}.`;
-        patientMorning = timing === 'PM' ? `Take HALF your usual morning ${drug.brand}: ${isNaN(morningDose) ? 'half your usual morning dose' : `${dosePct(morningDose, 50)}`}.` : 'No separate morning NPH dose needed.';
+        if (dt === 'morning') {
+          nightBefore = null;
+          morningOf = `REDUCE ${drug.name} (${drug.brand}) by 50% on the morning of surgery (once-daily morning dosing): ${doseStr}. The dose on the morning before surgery is the usual dose, unchanged. NPH has a peak effect that can cause hypoglycemia while fasting. Check blood glucose before administering.`;
+          patientNight = null;
+          patientMorning = `Take HALF of your usual ${drug.brand} dose this morning: ${isNaN(eveningDose) ? 'half your usual dose' : doseStr}.`;
+        } else {
+          nightBefore = `REDUCE ${drug.name} (${drug.brand}) by 50% the night before surgery: ${doseStr}. NPH has a peak effect that can cause hypoglycemia while fasting.`;
+          morningOf = 'No morning NPH dose (once-daily evening dosing). Check blood glucose on admission.';
+          patientNight = `Take HALF of your usual ${drug.brand} dose tonight: ${isNaN(eveningDose) ? 'half your usual dose' : doseStr}.`;
+          patientMorning = 'No separate morning NPH dose needed.';
+        }
       } else {
         // NPH twice daily
         const evStr = isNaN(eveningDose) ? 'reduce by 50%' : `${dosePct(eveningDose, 50)} (half of your usual ${eveningDose} units)`;
@@ -2170,9 +2248,9 @@ function getBolusInsulinResults(ctx, details, selected) {
   const results = [];
   drugs.forEach(drug => {
     const dd = details.insulinDetails[drug.id] || {};
-    const bkfst = parseFloat(dd.breakfastDose);
-    const lunch = parseFloat(dd.lunchDose);
-    const dinner = parseFloat(dd.dinnerDose);
+    const bkfst = doseNum(dd.breakfastDose);
+    const lunch = doseNum(dd.lunchDose);
+    const dinner = doseNum(dd.dinnerDose);
     const flags = [];
     const isInhaled = drug.isInhaled;
     let morningOf, patientMorning, nightBefore = null, patientNight = null;
@@ -2188,7 +2266,17 @@ function getBolusInsulinResults(ctx, details, selected) {
       morningOf = `HOLD morning of surgery. ${drug.name} is a mealtime insulin — do NOT take while NPO. Administering without eating creates high risk of dangerous hypoglycemia.`;
       patientMorning = `Do NOT take ${drug.brand} (${drug.name}) on the morning of surgery. This is your mealtime insulin and is not safe to take when you are not eating.`;
     }
-    if (!isNaN(dinner)) {
+    if (clearLiquidDay(ctx, selected)) {
+      // The same sheet has this patient on clear liquids the evening before, so "take your
+      // dinner dose WITH dinner" contradicted it. Printed whether or not a dinner dose was
+      // entered, and conditional on a meal actually being eaten, because that is this card's
+      // own rule - mealtime insulin goes with a meal - and it stays true whatever the diet
+      // or the bowel preparation turns out to allow.
+      const dinnerUnits = !isNaN(dinner) ? ` (${dinner} units)` : '';
+      nightBefore = `Clear liquid day: the patient is told NOT to take the usual dinner dose${dinnerUnits} with clear liquids unless the clinic or their diabetes doctor has said to, and that the usual dinner dose may be taken only with an actual dinner. No dose for carbohydrate-containing clear liquids is given here; set one explicitly if it is wanted.`;
+      patientNight = `If you are on clear liquids the evening before surgery and not eating a meal, do NOT take your usual dinner dose of ${drug.brand}${dinnerUnits} unless the Preoperative Clinic or your diabetes doctor has told you to. If you do eat dinner, you may take your usual dinner dose with it. After dinner, do not take any more of this insulin.`;
+      flags.push(clearLiquidDayFlag(ctx, selected, 'breakfast and lunch mealtime insulin doses'));
+    } else if (!isNaN(dinner)) {
       nightBefore = `HOLD evening dinner dose the night before surgery if patient is stopping eating at midnight. If patient eats dinner as usual, take usual dinner dose (${dinner} units) with dinner, then no further doses.`;
       patientNight = `You may take your usual dinner dose of ${drug.brand} (${dinner} units) WITH dinner. After dinner, do not take any more of this insulin.`;
     }
@@ -2228,9 +2316,11 @@ function getPremixedInsulinResults(ctx, details, selected) {
   }
   drugs.forEach(drug => {
     const dd = details.insulinDetails[drug.id] || {};
-    const evDose = parseFloat(dd.eveningDose);
-    const amDose = parseFloat(dd.morningDose);
+    const evDose = doseNum(dd.eveningDose);
+    const amDose = doseNum(dd.morningDose);
     const flags = [...baseFlags];
+    const pmClear = clearLiquidDayFlag(ctx, selected, 'premixed insulin doses');
+    if (pmClear) flags.push(pmClear);
     // Largest reduction of the guideline band → one specific patient dose
     // (user decision 2026-07-05): T1 20%, T2 25%.
     const minReduct = isT1 ? 20 : 25;
@@ -2239,15 +2329,15 @@ function getPremixedInsulinResults(ctx, details, selected) {
     const nightEvStr = doseRange(evDose, minReduct, maxReduct);
     const nightEvLabel = nightEvStr ? `${nightEvStr} (reduced from your usual ${evDose} units)` : `reduce by ${reductPct}`;
     // Morning of surgery: reduce by 50%, hold if BG <120
-    const amHalfStr = !isNaN(amDose) ? `${dosePct(amDose, 50)} units (50% of usual ${amDose} units)` : '50% of your usual morning dose';
+    const amHalfStr = !isNaN(amDose) ? `${dosePct(amDose, 50)} (50% of usual ${amDose} units)` : '50% of your usual morning dose';
     const nightBefore = `REDUCE evening ${drug.name} (${drug.brand}) by ${reductPct}: ${nightEvLabel}.`;
     let morningOf, patientMorning;
     if (timing === 'PM') {
       morningOf = `PM surgery: If patient eating full breakfast, may take usual morning dose. If eating only a light breakfast or NPO, REDUCE morning dose by 50%: ${amHalfStr}. HOLD entirely if morning blood glucose <120 mg/dL — check BG before administering.`;
-      patientMorning = `IMPORTANT: Check your blood sugar before taking any insulin. If your blood sugar is below 120 mg/dL, do NOT take any morning insulin — call your surgical team. If eating a full breakfast, take your usual morning dose. If eating lightly or not at all: take only HALF your usual morning dose (${!isNaN(amDose) ? `${dosePct(amDose, 50)} units` : 'half your usual amount'}).`;
+      patientMorning = `IMPORTANT: Check your blood sugar before taking any insulin. If your blood sugar is below 120 mg/dL, do NOT take any morning insulin — call your surgical team. If eating a full breakfast, take your usual morning dose. If eating lightly or not at all: take only HALF your usual morning dose (${!isNaN(amDose) ? dosePct(amDose, 50) : 'half your usual amount'}).`;
     } else {
       morningOf = `REDUCE morning dose by 50%: ${amHalfStr}. HOLD entirely if morning blood glucose <120 mg/dL. Check blood glucose before administering.`;
-      patientMorning = `Check your blood sugar first. If below 120 mg/dL, do NOT take any insulin this morning and call your surgical team. If above 120 mg/dL, take HALF your usual morning dose of ${drug.brand}: ${!isNaN(amDose) ? `${dosePct(amDose, 50)} units` : 'half your usual morning amount'}.`;
+      patientMorning = `Check your blood sugar first. If below 120 mg/dL, do NOT take any insulin this morning and call your surgical team. If above 120 mg/dL, take HALF your usual morning dose of ${drug.brand}: ${!isNaN(amDose) ? dosePct(amDose, 50) : 'half your usual morning amount'}.`;
     }
     flags.push({ type: 'info', text: `Premixed insulin (${drug.brand}) contains both short-acting and intermediate-acting components. The short-acting component creates hypoglycemia risk while NPO — hence the 50% morning reduction. When in doubt, err toward holding entirely and managing with correctional insulin as needed.` });
     flags.push({ type: 'info', text: 'If the patient is admitted, premixed insulin is generally not preferred for inpatient glycemic management because meal timing and intake are variable. Consider conversion to a basal-bolus or basal-plus-correction regimen per hospital/endocrinology protocol.' });
@@ -2416,9 +2506,28 @@ class PerioperativeDMApp {
           alert(`Select a dosing frequency for ${drug.name} before continuing.`);
           return false;
         }
+        // A once-daily NPH dose is halved the night before OR on the morning of surgery,
+        // depending on when it is taken. Guessing puts the half-dose on the wrong day.
+        const t = (this.state.details.insulinDetails[drug.id] || {}).dosingTime;
+        if (f === 'once' && t !== 'morning' && t !== 'evening') {
+          alert(`Select when the patient takes ${drug.name} (evening or morning) before continuing.`);
+          return false;
+        }
       }
     }
     return true;
+  }
+  // The context the output is built from: only the answers the selected medications ask
+  // for. state.context keeps every answer ever given, so that going Back does not lose
+  // them - but an answer to a question that is no longer on screen must not drive the
+  // sheet. A patient switched from an SGLT2 inhibitor to metformin alone kept "bariatric"
+  // and "PM" from questions metformin never asks, and the sheet printed both.
+  effectiveContext() {
+    const ctx = this.state.context;
+    const needed = neededContext(this.state.selected);
+    const out = { arrivalTime: ctx.arrivalTime, surgeryDate: ctx.surgeryDate };
+    for (const k of CONTEXT_ORDER) out[k] = needed.includes(k) ? ctx[k] : null;
+    return out;
   }
   setOutputTab(tab) { this.outputTab = tab; this.render({ quiet: true }); }
   updatePatient(key, val) { this.state.patient[key] = val; }
@@ -2506,23 +2615,23 @@ class PerioperativeDMApp {
         </div>
         <div class="field-group">
           <label class="field-label">First Name</label>
-          <input type="text" value="${p.firstName}" placeholder="First name" oninput="window.app.updatePatient('firstName', this.value)">
+          <input type="text" value="${escAttr(p.firstName)}" placeholder="First name" oninput="window.app.updatePatient('firstName', this.value)">
         </div>
         <div class="field-group">
           <label class="field-label">Last Name</label>
-          <input type="text" value="${p.lastName}" placeholder="Last name" oninput="window.app.updatePatient('lastName', this.value)">
+          <input type="text" value="${escAttr(p.lastName)}" placeholder="Last name" oninput="window.app.updatePatient('lastName', this.value)">
         </div>
         <div class="field-group">
           <label class="field-label">Date of Birth</label>
-          <input type="text" value="${p.dob}" placeholder="e.g., 01/15/1955" oninput="window.app.updatePatient('dob', this.value)">
+          <input type="text" value="${escAttr(p.dob)}" placeholder="e.g., 01/15/1955" oninput="window.app.updatePatient('dob', this.value)">
         </div>
         <div class="field-group">
           <label class="field-label">Planned Arrival Time <span style="font-size:11px;color:var(--dim2);font-weight:400;text-transform:none;">(optional — used in patient instructions)</span></label>
-          <input type="time" value="${p.arrivalTime}" oninput="window.app.updatePatient('arrivalTime', this.value)">
+          <input type="time" value="${escAttr(p.arrivalTime)}" oninput="window.app.updatePatient('arrivalTime', this.value)">
         </div>
         <div class="field-group">
           <label class="field-label">Surgery Date</label>
-          <input type="date" value="${p.surgeryDate}" oninput="window.app.updatePatient('surgeryDate', this.value)">
+          <input type="date" value="${escAttr(p.surgeryDate)}" oninput="window.app.updatePatient('surgeryDate', this.value)">
           <p class="helper-text">Optional. If provided, instructions show exact calendar dates.</p>
         </div>
         ${hasAnySGLT2i(this.state.selected) ? `<div class="optional-warn">Worth filling in for this patient: with an SGLT2 inhibitor, the surgery date and arrival time are what turn the hold into named calendar dates. Without them the sheet can only give the interval in hours and days, leaving the patient to count back to the dates themselves.</div>` : ''}
@@ -2534,6 +2643,14 @@ class PerioperativeDMApp {
   // arrivalTime and surgeryDate off ctx, not off state.patient, so skipping this
   // step must still perform the copy or every held SGLT2i silently loses its dates.
   savePatientAndContinue() {
+    const sd = /^(\d{4})-(\d{2})-(\d{2})$/.exec(this.state.patient.surgeryDate || '');
+    if (sd) {
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      if (new Date(+sd[1], +sd[2] - 1, +sd[3]).getTime() < today.getTime()) {
+        alert('The surgery date entered is in the past. Correct it, or clear it, before generating instructions.');
+        return;
+      }
+    }
     this.state.context.arrivalTime = this.state.patient.arrivalTime;
     this.state.context.surgeryDate = this.state.patient.surgeryDate;
     this.setState('output');
@@ -2651,10 +2768,10 @@ class PerioperativeDMApp {
       <div class="card">
         <div class="search-wrap">
           <span class="search-icon"><svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="9" cy="9" r="5.5"/><path d="M13.2 13.2 17 17"/></svg></span>
-          <input id="med-search" type="text" placeholder="Search medications..." value="${this.searchQuery.replace(/"/g,'&quot;')}" oninput="window.app.searchQuery=this.value;window.app.render({quiet:true})">
+          <input id="med-search" type="text" placeholder="Search medications..." value="${escAttr(this.searchQuery)}" oninput="window.app.searchQuery=this.value;window.app.render({quiet:true})">
         </div>
         ${selected.size > 0 ? `<div class="selected-count">✓ ${selected.size} medication${selected.size > 1 ? 's' : ''} selected</div>` : ''}
-        ${allSections.trim() ? allSections : `<p class="no-meds-msg">No medications match "${this.searchQuery.replace(/</g,'&lt;')}". Clear or edit the search above.</p>`}
+        ${allSections.trim() ? allSections : `<p class="no-meds-msg">No medications match "${escHtml(this.searchQuery)}". Clear or edit the search above.</p>`}
       </div>
       ${selected.size > 0 ? `<button class="btn-primary" onclick="window.app.goToAssess()">Next →</button>` : ''}`;
   }
@@ -2801,7 +2918,7 @@ class PerioperativeDMApp {
           <div class="question">Metformin — Renal Function</div>
           <div class="field-group">
             <label class="field-label">Most Recent eGFR (mL/min/1.73m²)</label>
-            <input type="number" value="${details.eGFR}" placeholder="e.g., 72" oninput="window.app.updateDetailsNoRender('eGFR',this.value)" min="0" max="150">
+            <input type="number" value="${escAttr(details.eGFR)}" placeholder="e.g., 72" oninput="window.app.updateDetailsNoRender('eGFR',this.value)" min="0" max="150">
           </div>
           <div class="question" style="font-size:14px;margin-top:8px;">Iodinated IV contrast within 48 hours of surgery?</div>
           <div class="btn-row">
@@ -2918,11 +3035,11 @@ class PerioperativeDMApp {
   renderOutput() {
     // Applied ONCE here, so the clinician cards and the patient sheet below read the same
     // post-override objects and cannot disagree.
-    const results = this.applyOverrides(getAllResults(this.state.context, this.state.details, this.state.selected));
+    const results = this.applyOverrides(getAllResults(this.effectiveContext(), this.state.details, this.state.selected));
     const p = this.state.patient;
-    const patientName = [p.firstName, p.lastName].filter(Boolean).join(' ') || 'Patient';
+    const patientName = escHtml([p.firstName, p.lastName].filter(Boolean).join(' ') || 'Patient');
     return `
-      ${this.renderHeader('Perioperative Medication Instructions', patientName + (p.dob ? ` · DOB: ${p.dob}` : ''), 'Results')}
+      ${this.renderHeader('Perioperative Medication Instructions', patientName + (p.dob ? ` · DOB: ${escHtml(p.dob)}` : ''), 'Results')}
       <div class="no-print">
         ${this.renderBackBtn()}
         <div class="tab-bar">
@@ -3043,7 +3160,7 @@ class PerioperativeDMApp {
     // no longer hold (clinical review 2026-09-19: an override written for a minor procedure
     // survived a correction to bariatric surgery). Overrides are stamped with a signature of
     // the inputs and dropped when it changes; the clinician is told, not left to notice.
-    const sig = JSON.stringify([this.state.context, this.state.details, [...this.state.selected].sort()]);
+    const sig = JSON.stringify([this.effectiveContext(), this.state.details, [...this.state.selected].sort()]);
     // Sticky: a notice that vanishes on the next render is not a notice. Cleared only by
     // dismissing it or by New Assessment (second clinical review 2026-09-19).
     if (!this.overrideStaleNames) this.overrideStaleNames = [];
@@ -3186,7 +3303,7 @@ class PerioperativeDMApp {
       badge: badge || null, badgeType: badgeType || null,
       slot: (slot && slot.value) || 'morningOf',
       patientText: text, editing: false, draft: undefined, slotDraft: undefined, badgeDraft: undefined,
-      sig: JSON.stringify([this.state.context, this.state.details, [...this.state.selected].sort()]),
+      sig: JSON.stringify([this.effectiveContext(), this.state.details, [...this.state.selected].sort()]),
     };
     this.render();
   }
@@ -3300,8 +3417,8 @@ class PerioperativeDMApp {
   renderPatientSheet(results) {
     const p = this.state.patient;
     const hasName = !!(p.firstName || p.lastName);
-    const patientName = [p.firstName, p.lastName].filter(Boolean).join(' ');
-    const ctx = this.state.context;
+    const patientName = escHtml([p.firstName, p.lastName].filter(Boolean).join(' '));
+    const ctx = this.effectiveContext();
     // NOTE: the name identifies page 1 only. These sheets run to three pages and the
     // pages get separated, so pages 2+ carry no identifier whether or not a name was
     // entered. A print running-header was attempted with position:fixed and abandoned -
@@ -3309,7 +3426,7 @@ class PerioperativeDMApp {
     // wrapped in a table with a repeating <thead>. Not attempted here.
     const metaBits = [];
     if (hasName) metaBits.push(patientName);
-    if (p.dob) metaBits.push(`DOB: ${p.dob}`);
+    if (p.dob) metaBits.push(`DOB: ${escHtml(p.dob)}`);
     if (p.arrivalTime) metaBits.push(`Arrival: ${fmtTime12(p.arrivalTime)}`);
     const header = `
       <div class="patient-sheet-header">
@@ -3695,14 +3812,55 @@ class PerioperativeDMApp {
     else if (this.step === 'medications') html = this.renderMedications();
     else if (this.step === 'assess') html = this.renderAssess();
     else if (this.step === 'output') html = this.renderOutput();
+    const appEl = document.getElementById('app');
     const focusSearch = document.activeElement && document.activeElement.id === 'med-search';
     const caret = focusSearch ? document.activeElement.selectionStart : 0;
-    document.getElementById('app').innerHTML = html;
+    // Every choice re-renders the screen, which throws focus back to the top of the page.
+    // For a keyboard user that made the app unusable after the first selection, so the
+    // position in the tab order is remembered and restored when the step has not changed.
+    const tabStops = () => [...appEl.querySelectorAll('button, input, select, textarea, [tabindex]')];
+    const prevStop = (document.activeElement && appEl.contains(document.activeElement)) ? tabStops().indexOf(document.activeElement) : -1;
+    appEl.innerHTML = html;
+    this.makeOperable(appEl);
     if (focusSearch) { const el = document.getElementById('med-search'); if (el) { el.focus(); el.setSelectionRange(caret, caret); } }
+    else if (prevStop >= 0 && this.step === this.lastRenderedStep) { const el = tabStops()[prevStop]; if (el) el.focus({ preventScroll: true }); }
     if (this.step !== this.lastRenderedStep) window.scrollTo(0, 0);
     this.lastRenderedStep = this.step;
   }
+  // The answer options, medication rows and output tabs are styled <div>s with a click
+  // handler, which a keyboard cannot reach and a screen reader does not announce as a
+  // control. Rather than touch every template, each render marks them up here: a tab stop,
+  // a role and a checked state, with Enter and Space handled once for the whole app (see
+  // the listener below the class). Field labels are tied to their inputs the same way.
+  makeOperable(root) {
+    root.querySelectorAll('.check-label[onclick]').forEach(el => {
+      el.tabIndex = 0;
+      el.setAttribute('role', el.querySelector('.custom-check') ? 'checkbox' : 'radio');
+      el.setAttribute('aria-checked', el.classList.contains('selected') ? 'true' : 'false');
+    });
+    root.querySelectorAll('.tab[onclick]').forEach(el => {
+      el.tabIndex = 0;
+      el.setAttribute('role', 'button');
+      el.setAttribute('aria-pressed', el.classList.contains('active') ? 'true' : 'false');
+    });
+    let n = 0;
+    root.querySelectorAll('.field-group, .dose-group').forEach(group => {
+      const label = group.querySelector('label');
+      const input = group.querySelector('input, select, textarea');
+      if (!label || !input || label.htmlFor) return;
+      if (!input.id) input.id = 'field-' + (n++);
+      label.htmlFor = input.id;
+    });
+  }
 }
+// Enter or Space on a marked-up option does what a click does.
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const el = e.target;
+  if (!el || !el.matches || !el.matches('.check-label[onclick], .tab[onclick]')) return;
+  e.preventDefault();
+  el.click();
+});
 window.app = new PerioperativeDMApp();
 </script>
 </body>
