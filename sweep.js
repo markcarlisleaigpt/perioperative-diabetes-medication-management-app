@@ -105,8 +105,8 @@ const HFS = [true, false];
 const GI_SYMPTOMS = [true, false, null];
 const COMBO_DOSES = ['40', '15', '3', '100', ''];
 
-// The oral agents. Plain insulin is still excluded: those cards need insulinDetails
-// per drug and want a differently shaped sweep. The fixed-ratio insulin/GLP-1 pen IS
+// The oral agents. Plain insulin is swept by its own two selections, further down, because
+// those cards need insulinDetails per drug. The fixed-ratio insulin/GLP-1 pen IS
 // swept, because its whole reason for existing is that it carries GLP-1 rules while
 // filed under insulin - exactly the thing that fails silently.
 const ORAL_CLASSES = ['dpp4i', 'metformin', 'sulfonylurea', 'meglitinide', 'tzd', 'agi'];
@@ -151,7 +151,45 @@ function strings(value, out = []) {
   return out;
 }
 
+// A dose that printed twice over ("15 units units"), or a placeholder where a dose belongs.
+const BROKEN_DOSE = /\bunits units\b|\bnull\b|\bundefined\b|\bNaN\b/;
+
 const ASSERTIONS = [
+  {
+    name: 'no patient string doubles a unit or prints a placeholder for a dose',
+    // "take HALF your usual morning dose: 15 units units" shipped on every premixed
+    // insulin, because plain insulin was not swept at all. A typed dose of 0 printed the
+    // word "null" by the same route.
+    check(card) {
+      for (const f of PATIENT_FIELDS) {
+        const text = card.patient?.[f];
+        if (typeof text === 'string' && BROKEN_DOSE.test(text)) {
+          return `patient.${f} contains "${text.match(BROKEN_DOSE)[0]}": ${JSON.stringify(text.slice(0, 140))}`;
+        }
+      }
+      return null;
+    },
+  },
+  {
+    name: 'once-daily NPH is halved once, at the time of day it is taken',
+    // The card assumed evening dosing and, for PM surgery, also issued "half your usual
+    // morning dose" - a second injection for a patient who takes one. It now asks. A
+    // morning doser gets the half-dose on the morning of surgery and nothing the night
+    // before; an evening doser gets it the night before and no dose in the morning.
+    check(card, scenario, selection) {
+      if (card.id !== 'basal-nph' || !selection.nphTime) return null;
+      const night = card.patient?.nightBefore || '';
+      const morning = card.patient?.morningOf || '';
+      if (selection.nphTime === 'morning') {
+        if (night) return 'morning NPH: a night-before instruction was issued';
+        if (!/HALF/.test(morning)) return 'morning NPH: the morning-of half-dose is missing';
+      } else {
+        if (!/HALF/.test(night)) return 'evening NPH: the night-before half-dose is missing';
+        if (/HALF/.test(morning)) return 'evening NPH: a second half-dose was issued on the morning of surgery';
+      }
+      return null;
+    },
+  },
   {
     name: 'no rendered text carries development notes (names, dates, review history)',
     check(card) {
@@ -321,7 +359,26 @@ const ASSERTIONS = [
 
 // Assertions over the WHOLE result set for one scenario, rather than one card. These
 // catch cross-card contradictions, which per-card checks cannot see.
+// Cards whose doses are taken with meals. On a clear-liquid day - the 24 h diet that goes
+// with a GLP-1 RA or tirzepatide, or a colonoscopy - the sheet does not adjust them, and the
+// clinician has to be told so.
+const MEAL_DOSED = (id) => id === 'sulfonylurea' || id === 'meglitinide' || id.startsWith('bolus-') || id.startsWith('premixed-');
+
 const SET_ASSERTIONS = [
+  {
+    name: 'a patient on clear liquids is never told to take a dinner dose WITH dinner, and the clinician is told the day is not covered',
+    // The same sheet put a GLP-1 patient on clear liquids from the morning before surgery
+    // and told them to take their full dinner dose of mealtime insulin "WITH dinner".
+    check(results, scenario, selection) {
+      const clearDay = selection.hasIncretin || scenario.surgeryType === 'colonoscopy';
+      if (!clearDay) return null;
+      for (const c of results) {
+        if (/WITH dinner/.test((c.patient && c.patient.nightBefore) || '')) return `clear-liquid day, but card "${c.id}" still says to take the dinner dose WITH dinner`;
+        if (MEAL_DOSED(c.id) && !(c.flags || []).some(f => /^CLEAR LIQUID DAY/.test(f.text))) return `clear-liquid day, but card "${c.id}" carries no clinician caution about that day's doses`;
+      }
+      return null;
+    },
+  },
   {
     name: 'a co-treated SGLT2i card declares the incretin trigger in its provenance',
     // Guards the SECOND of the three unified incretin sites - coIncretin, which feeds
@@ -440,7 +497,32 @@ function run() {
     // Added 2026-09-16 on clinical review: every SGLT2i scenario above is co-treated, so the
     // whole SGLT2i-only population - timed drink, on-waking escape, colonoscopy limb - was unswept.
     { name: 'SGLT2i alone', ids: new Set(['empagliflozin']), insulinDetails: {}, hasIncretin: false },
+    // Plain insulin had never been swept - the cards need per-drug details - which is how a
+    // doubled "units" reached every premixed sheet. Two regimens, so that once-daily NPH is
+    // exercised both ways and the meal-dosed cards are exercised with and without the 24 h
+    // clear liquid diet. One dose is 0, the "typed but meaningless" case.
+    { name: 'insulin regimen, NPH in the morning',
+      ids: new Set(['glargine-u100', 'nph', 'lispro', 'mix-7525', 'csii', 'regular-u500']),
+      insulinDetails: {
+        'glargine-u100': { frequency: 'once', dosingTime: 'evening', eveningDose: '40' },
+        'nph': { frequency: 'once', dosingTime: 'morning', eveningDose: '30', morningDose: '44' },
+        'lispro': { breakfastDose: '8', lunchDose: '8', dinnerDose: '10' },
+        'mix-7525': { eveningDose: '0', morningDose: '30' },
+      },
+      hasIncretin: false, nphTime: 'morning' },
+    { name: 'insulin and secretagogues with a GLP-1, NPH in the evening',
+      ids: new Set(['sema-sc', 'nph', 'detemir', 'lispro', 'afrezza', 'mix-7030-nph', 'glimepiride', 'glipizide-ir', 'repaglinide']),
+      insulinDetails: {
+        'nph': { frequency: 'once', dosingTime: 'evening', eveningDose: '30', morningDose: '44' },
+        'detemir': { frequency: 'twice', eveningDose: '20', morningDose: '0' },
+        'lispro': { dinnerDose: '10' },
+        'mix-7030-nph': { eveningDose: '20', morningDose: '30' },
+      },
+      hasIncretin: true, nphTime: 'evening' },
   ];
+  for (const sel of SELECTIONS) for (const id of sel.ids) {
+    if (!Object.values(DRUG_DB).some(cls => cls.drugs.some(d => d.id === id))) throw new Error(`selection "${sel.name}" names "${id}", which is not in DRUG_DB - drug id renamed?`);
+  }
 
   const failures = [];
   let scenarios = 0;
@@ -475,7 +557,7 @@ function run() {
 
               for (const card of results) {
                 for (const a of ASSERTIONS) {
-                  const detail = a.check(card, scenario);
+                  const detail = a.check(card, scenario, selection);
                   if (detail) failures.push({ scenario, card: card.id, assertion: a.name, detail });
                 }
               }

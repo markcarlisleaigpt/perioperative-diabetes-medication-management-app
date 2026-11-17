@@ -2242,6 +2242,149 @@ none of this - out of scope by Mark's standing decision, recorded in the handoff
 
 **Second clinical review, 2026-09-24, of the fixes: safe to ship.** Confirmed every fix, including a co-treated T2DM colonoscopy patient who answers the 12 h question Yes still holding, and the continuing co-treated colonoscopy sheet being consistent. Three wording items, fixed before commit: the new flag for a patient without diabetes now names every trigger that still applies to them (insulin, A1c >8, DKA history) and carries the R7b clause only for major noncardiac surgery (for cardiac it contradicted the card's own monitoring text); a stale code comment corrected.
 
+## 14. Whole-app review, 2026-11-17: fixes NOT YET SIGNED OFF
+
+A read of the whole of `index.html`, with each finding reproduced in a browser before it was
+changed. **Nothing in this section has been to clinical review, and Mark has not signed off the
+patient-facing wording.** It is on a working branch and is not live. Items 14a to 14e change
+what a patient is told.
+
+### 14a. Premixed insulin printed "units units"
+
+`dosePct()` already ends in "units" and three strings appended the word again, so every premixed
+sheet read "take HALF your usual morning dose ...: 15 units units". Plain insulin was not in the
+sweep, which is how it shipped. Fixed; no wording decision involved.
+
+A typed dose of 0 printed the word "null" by the same route on the premixed, NPH and bolus
+cards. A dose of 0 or less is now treated as not entered (`doseNum()`), which falls back to the
+existing "reduce by 25%" / "half your usual dose" wording.
+
+### 14b. Once-daily NPH (and detemir) now ask morning or evening
+
+The NPH card had no dosing-time input - the gap recorded on 2026-09-16 - and assumed evening.
+For PM surgery it ALSO issued "Take HALF your usual morning dose", so a once-daily patient was
+told to inject twice, and the number came from the morning-dose field that the once-daily form
+does not show: a figure typed under "twice daily" and then abandoned still printed.
+
+Now: NPH and detemir show the same "When does patient take this insulin?" question the other
+once-daily basals have. For NPH it is REQUIRED before continuing, like frequency.
+
+- **Evening, once daily:** half the dose the night before; no morning dose, AM or PM surgery.
+- **Morning, once daily:** nothing the night before; half the dose on the morning of surgery.
+  The morning-before dose is the usual dose, unchanged (stated on the clinician card only).
+
+**To confirm (Mark):** the morning rule is the existing "NPH to one-half" applied to the one
+dose that falls inside the fast, mirroring the once-daily analog morning branch. No new
+percentage was introduced. Twice-daily NPH is unchanged.
+
+### 14c. An SGLT2 inhibitor stop date that has already passed
+
+A sheet printed two days before a case that needs a three-day stop said "Your last dose is
+Sunday, November 15" on a Tuesday, and neither view flagged it. The date arithmetic was right;
+what was missing is that the patient may already have taken a dose that should have been
+skipped.
+
+The test is whether the FIRST dose to be skipped has come due (last permissible dose + 1 day,
+at the dosing hour). Until then nothing is wrong: the patient has simply taken their last dose.
+When it has:
+
+- **Clinician card:** an alert - "STOP DATE ALREADY PASSED ... If the patient has taken it since
+  then, the 72 h interval cannot be met for this surgery date. Establish when the last dose was
+  actually taken, and decide with the surgical and anesthesia team how to proceed. This app does
+  not adjust the plan for a shortened hold."
+- **Patient sheet:** "STOP taking [drug] now. Your last dose needed to be on or before [date],
+  which is at least 72 hours (3 full days) before you arrive. Do not take it again before your
+  surgery. If you have taken it after [date], call the Preoperative Clinic as soon as you get
+  these instructions."
+
+**The app deliberately does not say what follows from a shortened hold** - proceed with
+monitoring, delay, or accept it. That is not in any rule already in this record.
+**To confirm (Mark):** the patient wording, and whether the clinic wants a stated policy here.
+
+A surgery date in the past is now refused at the patient-information step.
+
+### 14d. The clear-liquid day - a gap, surfaced, NOT resolved
+
+A patient on a GLP-1 RA or tirzepatide is put on clear liquids for 24 h before arrival. The
+same sheet said, on the mealtime insulin card, "You may take your usual dinner dose ... WITH
+dinner", and said nothing about the sulfonylurea, meglitinide, premixed or breakfast and lunch
+mealtime doses taken during that day. A colonoscopy preparation day has the same shape. This
+record had never addressed it.
+
+**No dosing rule was invented.** Two changes only:
+
+1. **Clinician card, new caution** on the sulfonylurea, meglitinide, mealtime insulin and
+   premixed cards whenever the patient is on the 24 h clear liquid diet or having a colonoscopy:
+   "CLEAR LIQUID DAY: ... The patient sheet does not adjust the [doses] taken during that day,
+   and usual doses taken without meals carry a risk of hypoglycemia. This app applies no rule
+   for that day: decide the doses and state them to the patient with Override."
+2. **Patient sheet, mealtime insulin, night before** - the one sentence that contradicted the
+   diet is made conditional on a meal, which is the card's own existing rule (mealtime insulin
+   goes with a meal): "If you are on clear liquids the evening before surgery and not eating a
+   meal, do NOT take your usual dinner dose of [drug] unless the Preoperative Clinic or your
+   diabetes doctor has told you to. If you do eat dinner, you may take your usual dinner dose
+   with it. After dinner, do not take any more of this insulin." Printed for these patients
+   whether or not a dinner dose was entered. Patients not on clear liquids keep the old line.
+
+**DECISION NEEDED (Mark): what should these patients actually do that day?** Sulfonylurea on
+the clear-liquid day; premixed insulin on the clear-liquid day; mealtime insulin with
+carbohydrate-containing clear liquids, especially in type 1. Until there is a rule the sheet
+is silent on all of it and the clinician is told so. Colonoscopy is only detected when the
+selected drugs ask the surgery type - the eight classes that do not ask it (13c) are not
+reached, the same accepted limit.
+
+### 14e. Sulfonylurea patient wording
+
+"Do not take any of your evening-held diabetes pills on the morning of surgery" was the app's
+shorthand, not the patient's. Now one sentence naming every pill on the card: "Do NOT take
+Glimepiride (Amaryl) or Glipizide IR (Glucotrol) on the morning of surgery." The night-before
+line reads "SKIP any evening dose of [drug] the night before surgery. Do not take it that
+night." - "any", because many patients take these once, in the morning. Same instruction,
+reworded. **To confirm (Mark).**
+
+The continue-direction override variant for an SGLT2 inhibitor said "After bariatric surgery
+your bariatric team ..." to a ketogenic-diet patient having some other operation (the nit
+recorded 2026-09-25). That patient now reads "Because of the diet you follow, check with the
+doctor who prescribes it before you change anything." Bariatric wording unchanged.
+**To confirm (Mark).**
+
+### 14f. Answers to questions no longer on screen
+
+`state.context` keeps every answer so that Back does not lose them. A patient switched from an
+SGLT2 inhibitor to metformin alone kept "bariatric" and "PM surgery" from questions metformin
+never asks, and the sheet printed "After bariatric surgery, your bariatric team decides ..."
+and "PM Surgery". The output is now built from `effectiveContext()`: only the answers the
+selected medications ask for (`neededContext`), everything else null. The override signature
+uses the same object.
+
+### 14g. Clinician-side and technical
+
+- The SGLT2 combination-product caution printed internal class keys ("contains both
+  Empagliflozin/Linagliptin and dpp4i"). Now "contains both an SGLT2 inhibitor and a DPP-4
+  inhibitor".
+- Patient name, date of birth and search text are escaped. A "<" in a name made the rest vanish.
+- `monoData()` no longer uses a regular-expression lookbehind, which is a syntax error before
+  Safari 16.4 and would have stopped the whole app loading there. Rewritten to capture the
+  letter prefix instead. Compared old against new over 380 generated strings: identical on
+  every rendered string. NOT tested on an old iPhone.
+- Keyboard: every answer option, medication row and output tab is now a tab stop with a role
+  and a checked state, Enter and Space select, and focus stays where it was after a selection
+  re-renders the screen. Field labels are tied to their inputs. Still NOT tested with a screen
+  reader (open item from September stands).
+- Wide screens: the 680 px column is scaled up 1.25x from 1100 px and 1.45x from 1500 px
+  (about 990 px wide on a 1920 px monitor). Phones and print are untouched.
+- The `codex/` folder (a July copy of the app with none of the later clinical work, served at
+  `/codex/` by any host that publishes the repository root) is removed in its own commit, so
+  that it can be restored by reverting that commit alone.
+
+### 14h. Sweep
+
+Two insulin selections added (48,600 scenarios, 7 selections, 14 per-card + 5 per-sheet).
+New assertions: no doubled unit or placeholder in a patient string; once-daily NPH halved
+once, at the time it is taken; no "WITH dinner" on a clear-liquid day, and the clinician
+caution present on every meal-dosed card. Each was run against the previous `index.html` and
+fails there. The sweep still cannot see the patient-sheet renderer.
+
 ## Open items
 
 1. Institutional definition of "minor procedure" vs "major noncardiac". The source defines neither.
@@ -2252,3 +2395,6 @@ none of this - out of scope by Mark's standing decision, recorded in the handoff
    **CLOSED 2026-08-13** - it was on disk all along and has now been read. See section 5.
 6. Three remaining uncommitted 7/26 edits still need clinical sign-off (the morning-of string is now endorsed; the conservative-hold-when-unanswered default, the citation change, and the toggle relabeling are not).
 7. Clinician override feature — settled in principle (per-session, resets; patient PDF notes instructions were clinician-reviewed without clinical detail; no audit trail of the original recommendation) but the UI has not been designed or discussed.
+8. **Clear-liquid day dosing (section 14d).** No rule for sulfonylureas, premixed insulin or mealtime insulin on the 24 h clear liquid diet or a colonoscopy preparation day. The clinician is cautioned; the sheet is silent. Needs a decision from Mark.
+9. **Section 14 is unreviewed.** None of it has been to clinical review or been signed off; it is on a working branch, not live.
+10. Whether the hosts publish the repository root, which would serve this file and `sweep.js` publicly. Not checkable from the review environment.
