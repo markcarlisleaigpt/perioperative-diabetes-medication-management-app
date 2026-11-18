@@ -2249,6 +2249,12 @@ changed. **Nothing in this section has been to clinical review, and Mark has not
 patient-facing wording.** It is on a working branch and is not live. Items 14a to 14e change
 what a patient is told.
 
+**STATUS, 2026-11-16: this section went LIVE on 2026-11-16** - Mark chose to merge first and
+review after (commit `736f9e6`). The clinical review ran the same day, on the live code. Its
+findings, Mark's decisions on them and the changes that follow are section 15. Where 14 and
+15 disagree, 15 is current - in particular 14d's "no dosing rule was invented" and "the sheet
+is silent" no longer hold.
+
 ### 14a. Premixed insulin printed "units units"
 
 `dosePct()` already ends in "units" and three strings appended the word again, so every premixed
@@ -2385,6 +2391,296 @@ once, at the time it is taken; no "WITH dinner" on a clear-liquid day, and the c
 caution present on every meal-dosed card. Each was run against the previous `index.html` and
 fails there. The sweep still cannot see the patient-sheet renderer.
 
+## 15. Clinical review of section 14, and what changed (Mark, 2026-11-16) - NOT YET LIVE
+
+Section 14 was merged before review, on Mark's instruction. The review that followed found no
+reason to undo the merge, one serious gap that pre-dated it, and three defects in the new
+code. Mark answered five questions, one at a time, and the changes below were built on a
+branch for him to read before anything goes live. **How the review was done limits what it
+proves:** the reviewing agent could not run code or open a PDF on the machine it ran on and
+reported from reading the source; every finding acted on here was then reproduced by executing
+the logic layer, and the two sources quoted (SPAQI, the Cleveland Clinic review) were read
+from the PDFs.
+
+### 15a. The clear-liquid day was not "silent" (supersedes 14d)
+
+14d said the sheet was silent on the day a patient spends on clear liquids - the 24 h diet
+issued with a GLP-1 RA or tirzepatide, or a colonoscopy preparation day - and the clinician
+caution repeated it. Executed, the sheet was not silent:
+
+- **Premixed insulin** printed the ordinary evening dose, 75-80% of usual ("REDUCE your
+  evening Humalog Mix 50/50: 30 units"), for an evening with no dinner, followed by a fast.
+- **A meglitinide** said "Take this medication as usual through the day and night before
+  surgery".
+- **A sulfonylurea's** day-before dose went unmentioned, so it was taken as usual.
+- **Mealtime insulin** said "If you do eat dinner, you may take your usual dinner dose with
+  it" on a sheet whose own diet block forbids dinner.
+- **NPH** carried no caution at all, and the once-daily morning card told the clinician the
+  dose on the morning before surgery was "the usual dose, unchanged".
+
+**Sources.** Only one source in `Source-Articles\` speaks to it: Cleveland Clinic Journal of
+Medicine 2025;92:429 (PDF p.2) - sulfonylureas "can be continued the day before surgery;
+however, we recommend discontinuing these medications sooner if the patient is expected to
+follow a low-carbohydrate diet for several days before the procedure (eg, before bariatric
+surgery)". ADA S16, SAMBA 2024, Crowley 2023, UpToDate, StatPearls and the Endocrine Society
+guideline were searched for clear-liquid, bowel-preparation and colonoscopy dosing and
+nothing was found (a keyword search with the surrounding text read, not a cover-to-cover
+read). The multi-society GLP-1 paper (April 2025, p.4) defers to the ADS-ANZCA perioperative
+diabetes guideline, which is NOT on disk and was not read. **Every rule below is therefore
+institutional.**
+
+**Mark's decisions, 2026-11-16:**
+
+| Drug | On the clear-liquid day | Kind of rule |
+|---|---|---|
+| Sulfonylurea | **Not taken at all** that day, morning or evening; not the morning of surgery | ABSMC rule. Mark chose it over "only with a meal, else call" and over leaving it to the clinician. |
+| Premixed insulin | **No dose printed.** Patient told the usual doses are not for that day, that the clinic will give the dose, and to call if it has not. Clinician told to state the doses with Override. | Interim, deliberately not a dosing rule. Mark chose it over "half dose that day" and over "skip the evening dose if type 2". |
+| Meglitinide | Not taken while on clear liquids (it is taken only with a meal) | **Not asked of Mark as its own question** - built as the consequence of the sulfonylurea decision and of the drug's meal-only use. **To confirm (Mark).** |
+| Mealtime insulin | Not taken while on clear liquids unless the clinic or the diabetes doctor has said to. The "If you do eat dinner" limb is gone. | The card's existing rule (mealtime insulin goes with a meal), extended from dinner to the whole day. No dose for carbohydrate-containing liquids is given; the clinician is told so, "particularly in type 1 diabetes". **To confirm (Mark).** |
+| NPH | **The dose on the MORNING of that day is halved**, and not taken below 120 mg/dL. The evening dose that day is the night-before dose, already halved. Once-daily evening NPH: nothing new. | ABSMC rule, added in the second round (15h): Mark chose "half dose that day" over leaving it a caution and over "clinic sets it". |
+
+**Where it prints.** In the days-before slot, under "Days Before Surgery - Stop These Early",
+so that it is read before that day starts; the night-before line it replaces is dropped. Each
+card states its own checklist line (`checklistDispo`), because the badge wording would
+mislead: "do not take on the day before surgery or on the day of surgery", "do not take while
+you are on clear liquids or on the morning of surgery", "do not take while you are on clear
+liquids or not eating", "the Preoperative Clinic will give you your doses for the day before
+surgery". **A meglitinide is badged HOLD on a clear-liquid day, not HOLD MORNING OF SURGERY**:
+that badge is the standing promise that the day-before doses are taken as usual.
+
+**Wording, patient sheet:**
+
+- Sulfonylurea: "Do NOT take [every sulfonylurea named, joined with 'or'] on the day before
+  surgery - not in the morning and not in the evening. You will be on clear liquids instead of
+  meals that day, and this medicine can make your blood sugar drop too low when you are not
+  eating."
+- Meglitinide: "Do NOT take this medication on the day before surgery while you are on clear
+  liquids instead of meals. It is taken only with a meal."
+- Mealtime insulin: "While you are on clear liquids instead of meals the day before surgery,
+  do NOT take [brand] unless the Preoperative Clinic or your diabetes doctor has told you to.
+  This is your mealtime insulin, and it is taken only with a meal."
+- Premixed: "On the day before surgery you will be on clear liquids instead of meals, and your
+  usual doses of [brand] are meant to be taken with meals. Do NOT take your usual doses that
+  day. The Preoperative Clinic will tell you what dose to take instead. If you have not been
+  told, call the Preoperative Clinic before that day - do not guess a dose, and do not simply
+  skip your insulin." The last clause is there for the type 1 patient on premixed insulin, for
+  whom "do not take" with no replacement is the wrong side to err on.
+
+**Accepted tensions and known limits:**
+
+- "The day before surgery" is a calendar day; the GLP-1 diet starts 24 h before ARRIVAL, so
+  for a midday arrival the patient's breakfast the day before is still a meal. The
+  sulfonylurea rule holds that morning's dose anyway (Mark's choice: none that day). The
+  meglitinide and mealtime insulin lines are worded "while you are on clear liquids", so a
+  dose with a real breakfast before the diet starts is not forbidden.
+- A premixed patient whose clinician does not use Override reaches the day before surgery
+  with no dose and an instruction to call. That is the intended failure direction, and it
+  depends on the clinic answering.
+- An Override replaces all three of a card's timeline instructions, so a clinician stating
+  the premixed doses for that day must restate the morning-of-surgery dose too. The caution
+  says so.
+- PM surgery with a GLP-1: the mealtime, premixed, meglitinide and pump cards still carry an
+  "if you are eating a full breakfast" limb against the diet block's midnight fast.
+  Pre-existing, conditional, NOT changed here.
+- ~~NPH a full dose on the clear-liquid morning, cautioned not ruled.~~ Ruled in 15h.
+
+### 15b. A colonoscopy is now visible to the meal-dosed cards (supersedes the last sentence of 14d)
+
+`clearLiquidDay()` reads the surgery type, and `effectiveContext()` (14f) nulls any answer the
+selected drugs do not ask for. Sulfonylurea, meglitinide, mealtime insulin and premixed
+insulin did not ask the surgery type, so glipizide alone or premixed alone for a colonoscopy
+produced the ordinary sheet and no caution. 14d filed that under the limit accepted in 13c;
+13c was accepted for bariatric restart wording, not for a missing hypoglycemia caution.
+
+**Mark, 2026-11-16: ask.** `CONTEXT_NEEDS` now lists `surgeryType` for those four classes.
+One more tap for those patients.
+
+**Consequence, and it changes what some patients read:** 13c recorded that a bariatric
+patient on eight classes was not asked the surgery type and got the non-bariatric restart
+wording. Four of the eight are now asked, so a bariatric patient on a sulfonylurea,
+meglitinide, mealtime or premixed insulin now gets the bariatric After Surgery wording
+("your bariatric team decides when each of these medicines restarts ... do not restart them
+on your own"). That is the standing bariatric rule reaching patients it had been missing -
+verified in the browser - and 13c's accepted limit now covers metformin, the glitazones, the
+alpha-glucosidase inhibitors and the pump only. Mark was told of this effect when asked.
+
+### 15c. The stop-date alert when no arrival time is entered (corrects 14c)
+
+The alert in 14c needs a computed stop date, and the stop date needs the arrival time, which
+is optional. With a surgery date of tomorrow and no arrival time the patient got the generic
+"your last dose must be at least 72 hours before you arrive" and the clinician got no alert.
+
+The surgery date alone can bracket it. The latest possible arrival (23:59) gives the latest
+possible last dose; the earliest (00:00) gives the earliest.
+
+- **Passed whatever the arrival time** (the first skipped dose has come due even for a 23:59
+  arrival): the same alert, naming both bracket dates, and the patient is told "STOP taking
+  [drug] now. Your last dose needed to be at least 72 hours (3 full days) before you arrive,
+  and that time has already passed. Do not take it again before your surgery. Call the
+  Preoperative Clinic as soon as you get these instructions so that your last dose can be
+  checked." **No date is given to this patient** (corrected in 15h: the first build printed the
+  latest bracket date as the threshold, which is wrong for an early arrival).
+- **Passed only for an early arrival:** a caution, "STOP DATE MAY ALREADY HAVE PASSED ...
+  Enter the arrival time to settle it", and the patient is told "STOP taking [drug] now ...
+  your surgery is close enough that this time may already have passed. Do not take it again
+  before your surgery. Call the Preoperative Clinic as soon as you get these instructions so
+  that your last dose can be checked." Telling this patient to stop now can cost at most one
+  permitted dose, which only lengthens the hold.
+
+**A sheet made on the day of surgery** no longer says "call the Preoperative Clinic as soon
+as you get these instructions": it says "tell the nurse or the anesthesia team as soon as you
+arrive". **To confirm (Mark):** all three patient wordings.
+
+### 15d. What the alert now says about a shortened hold (supersedes "deliberately does not say" in 14c)
+
+**Mark, 2026-11-16: state SPAQI's direction.** The alert now names the risk (euglycemic
+diabetic ketoacidosis) and summarizes SPAQI's OWN text (Oprea, BJA 2026):
+
+- p.16, day of surgery: "Our group does not advocate surgery cancellation, except for patients
+  with T2DM who continue their SGLT2i and have observed prolonged very low-carbohydrate diets,
+  such as before bariatric surgery."
+- Box, p.12: R5 postpone bariatric surgery if T2DM and the SGLT2i was continued; R7
+  intraoperative eDKA monitoring during cardiac surgery, and during major noncardiac surgery
+  longer than 3 h in T2DM when the SGLT2i was continued within 3 days (4 for ertugliflozin);
+  R8 prophylactic dextrose and/or insulin during cardiac surgery in T2DM; R9 postoperative
+  eDKA monitoring after cardiac surgery, or major noncardiac surgery in T2DM, when continued
+  within 3 days.
+- Fig 2: "If symptomatic test for eDKA"; "Normal anion gap excludes eDKA"; ketones
+  (beta-hydroxybutyrate) and pH if the anion gap is high.
+- p.18: the recommendations "should apply strictly to patients with T2DM"; SPAQI notes a high
+  eDKA risk in type 1 diabetes. The alert says SPAQI does not extend them to type 1.
+
+**A correction, recorded so it is not repeated.** When Mark was asked this question, SPAQI was
+described to him as saying "without type 2 diabetes and fasting under 12 h, proceed; with type
+2 diabetes, consider proceeding with ketone monitoring; postpone ... type 1 diabetes". **That
+is the CANADIAN guidance (STOP-DKA-2) as summarized in a row of SPAQI's Table 5 (p.19), not
+SPAQI's own recommendation.** Text extraction flattened the table and dropped the row labels;
+viewing the page as an image showed it. The alert was written from SPAQI's own text above and
+does not carry the Canadian wording. Mark has been told. **To confirm (Mark):** the alert as
+built, since it is not word for word what he was shown when he said yes.
+
+This is clinician text only. The patient wording does not say what follows from a shortened
+hold.
+
+### 15e. Smaller changes
+
+- **Half a unit rounds down (Mark, 2026-11-16).** Half of 15 units printed as 8; it now prints
+  7. Ties only: everything else still rounds to the nearest unit. Applies to every reduced
+  insulin dose the app prints (`round()`, used by `doseRange`, `dosePct`, `halfDose`). The
+  lower dose is the safer side while fasting.
+- Once-daily morning NPH, patient line: "Check your blood sugar first: if it is below
+  120 mg/dL, do NOT take it." added - Mark's wording in 15h, with no instruction to call.
+  The 120 mg/dL threshold is the premixed card's ABSMC institutional one.
+- Two night-before sulfonylureas were joined with a semicolon inside a sentence ("Glyburide
+  (...); Glimepiride (...)"). Now "or", as the morning line already was.
+- The ketogenic continue wording (14e) read "check with the doctor who prescribes it", where
+  "it" could be the diet. Now "the doctor who prescribes this medicine", and the
+  discharge-instructions sentence the other variant carries is restored.
+- The clinician caution text now says what the sheet actually does on a clear-liquid day,
+  card by card, instead of "does not adjust" for all of them.
+
+### 15f. Found, and NOT changed
+
+- A blank insulin dose still prints "reduce by 25% from your usual dose", which asks the
+  patient to work out a dose.
+- `doseNum()` treats a typed 0 as blank without telling the clinician the number was dropped.
+- No sulfonylurea-containing combination pill (glyburide/metformin, glipizide/metformin,
+  glimepiride/pioglitazone) is in the drug list; only "not on this list, call the clinic"
+  covers them.
+- The evening-NPH half dose (pre-existing, unchanged by 14b) was NOT re-checked against ADA,
+  SAMBA or Crowley in this review. Many sources are quoted as giving about 75% for the evening
+  before and 50% for the morning of surgery.
+- On a bariatric premixed sheet the After Surgery block says both "your insulin doses will
+  need adjusting ... your bariatric team sets them" and "go back to your usual doses once you
+  are eating regular meals". Pre-existing; now reachable by more patients through 15b.
+
+### 15h. Second clinical review, of the fix build, and Mark's further decisions (2026-11-17)
+
+`clinical-reviewer` read the fix build (it had no shell; it worked from the code, a file of
+executed output, and text and page images extracted from SPAQI). Nothing blocking, no
+CRITICAL finding, three HIGH. Mark answered four more questions, one at a time.
+
+- **HIGH - "Colonoscopy / endoscopy" was one button**, so an upper endoscopy with no bowel
+  preparation was treated as a clear-liquid day: a glipizide patient read "You will be on
+  clear liquids instead of meals that day", and a premixed patient eating normally got no
+  dose. **Mark: colonoscopy only; an EGD is a minor procedure.** The button now reads
+  "Colonoscopy (bowel preparation)" with the note "Any procedure with a bowel preparation and a
+  clear-liquid day before it. An upper endoscopy (EGD) without bowel preparation is a minor
+  procedure", and the minor-procedure examples list "upper endoscopy (EGD) without bowel
+  preparation". The stored value is still `colonoscopy`; no logic changed.
+- **HIGH - the no-arrival-time tier (15c) gave the patient the LATEST bracket date** as the
+  date to compare their last dose against. That date is only right for a late arrival: for
+  an evening doser with a 07:00 arrival, a dose on it is about 59 h before arrival, and the
+  patient was told no call was needed. Fixed without a decision: this patient is given no
+  date and is always told to call so the last dose can be checked (on the day of surgery: tell
+  the nurse or anesthesia team when you arrive exactly when you last took it). The clinician
+  alert names both bracket dates.
+- **HIGH - the SPAQI summary in the alert (15d) left out the monitoring SPAQI recommends for
+  the patients without type 2 diabetes who actually reach it** (the app holds them only for a
+  ketogenic or very-low-carbohydrate diet, bariatric surgery, a >24 h carbohydrate-free
+  window, insulin, A1c >8% or DKA). Fixed without a decision, from the Box (p.12) and Fig 2
+  (p.18), checked against the page images: R6 preoperative monitoring after a
+  very-low-carbohydrate diet >1 week without type 2 diabetes; R7b intraoperative monitoring
+  for surgery >3 h after such a diet (any diabetes status) and for major noncardiac surgery
+  >3 h after a carbohydrate fast >12 h without diabetes; R9 postoperative monitoring after
+  such a diet; R7a/R9 cardiac surgery for everyone; and the Fig 2 footnote "a" consider-grade
+  day-of-surgery testing in type 2 diabetes (fast >12 h, <50 g carbohydrate a day, insulin, DKA,
+  HbA1c >8%). The R5 clause now carries Fig 2c's "may consider proceeding if asymptomatic and
+  postoperative monitoring capability available". The alert now says plainly that SPAQI's
+  recommendations are written for a patient who CONTINUED the drug within 3 (4) days and that
+  the app reads a shortened hold as that.
+- **MEDIUM - premixed "do not simply skip your insulin" printed under "Stop These Early".**
+  A type 1 patient scanning the heading could read "stop insulin". Fixed without a decision:
+  a card whose day-before line is not a stop (premixed on a clear-liquid day, halved NPH) sets
+  `daysBeforeNotStop`, and the heading drops "- Stop These Early" whenever one is present.
+- **MEDIUM - no hard stop for the premixed interim.** The reviewer would accept "no dose,
+  clinic sets it" only if printing were blocked until an Override is entered. **Mark: warn but
+  allow printing.** The caution stays; the sheet prints. Accepted tension: a premixed patient
+  whose clinician does not use Override depends on the clinic answering the phone.
+- **MEDIUM - "Check your blood sugar before you take it" (NPH) had no threshold or action.**
+  **Mark: check, do not take below 120, and do not ask them to call.** Now "Check your blood
+  sugar first: if it is below 120 mg/dL, do NOT take it." The clinician line states the
+  threshold as ABSMC institutional.
+- **MEDIUM - NPH on the clear-liquid day was cautioned, not ruled** (the largest remaining
+  hypoglycemia gap). **Mark: half dose that day.** The NPH dose that falls on the morning of
+  the clear-liquid day - once-daily morning NPH, or the morning dose of twice-daily NPH - is
+  halved, and not taken below 120 mg/dL. Patient line, days-before slot: "On the day before
+  surgery you will be on clear liquids instead of meals. That morning, check your blood sugar
+  first: if it is below 120 mg/dL, do NOT take your [morning] [brand]. Otherwise take only HALF
+  of your usual [morning] dose: [n] units (50% of your usual [m] units)." Checklist: "dose
+  changes start the day before". Once-daily evening NPH: the only dose that day is the
+  night-before dose, already halved, so nothing new; the clinician is told so. ABSMC rule; no
+  source on disk covers it.
+- **LOW - a halved 1-unit dose printed "0 units".** A computed dose under 1 unit is no longer
+  printed; the card falls back to its percentage wording.
+- **LOW - stale open items 8 and 9.** Updated below.
+- **Recorded, not changed (category B):** mealtime insulin "do not take" on the clear-liquid
+  day also removes correction doses that day, with no glucose-check plan - whether a
+  correction scale should apply is open; SPAQI's advice for type 1 continues past p.18 and
+  was not read; the premixed and mealtime clear-day wording is still "To confirm (Mark)".
+- **Twice-daily NPH morning-of-surgery line** still has no blood sugar check (Mark's NPH
+  answer was asked about the once-daily morning line). Not changed. **To confirm (Mark).**
+
+### 15g. Sweep
+
+After 15h: 48,600 scenarios, 7 selections, **16 per-card + 6 per-sheet + 4 direct**, PASS. 15h
+added: daytime NPH halved with the 120 check on a clear-liquid day and nothing new for
+evening-only NPH; the morning-NPH line carries the 120 check and no call; premixed and NPH
+mark their day-before lines as not-a-stop; the no-arrival-time patient is given no date and
+told to call. The new checks fail on the first fix build; 14 single-line mutations each
+caught. Heading, checklist rows, the endoscopy button text and the NPH day-before line were
+checked in a browser.
+
+First round: 48,600 scenarios, 7 selections, **15 per-card + 6 per-sheet + 4 direct**. New: half a unit
+rounds down; on a clear-liquid day no meal-dosed card issues a dose for the day before, none
+says "as usual", none is badged HOLD MORNING OF SURGERY, the sulfonylurea line names every
+drug, premixed sends the patient to the clinic, and on an ordinary day none of it appears; NPH
+carries the caution; and four direct checks of the stop date against a fixed clock (`ctx.now`).
+The whole set fails on the live `index.html`, and ten single-line mutations of the new code
+were each caught. Two insulin doses in the selections were made odd so that a half unit is
+actually exercised. The sweep still cannot see the patient-sheet renderer: the checklist rows,
+the days-before bucket and the bariatric After Surgery change were checked in a browser.
+
 ## Open items
 
 1. Institutional definition of "minor procedure" vs "major noncardiac". The source defines neither.
@@ -2395,6 +2691,6 @@ fails there. The sweep still cannot see the patient-sheet renderer.
    **CLOSED 2026-08-13** - it was on disk all along and has now been read. See section 5.
 6. Three remaining uncommitted 7/26 edits still need clinical sign-off (the morning-of string is now endorsed; the conservative-hold-when-unanswered default, the citation change, and the toggle relabeling are not).
 7. Clinician override feature — settled in principle (per-session, resets; patient PDF notes instructions were clinician-reviewed without clinical detail; no audit trail of the original recommendation) but the UI has not been designed or discussed.
-8. **Clear-liquid day dosing (section 14d).** No rule for sulfonylureas, premixed insulin or mealtime insulin on the 24 h clear liquid diet or a colonoscopy preparation day. The clinician is cautioned; the sheet is silent. Needs a decision from Mark.
-9. **Section 14 is unreviewed.** None of it has been to clinical review or been signed off; it is on a working branch, not live.
+8. ~~Clear-liquid day dosing (section 14d).~~ **Decided 2026-11-16/17, sections 15a and 15h.** Still open within it: a dose for carbohydrate-containing liquids for mealtime insulin (especially type 1); the premixed and mealtime wording are "To confirm (Mark)".
+9. ~~Section 14 is unreviewed.~~ Section 14 went live 2026-11-16 and was reviewed the same day; section 15 is the result.
 10. Whether the hosts publish the repository root, which would serve this file and `sweep.js` publicly. Not checkable from the review environment.
