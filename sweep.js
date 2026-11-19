@@ -183,9 +183,44 @@ const ASSERTIONS = [
       if (selection.nphTime === 'morning') {
         if (night) return 'morning NPH: a night-before instruction was issued';
         if (!/HALF/.test(morning)) return 'morning NPH: the morning-of half-dose is missing';
+        if (!/below 120 mg\/dL, do NOT take it/.test(morning)) return 'morning NPH: the 120 mg/dL check is missing from the morning-of line';
+        if (/\bcall\b/i.test(morning)) return 'morning NPH: the morning-of line asks the patient to call (Mark: check, do not take below 120, no call)';
       } else {
         if (!/HALF/.test(night)) return 'evening NPH: the night-before half-dose is missing';
         if (/HALF/.test(morning)) return 'evening NPH: a second half-dose was issued on the morning of surgery';
+      }
+      return null;
+    },
+  },
+  {
+    name: 'on a clear-liquid day a daytime NPH dose is halved with the 120 check; evening-only NPH gets nothing new',
+    // NPH peaks in the afternoon, so a full dose on a day of clear liquids was the largest
+    // remaining hypoglycemia gap after the first fix build. ABSMC rule: the dose on the
+    // morning of that day is halved and not taken below 120 mg/dL.
+    check(card, scenario, selection) {
+      if (card.id !== 'basal-nph' || !selection.nphTime) return null;
+      const clearDay = selection.hasIncretin || scenario.surgeryType === 'colonoscopy';
+      const days = card.patient?.daysBefore || '';
+      if (!clearDay || selection.nphTime === 'evening') {
+        return days ? `NPH: unexpected day-before line: ${JSON.stringify(days.slice(0, 80))}` : null;
+      }
+      if (!/HALF/.test(days) || !/below 120 mg\/dL, do NOT take/.test(days)) return `clear-liquid day, morning NPH: day-before line lacks the half dose or the 120 check: ${JSON.stringify(days.slice(0, 120))}`;
+      if (card.checklistDispo !== 'dose changes start the day before - see below') return `clear-liquid day, morning NPH: checklist line is ${JSON.stringify(card.checklistDispo)}`;
+      if (!card.daysBeforeNotStop) return 'clear-liquid day, morning NPH: the card does not mark its day-before line as not-a-stop, so it prints under "Stop These Early"';
+      return null;
+    },
+  },
+  {
+    name: 'half a unit rounds down in every halved insulin dose',
+    // Half of 15 units printed as 8. While fasting the lower dose is the safer side, so a
+    // tie now rounds down. Checked wherever a halved dose is printed next to the dose it
+    // was computed from, clinician and patient text alike.
+    check(card) {
+      const HALVED = /(\d+) units \((?:50% of (?:your )?usual|half of your usual) (\d+) units\)/g;
+      for (const s of strings(card)) {
+        for (const m of s.matchAll(HALVED)) {
+          if (+m[1] !== Math.floor(+m[2] / 2)) return `half of ${m[2]} units printed as ${m[1]} units: ${JSON.stringify(s.slice(0, 120))}`;
+        }
       }
       return null;
     },
@@ -363,6 +398,7 @@ const ASSERTIONS = [
 // with a GLP-1 RA or tirzepatide, or a colonoscopy - the sheet does not adjust them, and the
 // clinician has to be told so.
 const MEAL_DOSED = (id) => id === 'sulfonylurea' || id === 'meglitinide' || id.startsWith('bolus-') || id.startsWith('premixed-');
+const DAY_BEFORE_TEXT = (c) => [c.patient && c.patient.daysBefore, c.patient && c.patient.nightBefore].filter(s => typeof s === 'string').join(' ');
 
 const SET_ASSERTIONS = [
   {
@@ -374,7 +410,43 @@ const SET_ASSERTIONS = [
       if (!clearDay) return null;
       for (const c of results) {
         if (/WITH dinner/.test((c.patient && c.patient.nightBefore) || '')) return `clear-liquid day, but card "${c.id}" still says to take the dinner dose WITH dinner`;
-        if (MEAL_DOSED(c.id) && !(c.flags || []).some(f => /^CLEAR LIQUID DAY/.test(f.text))) return `clear-liquid day, but card "${c.id}" carries no clinician caution about that day's doses`;
+        if ((MEAL_DOSED(c.id) || c.id === 'basal-nph') && !(c.flags || []).some(f => /^CLEAR LIQUID DAY/.test(f.text))) return `clear-liquid day, but card "${c.id}" carries no clinician caution about that day's doses`;
+      }
+      return null;
+    },
+  },
+  {
+    name: 'on a clear-liquid day no meal-dosed card issues a dose for the day before, and none claims "as usual"',
+    // Clinical review of the live sheet found the day the record called "silent" was not:
+    // premixed insulin printed a reduced EVENING dose for an evening with no dinner, a
+    // meglitinide said "take as usual through the day and night before", and the
+    // sulfonylurea's day-before dose went unmentioned. Now: sulfonylureas, meglitinides and
+    // mealtime insulin are not taken that day; premixed insulin prints no dose and sends
+    // the patient to the clinic. The instruction prints in the days-before slot.
+    check(results, scenario, selection) {
+      const clearDay = selection.hasIncretin || scenario.surgeryType === 'colonoscopy';
+      for (const c of results) {
+        if (!MEAL_DOSED(c.id)) continue;
+        const days = (c.patient && c.patient.daysBefore) || '';
+        if (!clearDay) {
+          if (days) return `ordinary day, but card "${c.id}" carries a clear-liquid-day instruction: ${JSON.stringify(days.slice(0, 80))}`;
+          continue;
+        }
+        if (!days) return `clear-liquid day, but card "${c.id}" has no day-before instruction`;
+        if (c.patient.nightBefore) return `clear-liquid day, but card "${c.id}" still prints a night-before line: ${JSON.stringify(c.patient.nightBefore.slice(0, 80))}`;
+        const text = DAY_BEFORE_TEXT(c) + ' ' + ((c.patient && c.patient.morningOf) || '');
+        if (/as usual/i.test(text)) return `clear-liquid day, but card "${c.id}" tells the patient to take it "as usual"`;
+        if (c.badge === HOLD_MORNING) return `clear-liquid day, but card "${c.id}" is badged ${HOLD_MORNING}, which promises the day-before doses`;
+        if (/\d+ units/.test(DAY_BEFORE_TEXT(c))) return `clear-liquid day, but card "${c.id}" prints a dose for the day before: ${JSON.stringify(DAY_BEFORE_TEXT(c).slice(0, 100))}`;
+        if (/dinner/i.test(DAY_BEFORE_TEXT(c))) return `clear-liquid day, but card "${c.id}" mentions dinner`;
+        if (c.id === 'sulfonylurea') {
+          const missing = c.drugNames.find(n => !days.includes(n));
+          if (missing) return `clear-liquid day: the sulfonylurea day-before line does not name ${missing}`;
+          if (!/^Do NOT take /.test(days)) return 'clear-liquid day: the sulfonylurea day-before line is not a plain "Do NOT take"';
+        }
+        if (c.id.startsWith('premixed-') && !/Preoperative Clinic will tell you/.test(days)) return `clear-liquid day: premixed card "${c.id}" does not send the patient to the clinic for a dose`;
+        if (c.id.startsWith('premixed-') && !c.daysBeforeNotStop) return `clear-liquid day: premixed card "${c.id}" does not mark its day-before line as not-a-stop, so it prints under "Stop These Early"`;
+        if (!c.checklistDispo) return `clear-liquid day, but card "${c.id}" has no checklist line of its own (the badge wording would mislead)`;
       }
       return null;
     },
@@ -505,7 +577,7 @@ function run() {
       ids: new Set(['glargine-u100', 'nph', 'lispro', 'mix-7525', 'csii', 'regular-u500']),
       insulinDetails: {
         'glargine-u100': { frequency: 'once', dosingTime: 'evening', eveningDose: '40' },
-        'nph': { frequency: 'once', dosingTime: 'morning', eveningDose: '30', morningDose: '44' },
+        'nph': { frequency: 'once', dosingTime: 'morning', eveningDose: '15', morningDose: '44' },
         'lispro': { breakfastDose: '8', lunchDose: '8', dinnerDose: '10' },
         'mix-7525': { eveningDose: '0', morningDose: '30' },
       },
@@ -513,10 +585,10 @@ function run() {
     { name: 'insulin and secretagogues with a GLP-1, NPH in the evening',
       ids: new Set(['sema-sc', 'nph', 'detemir', 'lispro', 'afrezza', 'mix-7030-nph', 'glimepiride', 'glipizide-ir', 'repaglinide']),
       insulinDetails: {
-        'nph': { frequency: 'once', dosingTime: 'evening', eveningDose: '30', morningDose: '44' },
+        'nph': { frequency: 'once', dosingTime: 'evening', eveningDose: '31', morningDose: '44' },
         'detemir': { frequency: 'twice', eveningDose: '20', morningDose: '0' },
         'lispro': { dinnerDose: '10' },
-        'mix-7030-nph': { eveningDose: '20', morningDose: '30' },
+        'mix-7030-nph': { eveningDose: '20', morningDose: '31' },
       },
       hasIncretin: true, nphTime: 'evening' },
   ];
@@ -567,7 +639,46 @@ function run() {
               }
             }
 
-  return { scenarios, selections: SELECTIONS.length, failures };
+  // ------------------------------------------------------ direct checks ----
+  // The SGLT2 stop date depends on the clock, which the matrix above never sets. ctx.now
+  // fixes it. One held patient (type 2, A1c over 8, major noncardiac, morning dosing, 72 h),
+  // "now" at noon on 10 March 2026, and four sheets.
+  let direct = 0;
+  const stopCase = (name, surgeryDate, arrivalTime, expect) => {
+    direct++;
+    const ctx = { dmType: 'T2DM', surgeryType: 'majorNoncardiac', surgeryTiming: 'AM', hasHF: false, hasCKD: false, arrivalTime, surgeryDate, now: '2026-03-10T12:00:00' };
+    const details = { sglt2iMode: 'SPAQI', a1cOver8: true, prolongedFasting: false, surgeryOver3h: null, sglt2iDoseTime: 'morning', dkaHistory: null, ketoDiet: null, eGFR: '70', contrastWithin48h: false, giSymptoms: false, glp1NpoCutoff: 'midnight', insulinDetails: {} };
+    let card;
+    try { card = getAllResults(ctx, details, new Set(['empagliflozin'])).find(c => c.id === 'sglt2i'); }
+    catch (err) { failures.push({ scenario: { direct: name }, card: '(threw)', assertion: 'SGLT2 stop date against the clock', detail: err.message }); return; }
+    const patient = (card && card.patient && card.patient.daysBefore) || '';
+    const flagText = ((card && card.flags) || []).map(f => f.type + ':' + f.text).join(' | ');
+    const fail = (detail) => failures.push({ scenario: { direct: name }, card: 'sglt2i', assertion: 'SGLT2 stop date against the clock', detail });
+    if (card.badge !== 'HOLD') return fail(`expected a HOLD card, got ${card && card.badge}`);
+    if (expect === 'passedNoArrival') {
+      if (!/alert:STOP DATE ALREADY PASSED: no arrival time is recorded/.test(flagText)) fail('no STOP DATE ALREADY PASSED alert naming the missing arrival time');
+      if (!/^STOP taking .* now\./.test(patient)) fail(`patient is not told to stop now: ${JSON.stringify(patient.slice(0, 90))}`);
+      if (/If you have taken it after /.test(patient)) fail('with no arrival time the patient was given a date to compare their last dose against - it is only right for a late arrival');
+      if (!/Call the Preoperative Clinic as soon as you get these instructions/.test(patient)) fail('patient is not told to call so that the last dose can be checked');
+    } else if (expect === 'passed') {
+      if (!/^alert:STOP DATE ALREADY PASSED/.test(flagText) && !/\| alert:STOP DATE ALREADY PASSED/.test(flagText)) fail('no STOP DATE ALREADY PASSED alert');
+      if (!/^STOP taking .* now\./.test(patient)) fail(`patient is not told to stop now: ${JSON.stringify(patient.slice(0, 90))}`);
+      if (!/If you have taken it after /.test(patient)) fail('patient is not told what to do if a dose was taken since');
+    } else if (expect === 'maybe') {
+      if (!/warn:STOP DATE MAY ALREADY HAVE PASSED/.test(flagText)) fail('no STOP DATE MAY ALREADY HAVE PASSED caution');
+      if (/alert:STOP DATE ALREADY PASSED/.test(flagText)) fail('a definite alert was raised where the arrival time decides');
+      if (!/^STOP taking .* now\./.test(patient) || !/may already have passed/.test(patient)) fail(`patient is not told to stop now and call: ${JSON.stringify(patient.slice(0, 90))}`);
+    } else {
+      if (/STOP DATE (MAY )?ALREADY/.test(flagText)) fail('a stop-date alert was raised with the surgery ten days away');
+      if (/ now\./.test(patient)) fail('patient told to stop "now" with the surgery ten days away');
+    }
+  };
+  stopCase('surgery tomorrow, arrival 07:00', '2026-03-11', '07:00', 'passed');
+  stopCase('surgery tomorrow, arrival time blank', '2026-03-11', '', 'passedNoArrival');
+  stopCase('surgery in three days, arrival time blank', '2026-03-13', '', 'maybe');
+  stopCase('surgery in ten days, arrival time blank', '2026-03-20', '', 'clear');
+
+  return { scenarios, selections: SELECTIONS.length, failures, direct };
 }
 
 let report;
@@ -578,7 +689,7 @@ try {
   process.exit(2);
 }
 
-console.log(`scenarios: ${report.scenarios}   selections: ${report.selections}   assertions: ${ASSERTIONS.length} per-card + ${SET_ASSERTIONS.length} per-sheet`);
+console.log(`scenarios: ${report.scenarios}   selections: ${report.selections}   assertions: ${ASSERTIONS.length} per-card + ${SET_ASSERTIONS.length} per-sheet + ${report.direct} direct`);
 
 if (!report.failures.length) {
   console.log('PASS - every assertion held in every scenario');

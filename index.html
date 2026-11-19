@@ -595,17 +595,24 @@ const DRUG_DB = {
 // ================================================================
 // HELPERS
 // ================================================================
-function round(n) { return Math.round(n); }
+// Half a unit rounds DOWN (half of 15 units is 7, not 8): while fasting, the lower insulin
+// dose is the safer side. Everything else rounds to the nearest unit. The value is snapped
+// to six decimals first so that float noise (10.499999999999998) cannot decide a tie.
+function round(n) { return Math.ceil(Math.round(n * 1e6) / 1e6 - 0.5); }
 function doseRange(base, minReductPct, maxReductPct) {
   if (!base || isNaN(base) || base <= 0) return null;
   const hi = round(base * (1 - minReductPct / 100));
   const lo = round(base * (1 - maxReductPct / 100));
+  // A computed dose under 1 unit is not printed: the caller falls back to its percentage
+  // wording rather than telling the patient "0 units".
+  if (lo < 1) return null;
   if (hi === lo) return `${lo} units`;
   return `${lo}–${hi} units`;
 }
 function dosePct(base, reductPct) {
   if (!base || isNaN(base) || base <= 0) return null;
-  return `${round(base * (1 - reductPct / 100))} units`;
+  const v = round(base * (1 - reductPct / 100));
+  return v < 1 ? null : `${v} units`;
 }
 function pctOrUnits(base, lo, hi, pctLo, pctHi) {
   // Returns formatted string: "X–Y units (reduced from Z units)" or "reduce by X–Y%"
@@ -615,7 +622,8 @@ function pctOrUnits(base, lo, hi, pctLo, pctHi) {
 }
 function halfDose(base) {
   if (!base || isNaN(base) || base <= 0) return null;
-  return `${round(base * 0.5)} units`;
+  const v = round(base * 0.5);
+  return v < 1 ? null : `${v} units`;
 }
 // A typed dose of 0 or less is treated as not entered. dosePct() returns null for it, and
 // the callers that only tested isNaN() printed the word "null" where a dose belongs.
@@ -628,16 +636,27 @@ function doseNum(v) {
 // pen), and anyone having a colonoscopy. The cards for mealtime insulin, premixed insulin,
 // sulfonylureas and meglitinides were written for a patient who eats normally until the fast
 // begins, so on that day they said nothing - or said "take your dinner dose WITH dinner" to
-// a patient the same sheet had put on clear liquids. No rule for that day is invented here:
-// the clinician is told the sheet does not cover it, and the one sentence that contradicted
-// the diet is made conditional on actually eating a meal.
+// a patient the same sheet had put on clear liquids. What the sheet now does on that day,
+// card by card: sulfonylureas, meglitinides and mealtime insulin are not taken; premixed
+// insulin prints NO dose and the patient is sent to the clinic for one; NPH is not adjusted
+// and the clinician is told so. The colonoscopy half only works because every one of those
+// classes asks the surgery type (CONTEXT_NEEDS).
 function clearLiquidDay(ctx, selected) {
   return hasAnyIncretin(selected) || ctx.surgeryType === 'colonoscopy';
 }
-function clearLiquidDayFlag(ctx, selected, what) {
+function clearLiquidDayWhy(ctx) {
+  return ctx.surgeryType === 'colonoscopy' ? 'bowel preparation' : 'the 24 h clear liquid diet issued with the GLP-1 RA or tirzepatide';
+}
+// mode says what the PATIENT SHEET does about that day, so the caution never claims a
+// silence the sheet does not keep: 'held' - the sheet tells the patient not to take it;
+// 'clinic' - the sheet prints no dose and sends the patient to the clinic for one; anything
+// else - the sheet does not adjust the dose at all.
+function clearLiquidDayFlag(ctx, selected, what, mode) {
   if (!clearLiquidDay(ctx, selected)) return null;
-  const why = ctx.surgeryType === 'colonoscopy' ? 'bowel preparation' : 'the 24 h clear liquid diet issued with the GLP-1 RA or tirzepatide';
-  return { type: 'warn', text: `CLEAR LIQUID DAY: this patient is on clear liquids rather than meals for about a day before arrival (${why}). The patient sheet does not adjust the ${what} taken during that day, and usual doses taken without meals carry a risk of hypoglycemia. This app applies no rule for that day: decide the doses and state them to the patient with Override.` };
+  const lead = `CLEAR LIQUID DAY: this patient is on clear liquids rather than meals for about a day before arrival (${clearLiquidDayWhy(ctx)}). `;
+  if (mode === 'held') return { type: 'warn', text: lead + `The patient sheet tells the patient not to take ${what} on that day, because a dose taken without a meal carries a risk of hypoglycemia. Use Override if a different instruction is wanted.` };
+  if (mode === 'clinic') return { type: 'warn', text: lead + `The patient sheet prints no ${what} for that day: it tells the patient not to take the usual doses and that the Preoperative Clinic will give the doses for that day. Decide them and state them to the patient with Override. An Override replaces all of this card's patient instructions, so include the morning-of-surgery dose in it.` };
+  return { type: 'warn', text: lead + `The patient sheet does not adjust the ${what} taken during that day, and usual doses taken without meals carry a risk of hypoglycemia. This app applies no rule for that day: decide the doses and state them to the patient with Override.` };
 }
 function drugDisplayName(drug) {
   return `${drug.name} (${drug.brand})`;
@@ -794,13 +813,16 @@ const CONTEXT_NEEDS = {
   tirzepatide:      ['surgeryType'],
   dpp4i:            ['surgeryType','surgeryTiming'],
   metformin:        [],
-  sulfonylurea:     ['surgeryTiming'],
-  meglitinide:      ['surgeryTiming'],
+  // surgeryType on the four meal-dosed classes: a colonoscopy is a clear-liquid day, and
+  // clearLiquidDay() cannot see one unless the question is asked. Without it a patient on
+  // glipizide alone, or premixed insulin alone, got the ordinary sheet for a colonoscopy.
+  sulfonylurea:     ['surgeryType','surgeryTiming'],
+  meglitinide:      ['surgeryType','surgeryTiming'],
   tzd:              ['hasHF'],
   agi:              ['surgeryTiming'],
   basalInsulin:     ['dmType','surgeryType','surgeryTiming'],
-  bolusInsulin:     ['surgeryTiming'],
-  premixedInsulin:  ['dmType','surgeryTiming'],
+  bolusInsulin:     ['surgeryType','surgeryTiming'],
+  premixedInsulin:  ['dmType','surgeryType','surgeryTiming'],
   pump:             ['dmType','surgeryTiming'],
   insulinU500:      [],
 };
@@ -1256,26 +1278,56 @@ function getSGLT2iResults(ctx, details, selected) {
       daysBefore = daysBefore || '';
       const stop = computeSglt2iStopDate(ctx.surgeryDate, arrivalTime, details.sglt2iDoseTime, holdDays * 24);
       const dosedAt = details.sglt2iDoseTime === 'evening' ? 'evening dosing assumed 20:00' : 'morning dosing assumed 06:00';
+      // The arrival time is optional. Without it no stop date can be printed, but the surgery
+      // date alone can still show that the stop date has gone by. Bracket it: the latest
+      // possible arrival (23:59) gives the latest possible last dose, so if even THAT has
+      // passed, the hold is short whatever the arrival time; the earliest (00:00) gives the
+      // earliest, so if only that one has passed, the answer depends on the arrival time.
+      const onlyArrivalMissing = !!(stop && stop.error === 'missing' && stop.missing.length === 1 && stop.missing[0] === 'the arrival time');
+      const stopLate = onlyArrivalMissing ? computeSglt2iStopDate(ctx.surgeryDate, '23:59', details.sglt2iDoseTime, holdDays * 24) : null;
+      const stopEarly = onlyArrivalMissing ? computeSglt2iStopDate(ctx.surgeryDate, '00:00', details.sglt2iDoseTime, holdDays * 24) : null;
+      const firstSkipDue = (s) => {
+        if (!s || !s.lastDose) return false;
+        const firstSkip = new Date(s.lastDose.getFullYear(), s.lastDose.getMonth(), s.lastDose.getDate() + 1, s.lastDose.getHours(), 0, 0, 0);
+        return now.getTime() >= firstSkip.getTime();
+      };
+      // A sheet made on the day of surgery cannot send the patient to the clinic by phone.
+      const sdm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ctx.surgeryDate || '');
+      const surgeryToday = !!sdm && +sdm[1] === now.getFullYear() && +sdm[2] - 1 === now.getMonth() && +sdm[3] === now.getDate();
+      const tellWho = surgeryToday ? 'tell the nurse or the anesthesia team as soon as you arrive' : 'call the Preoperative Clinic as soon as you get these instructions';
       // The sheet is often printed inside the hold window - a preoperative visit two days
       // before a case that needs a three-day stop. The date arithmetic is still right, but
       // "your last dose is Sunday" printed on a Tuesday tells the patient nothing they can
       // act on and hides from the clinician that the interval may already be broken. The
       // test is whether the FIRST dose to be skipped has come due: until then the patient
       // has simply taken their last dose and nothing is wrong.
-      let stopPassed = false;
-      if (stop && stop.lastDose) {
-        const firstSkip = new Date(stop.lastDose.getFullYear(), stop.lastDose.getMonth(), stop.lastDose.getDate() + 1, stop.lastDose.getHours(), 0, 0, 0);
-        stopPassed = now.getTime() >= firstSkip.getTime();
-      }
-      if (stopPassed) {
-        flags.push({ type: 'alert', text: `STOP DATE ALREADY PASSED: the last permissible dose of ${dName} was ${fmtDate(stop.lastDose)}, and a dose that should have been skipped has already come due. If the patient has taken it since then, the ${holdDays*24} h interval cannot be met for this surgery date. Establish when the last dose was actually taken, and decide with the surgical and anesthesia team how to proceed. This app does not adjust the plan for a shortened hold. The patient sheet tells the patient to stop now and to call the clinic if a dose was taken after that date.` });
+      const stopPassed = firstSkipDue(stop);
+      const passedAnyArrival = !stopPassed && firstSkipDue(stopLate);
+      const maybePassed = !stopPassed && !passedAnyArrival && firstSkipDue(stopEarly);
+      const passedRef = stopPassed ? stop : (passedAnyArrival ? stopLate : null);
+      const dosedLine = surgeryToday
+        ? 'Tell the nurse or the anesthesia team when you arrive exactly when you last took it.'
+        : 'Call the Preoperative Clinic as soon as you get these instructions so that your last dose can be checked.';
+      if (passedRef) {
+        // What a shortened hold means is SPAQI's own text (Oprea, BJA 2026): the Box
+        // recommendations R5, R7, R8 and R9, the day-of-surgery paragraph, and the eDKA
+        // monitoring note in Fig 2. The "proceed / consider proceeding with ketone
+        // monitoring" wording in its Table 5 is the CANADIAN guidance it summarizes, not
+        // SPAQI's, and is deliberately not used here.
+        // When no arrival time is recorded, the patient is NOT given a date to compare their
+        // last dose against: the latest bracket date is only right for a late arrival, and an
+        // evening dose on it before a 07:00 arrival is about 59 h (second clinical review).
+        // Every patient in this tier is told to report when they last took it.
+        flags.push({ type: 'alert', text: `STOP DATE ALREADY PASSED: ${passedAnyArrival ? `no arrival time is recorded, but whatever it is, the last permissible dose of ${dName} has already gone by - it was ${fmtDate(stopEarly.lastDose)} for the earliest possible arrival and ${fmtDate(stopLate.lastDose)} for the latest` : `the last permissible dose of ${dName} was ${fmtDate(passedRef.lastDose)}`}, and a dose that should have been skipped has already come due. If the patient has taken it since then, the ${holdDays*24} h interval cannot be met for this surgery date. Establish when the last dose was actually taken${passedAnyArrival ? ', and enter the arrival time to fix the date' : ''}. The risk of a shortened hold is euglycemic diabetic ketoacidosis (eDKA). WHAT SPAQI 2026 SAYS - its recommendations are written for a patient who CONTINUED the SGLT2 inhibitor within ${holdDays} days of surgery, and this app reads a shortened hold as that. It does not advocate cancelling surgery, with one exception: it recommends postponing bariatric surgery in a patient with type 2 diabetes who continued it (R5), and even there allows considering proceeding if the patient is asymptomatic and postoperative monitoring is available, testing for eDKA first. Any patient: test for eDKA if there are symptoms (abdominal pain, nausea, vomiting, altered mental status). Cardiac surgery, any patient: monitor for eDKA during (R7) and after (R9) surgery. Type 2 diabetes: give prophylactic dextrose and/or insulin during cardiac surgery (R8); monitor during major noncardiac surgery longer than 3 h (R7) and after major noncardiac surgery until normal oral intake resumes (R9); and consider testing for eDKA on the day of surgery after a carbohydrate fast over 12 h, a diet under 50 g of carbohydrate a day, insulin use, a history of DKA, or an HbA1c over 8% (Fig 2, footnote a). A very-low-carbohydrate diet for more than 1 week (for example ketogenic, or a bariatric preoperative diet): monitor during surgery longer than 3 h (R7) and after surgery (R9), and, if there is no type 2 diabetes, before surgery as well (R6). No diabetes: monitor during major noncardiac surgery longer than 3 h after a carbohydrate fast over 12 h (R7). A normal anion gap excludes eDKA; a raised one calls for ketones (beta-hydroxybutyrate) and pH. SPAQI applies all of this to type 2 diabetes and to patients without diabetes only; it notes a high eDKA risk in type 1 diabetes and does not extend these recommendations to it. Decide with the surgical and anesthesia team. The patient sheet tells the patient to stop now and to ${surgeryToday ? 'tell the team on arrival' : 'call the clinic'}${passedAnyArrival ? ' so that the last dose can be checked' : ' if a dose was taken after that date'}.` });
+      } else if (maybePassed) {
+        flags.push({ type: 'warn', text: `STOP DATE MAY ALREADY HAVE PASSED: no arrival time is recorded, and the surgery date is close enough that the last permissible dose of ${dName} may already have gone by (as early as ${fmtDate(stopEarly.lastDose)}, depending on the arrival time). Enter the arrival time to settle it, and establish when the last dose was actually taken. The patient sheet tells the patient to stop now and to call the clinic so that the last dose can be checked.` });
       }
       if (stop && stop.lastDose) {
         daysBefore += `HOLD ${dName}: last dose ${fmtDate(stop.lastDose)} (${details.sglt2iDoseTime}; ${dosedAt}). ${stop.daysSkipped ? `Skips ${stop.daysSkipped} dose${stop.daysSkipped === 1 ? '' : 's'} beforehand: ${fmtDayList(stop.skipped)}${stop.dayOfDoseSkipped ? ', plus the morning-of-surgery dose' : ''}. ` : (stop.dayOfDoseSkipped ? 'The morning-of-surgery dose is also skipped. ' : '')}At least ${holdDays*24} h (${holdDays} days) before the scheduled arrival time. ${stopPassed ? 'THIS DATE HAS ALREADY PASSED - see the alert on this card. ' : ''}`;
       } else {
         daysBefore += `HOLD ${dName}: last dose must be at least ${holdDays*24} hours before the scheduled arrival time. Counted as a strict clock, not calendar days. `;
         if (stop && stop.error === 'missing') {
-          daysBefore += `No calendar date is shown because ${fmtMissingList(stop.missing)} ${stop.missing.length === 1 ? 'is' : 'are'} not recorded. `;
+          daysBefore += `No calendar date is shown because ${fmtMissingList(stop.missing)} ${stop.missing.length === 1 ? 'is' : 'are'} not recorded. ${passedAnyArrival ? 'WHATEVER THE ARRIVAL TIME, THE STOP DATE HAS ALREADY PASSED - see the alert on this card. ' : (maybePassed ? 'THE STOP DATE MAY ALREADY HAVE PASSED - see the caution on this card. ' : '')}`;
         } else if (stop && stop.error === 'unparseable') {
           daysBefore += 'No calendar date is shown because the arrival time could not be read as a valid time of day. Re-enter it. ';
         } else if (stop && stop.error === 'nointerval') {
@@ -1283,7 +1335,11 @@ function getSGLT2iResults(ctx, details, selected) {
         }
       }
       if (stopPassed) {
-        patientDaysBefore = (patientDaysBefore || '') + `STOP taking ${dName} now. Your last dose needed to be on or before ${fmtDate(stop.lastDose)}, which is at least ${holdDays*24} hours (${holdDays} full days) before you arrive. Do not take it again before your surgery. If you have taken it after ${fmtDate(stop.lastDose)}, call the Preoperative Clinic as soon as you get these instructions. If your surgery date changes, call the clinic for new dates. `;
+        patientDaysBefore = (patientDaysBefore || '') + `STOP taking ${dName} now. Your last dose needed to be on or before ${fmtDate(stop.lastDose)}, which is at least ${holdDays*24} hours (${holdDays} full days) before you arrive. Do not take it again before your surgery. If you have taken it after ${fmtDate(stop.lastDose)}, ${tellWho}. If your surgery date changes, call the clinic for new dates. `;
+      } else if (passedAnyArrival) {
+        patientDaysBefore = (patientDaysBefore || '') + `STOP taking ${dName} now. Your last dose needed to be at least ${holdDays*24} hours (${holdDays} full days) before you arrive, and that time has already passed. Do not take it again before your surgery. ${dosedLine} If your surgery date changes, call the clinic for new dates. `;
+      } else if (maybePassed) {
+        patientDaysBefore = (patientDaysBefore || '') + `STOP taking ${dName} now. Your last dose must be at least ${holdDays*24} hours — that is ${holdDays} full days — before you arrive for surgery, and your surgery is close enough that this time may already have passed. Do not take it again before your surgery. Call the Preoperative Clinic as soon as you get these instructions so that your last dose can be checked. `;
       } else if (stop && stop.lastDose) {
         patientDaysBefore = (patientDaysBefore || '') + `STOP taking ${dName} several days before your surgery. Your last dose is ${fmtDate(stop.lastDose)}. ${stop.daysSkipped ? `Do NOT take it on ${fmtDayList(stop.skipped)}${stop.dayOfDoseSkipped ? ', and do not take it on the morning of surgery' : ''}. ` : (stop.dayOfDoseSkipped ? 'Do not take it on the morning of surgery. ' : '')}Your last dose needs to be at least ${holdDays*24} hours (${holdDays} full days) before you arrive, so if your surgery date changes, call the clinic for new dates. `;
       } else {
@@ -1547,7 +1603,7 @@ function getSGLT2iResults(ctx, details, selected) {
       // about a bariatric team they do not have.
       ? (sType === 'bariatric'
         ? `<li><strong>Follow the instruction for this medicine printed above.</strong> After bariatric surgery your bariatric team, or the doctor who prescribes it, decides your diabetes medicines, so check with them before you change anything.</li>`
-        : `<li><strong>Follow the instruction for this medicine printed above.</strong> Because of the diet you follow, check with the doctor who prescribes it before you change anything.</li>`)
+        : `<li><strong>Follow the instruction for this medicine printed above.</strong> Because of the diet you follow, check with the doctor who prescribes this medicine before you change anything. If your discharge instructions say something different, or a doctor told you after your surgery to stop it, follow that instead of this sheet.</li>`)
       : `<li><strong>Follow the instruction for this medicine printed above.</strong> If anything about it is unclear, or you are not sure what to do after surgery, ask the doctor who prescribes it. If your discharge instructions say something different, or a doctor told you after your surgery to stop it, follow that instead of this sheet.</li>`)
     + sickDayBullet
     + `<li><strong>Call the doctor who prescribes this medicine, or go to the emergency department</strong> — if you get stomach or belly pain, feel sick to your stomach, throw up, feel unusually weak or tired, feel generally unwell (even if it feels like the flu), or find yourself breathing fast or deeply. If you cannot reach them quickly, or you are getting worse, go to the emergency department.</li>`
@@ -1877,7 +1933,7 @@ function getSulfonylureResults(ctx, details, selected) {
   if (nightBeforeAgents.length) {
     const names = nightBeforeAgents.map(d => `${d.name} (${d.brand})`).join('; ');
     nightBeforeText = `HOLD the EVENING DOSE the night before surgery: ${names}. These long-acting agents have extended duration and holding the evening dose prevents nocturnal or early morning hypoglycemia.`;
-    patientNight = `SKIP any evening dose of ${names} the night before surgery. Do not take it that night.`;
+    patientNight = `SKIP any evening dose of ${nightBeforeAgents.map(d => `${d.name} (${d.brand})`).join(' or ')} the night before surgery. Do not take it that night.`;
   }
   if (morningAgents.length) {
     const names = morningAgents.map(d => `${d.name} (${d.brand})`).join('; ');
@@ -1889,13 +1945,26 @@ function getSulfonylureResults(ctx, details, selected) {
   // One sentence naming every pill on the card. It used to say "your evening-held diabetes
   // pills" for the long-acting agents, which is the app's own shorthand, not the patient's.
   patientMorning = `Do NOT take ${drugs.map(d => `${d.name} (${d.brand})`).join(' or ')} on the morning of surgery.`;
-  const suClear = clearLiquidDayFlag(ctx, selected, 'sulfonylurea doses');
-  if (suClear) flags.push(suClear);
+  // CLEAR LIQUID DAY: no sulfonylurea at all on the day before surgery, morning or evening.
+  // The patient is on clear liquids instead of meals, and a sulfonylurea taken without food
+  // is the shortest route to hypoglycemia on this sheet. Printed in the days-before slot so
+  // it is read before that day starts; it replaces the night-before line, which it covers.
+  let daysBeforeText = null, patientDaysBefore = null, checklistDispo;
+  const suClear = clearLiquidDayFlag(ctx, selected, 'any sulfonylurea', 'held');
+  if (suClear) {
+    flags.push(suClear);
+    const allNames = drugs.map(d => `${d.name} (${d.brand})`);
+    daysBeforeText = `CLEAR LIQUID DAY (${clearLiquidDayWhy(ctx)}): HOLD every sulfonylurea dose on the day before surgery, morning and evening: ${allNames.join('; ')}. The patient is on clear liquids rather than meals that day, and a sulfonylurea taken without food risks hypoglycemia.`;
+    patientDaysBefore = `Do NOT take ${allNames.join(' or ')} on the day before surgery - not in the morning and not in the evening. You will be on clear liquids instead of meals that day, and this medicine can make your blood sugar drop too low when you are not eating.`;
+    nightBeforeText = null;
+    patientNight = null;
+    checklistDispo = 'do not take on the day before surgery or on the day of surgery - see below';
+  }
   if (timing === 'PM' && morningAgents.length) {
     flags.push({ type: 'warn', text: `PM surgery: ${morningAgents.map(d=>d.name).join(', ')} (short-acting sulfonylurea) — hold on morning of surgery regardless of breakfast. Risk of hypoglycemia if taken while eating less than usual.` });
   }
   const drugNames = drugs.map(d => `${d.name} (${d.brand})`);
-  const evidence = 'Source: ADA Standards of Care 2026, section 16 perioperative practice point 4: metformin and other oral glucose-lowering agents should be held on the day of surgery or procedure. SAMBA Updated Consensus 2024 states sulfonylureas carry the risk of asymptomatic hypoglycemia and should be held the day of surgery; they carry the highest perioperative hypoglycemia risk among oral antidiabetic agents.';
+  const evidence = 'Source: ADA Standards of Care 2026, section 16 perioperative practice point 4: metformin and other oral glucose-lowering agents should be held on the day of surgery or procedure. SAMBA Updated Consensus 2024 states sulfonylureas carry the risk of asymptomatic hypoglycemia and should be held the day of surgery; they carry the highest perioperative hypoglycemia risk among oral antidiabetic agents.' + (suClear ? ' Holding every dose on a clear-liquid day before surgery is an ABSMC institutional rule. The nearest published statement is Cleveland Clinic Journal of Medicine 2025;92:429, which recommends discontinuing sulfonylureas sooner than the day of surgery when the patient is expected to follow a low-carbohydrate diet for several days before the procedure; applying that to a single clear-liquid day is the ABSMC extension.' : '');
   const resumption = 'Resume when tolerating regular meals postoperatively and blood glucose is stable. Not appropriate during hospitalization with variable oral intake. Verify with surgeon.';
   const monitoring = 'Monitor for hypoglycemia perioperatively. Blood glucose checks on admission and per institutional protocol.';
   return {
@@ -1904,8 +1973,9 @@ function getSulfonylureResults(ctx, details, selected) {
     drugNames,
     badge: 'HOLD',
     badgeType: 'hold',
-    clinician: { nightBefore: nightBeforeText, morningOf: morningText, monitoring, resumption, evidence },
-    patient: { nightBefore: patientNight, morningOf: patientMorning, dietary: null },
+    clinician: { daysBefore: daysBeforeText, nightBefore: nightBeforeText, morningOf: morningText, monitoring, resumption, evidence },
+    patient: { daysBefore: patientDaysBefore, nightBefore: patientNight, morningOf: patientMorning, dietary: null },
+    checklistDispo,
     flags,
     comboFlag: null,
   };
@@ -1925,18 +1995,32 @@ function getMeglitinideResults(ctx, details, selected) {
     morningOf = 'HOLD morning of surgery. Patient is NPO — no meal with which to pair dose.';
     patientMorning = 'Take this medication as usual through the day and night before surgery. Do NOT take it on the morning of surgery.';
   }
-  const megClear = clearLiquidDayFlag(ctx, selected, 'meglitinide doses');
-  if (megClear) flags.push(megClear);
+  // CLEAR LIQUID DAY: a meglitinide is taken only with a meal, so it is not taken while the
+  // patient is on clear liquids. The card is badged HOLD on that day, not HOLD MORNING OF
+  // SURGERY, because that badge is the promise that the day-before doses are taken as usual.
+  let daysBeforeText = null, patientDaysBefore = null, checklistDispo, badge = 'HOLD MORNING OF SURGERY';
+  const megClear = clearLiquidDayFlag(ctx, selected, 'a meglitinide', 'held');
+  if (megClear) {
+    flags.push(megClear);
+    daysBeforeText = `CLEAR LIQUID DAY (${clearLiquidDayWhy(ctx)}): HOLD on the day before surgery while the patient is on clear liquids rather than meals. A meglitinide is taken only with a meal.`;
+    patientDaysBefore = 'Do NOT take this medication on the day before surgery while you are on clear liquids instead of meals. It is taken only with a meal.';
+    patientMorning = timing === 'PM'
+      ? 'Do NOT take it on the morning of surgery unless your surgeon has specifically told you that you may eat a full breakfast.'
+      : 'Do NOT take it on the morning of surgery.';
+    badge = 'HOLD';
+    checklistDispo = 'do not take while you are on clear liquids or on the morning of surgery - see below';
+  }
   const evidence = 'Source: ADA Standards of Care 2026, section 16 perioperative practice point 4: metformin and other oral glucose-lowering agents should be held on the day of surgery or procedure. SAMBA Updated Consensus 2024. Short half-life (~1h) means lower hypoglycemia risk than sulfonylureas, but hold while NPO.';
   const resumption = 'Resume with first full meal postoperatively. No monitoring required for resumption.';
   return {
     id: 'meglitinide',
     drugClass: 'Meglitinides',
     drugNames,
-    badge: 'HOLD MORNING OF SURGERY',
+    badge,
     badgeType: 'hold',
-    clinician: { nightBefore: null, morningOf, monitoring: null, resumption, evidence },
-    patient: { nightBefore: null, morningOf: patientMorning, dietary: null },
+    clinician: { daysBefore: daysBeforeText, nightBefore: null, morningOf, monitoring: null, resumption, evidence },
+    patient: { daysBefore: patientDaysBefore, nightBefore: null, morningOf: patientMorning, dietary: null },
+    checklistDispo,
     flags,
     comboFlag: null,
   };
@@ -2135,6 +2219,7 @@ function getBasalInsulinResults(ctx, details, selected) {
     let morningOf = '';
     let patientNight = '';
     let patientMorning = '';
+    let nphDaysClin = null, nphDaysPatient = null, nphChecklist;
     const drugFlags = [...flags];
     if (drug.concentrated) {
       drugFlags.push({ type: 'info', text: drug.concentratedNote });
@@ -2162,9 +2247,11 @@ function getBasalInsulinResults(ctx, details, selected) {
         const doseStr = isNaN(eveningDose) ? 'reduce by 50%' : `${dosePct(eveningDose, 50)} (50% of your usual ${eveningDose} units)`;
         if (dt === 'morning') {
           nightBefore = null;
-          morningOf = `REDUCE ${drug.name} (${drug.brand}) by 50% on the morning of surgery (once-daily morning dosing): ${doseStr}. The dose on the morning before surgery is the usual dose, unchanged. NPH has a peak effect that can cause hypoglycemia while fasting. Check blood glucose before administering.`;
+          morningOf = `REDUCE ${drug.name} (${drug.brand}) by 50% on the morning of surgery (once-daily morning dosing): ${doseStr}. ${clearLiquidDay(ctx, selected) ? 'On the clear-liquid day before surgery the morning dose is also halved - see Days Before.' : 'The dose on the morning before surgery is the usual dose, unchanged.'} NPH has a peak effect that can cause hypoglycemia while fasting. Check blood glucose before administering; the patient is told not to take it if blood glucose is below 120 mg/dL (ABSMC institutional threshold, as for premixed insulin).`;
           patientNight = null;
-          patientMorning = `Take HALF of your usual ${drug.brand} dose this morning: ${isNaN(eveningDose) ? 'half your usual dose' : doseStr}.`;
+          // The 120 mg/dL check is the premixed card's institutional threshold. No call
+          // instruction: the patient simply does not take it (Mark's wording).
+          patientMorning = `Take HALF of your usual ${drug.brand} dose this morning: ${isNaN(eveningDose) ? 'half your usual dose' : doseStr}. Check your blood sugar first: if it is below 120 mg/dL, do NOT take it.`;
         } else {
           nightBefore = `REDUCE ${drug.name} (${drug.brand}) by 50% the night before surgery: ${doseStr}. NPH has a peak effect that can cause hypoglycemia while fasting.`;
           morningOf = 'No morning NPH dose (once-daily evening dosing). Check blood glucose on admission.';
@@ -2212,6 +2299,30 @@ function getBasalInsulinResults(ctx, details, selected) {
         patientMorning = `Take a REDUCED dose of ${drug.brand} this morning: ${doseText}. Take it at your usual time before leaving for the hospital.`;
       }
     }
+    if (drug.isNPH && clearLiquidDay(ctx, selected)) {
+      // CLEAR LIQUID DAY: NPH peaks, so a usual dose taken on a day of clear liquids is the
+      // same hazard the meal-dosed cards carry. ABSMC rule: the NPH dose that falls on the
+      // MORNING of that day is halved - the same 50% this card already applies to NPH on the
+      // morning of surgery - and not taken below 120 mg/dL. The evening dose that day is the
+      // night-before dose, which this card already halves. An evening-only patient has no
+      // other NPH dose that day, so nothing changes for them.
+      const onceN = freq === 'once';
+      const dtN = dosingTime || 'evening';
+      const hasDayDose = !onceN || dtN === 'morning';
+      const lead = `CLEAR LIQUID DAY: this patient is on clear liquids rather than meals for about a day before arrival (${clearLiquidDayWhy(ctx)}). `;
+      if (hasDayDose) {
+        const base = onceN ? eveningDose : morningDose;
+        const h = isNaN(base) ? null : dosePct(base, 50);
+        const which = onceN ? '' : 'morning ';
+        const half = h ? `${h} (50% of your usual ${base} units)` : null;
+        nphDaysClin = `CLEAR LIQUID DAY (${clearLiquidDayWhy(ctx)}): REDUCE the ${which}NPH dose on the morning of the day before surgery by 50%${half ? `: ${half}` : ''}. Hold it if blood glucose is below 120 mg/dL. ABSMC institutional rule, the same 50% applied to NPH on the morning of surgery.`;
+        nphDaysPatient = `On the day before surgery you will be on clear liquids instead of meals. That morning, check your blood sugar first: if it is below 120 mg/dL, do NOT take your ${which}${drug.brand}. Otherwise take only HALF of your usual ${which}dose${half ? `: ${half}` : ''}.`;
+        nphChecklist = 'dose changes start the day before - see below';
+        drugFlags.push({ type: 'warn', text: lead + `The patient sheet tells the patient to take HALF the usual ${which}NPH dose on the morning of that day, and not to take it if blood glucose is below 120 mg/dL (ABSMC rule). The evening and morning-of-surgery doses follow this card's usual rule. Use Override if a different dose is wanted.` });
+      } else {
+        drugFlags.push({ type: 'warn', text: lead + `This patient takes NPH once a day in the evening, so the only NPH dose that day is the night-before dose, which this card already halves.` });
+      }
+    }
     if (!dd.dosingTime && drug.needsDosingTime) {
       drugFlags.push({ type: 'info', text: `Dosing time not entered for ${drug.name}. Assuming evening dosing. Verify with patient.` });
     }
@@ -2227,14 +2338,17 @@ function getBasalInsulinResults(ctx, details, selected) {
       drugNames: [`${drug.name} (${drug.brand})`],
       badge: 'MODIFY DOSE',
       badgeType: 'modify',
+      checklistDispo: nphChecklist,
+      daysBeforeNotStop: !!nphDaysPatient,
       clinician: {
+        daysBefore: nphDaysClin,
         nightBefore,
         morningOf,
         monitoring: `Check blood glucose on admission. Target perioperative glucose 100–180 mg/dL. Do not hold ALL basal insulin in T1DM — dose reduction required but some basal must be maintained.`,
         resumption: 'Resume usual dose when tolerating oral intake and blood glucose is stable. Verify with prescriber.',
         evidence: `Source: ADA Standards of Care 2026, perioperative section: long-acting basal analogs to 75-80% of the usual dose, NPH to one-half, and a 25% reduction of the basal dose given the evening before surgery. ADA states the decision must be individualized and that the reduction may not be appropriate for some people with type 1 diabetes; it sets no cap. Applying the same percentage to each injection of a twice-daily regimen is an ABSMC extension, not ADA text. ${drug.isNPH ? 'NPH: reduce each dose to 50% (pronounced peak raises fasting hypoglycemia risk).' : (isT1 ? 'T1DM: ABSMC applies a 20% reduction (to 80%), the conservative end of the ADA band; some patients need their full unreduced dose.' : 'T2DM: ABSMC applies a 25% reduction (to 75%), the larger end of the ADA band, so the patient receives one specific dose.')} Target perioperative glucose 100-180 mg/dL (ADA Rec 16.15, grade E).`
       },
-      patient: { nightBefore: patientNight, morningOf: patientMorning, dietary: null },
+      patient: { daysBefore: nphDaysPatient, nightBefore: patientNight, morningOf: patientMorning, dietary: null },
       flags: drugFlags,
       comboFlag: null,
     });
@@ -2254,6 +2368,7 @@ function getBolusInsulinResults(ctx, details, selected) {
     const flags = [];
     const isInhaled = drug.isInhaled;
     let morningOf, patientMorning, nightBefore = null, patientNight = null;
+    let daysBeforeText = null, patientDaysBefore = null, checklistDispo;
     if (timing === 'PM') {
       // Patient may eat breakfast
       const bkfstText = !isNaN(bkfst) ? `${bkfst} units (your usual breakfast dose)` : 'your usual breakfast dose';
@@ -2272,10 +2387,14 @@ function getBolusInsulinResults(ctx, details, selected) {
       // entered, and conditional on a meal actually being eaten, because that is this card's
       // own rule - mealtime insulin goes with a meal - and it stays true whatever the diet
       // or the bowel preparation turns out to allow.
-      const dinnerUnits = !isNaN(dinner) ? ` (${dinner} units)` : '';
-      nightBefore = `Clear liquid day: the patient is told NOT to take the usual dinner dose${dinnerUnits} with clear liquids unless the clinic or their diabetes doctor has said to, and that the usual dinner dose may be taken only with an actual dinner. No dose for carbohydrate-containing clear liquids is given here; set one explicitly if it is wanted.`;
-      patientNight = `If you are on clear liquids the evening before surgery and not eating a meal, do NOT take your usual dinner dose of ${drug.brand}${dinnerUnits} unless the Preoperative Clinic or your diabetes doctor has told you to. If you do eat dinner, you may take your usual dinner dose with it. After dinner, do not take any more of this insulin.`;
-      flags.push(clearLiquidDayFlag(ctx, selected, 'breakfast and lunch mealtime insulin doses'));
+      // Reworded after clinical review: "If you do eat dinner, you may take your usual dinner
+      // dose with it" read as permission to eat dinner on a sheet whose diet block forbids
+      // it. The instruction now covers the whole clear-liquid day, names no meal, and prints
+      // in the days-before slot so it is read before that day starts.
+      daysBeforeText = `CLEAR LIQUID DAY (${clearLiquidDayWhy(ctx)}): the patient is told NOT to take mealtime insulin while on clear liquids the day before surgery unless the clinic or their diabetes doctor has said to. No dose for carbohydrate-containing clear liquids is given here; set one with Override if it is wanted, particularly in type 1 diabetes.`;
+      patientDaysBefore = `While you are on clear liquids instead of meals the day before surgery, do NOT take ${drug.brand} unless the Preoperative Clinic or your diabetes doctor has told you to. This is your mealtime insulin, and it is taken only with a meal.`;
+      checklistDispo = 'do not take while you are on clear liquids or not eating - see below';
+      flags.push(clearLiquidDayFlag(ctx, selected, 'mealtime insulin', 'held'));
     } else if (!isNaN(dinner)) {
       nightBefore = `HOLD evening dinner dose the night before surgery if patient is stopping eating at midnight. If patient eats dinner as usual, take usual dinner dose (${dinner} units) with dinner, then no further doses.`;
       patientNight = `You may take your usual dinner dose of ${drug.brand} (${dinner} units) WITH dinner. After dinner, do not take any more of this insulin.`;
@@ -2289,14 +2408,16 @@ function getBolusInsulinResults(ctx, details, selected) {
       drugNames: [`${drug.name} (${drug.brand})`],
       badge: 'HOLD WHILE NPO',
       badgeType: 'hold',
+      checklistDispo,
       clinician: {
+        daysBefore: daysBeforeText,
         nightBefore,
         morningOf,
         monitoring: 'Do not administer prandial insulin without food. If blood glucose is >180 mg/dL while NPO, use a correctional insulin protocol per anesthesia/hospitalist team — do not use the patient\'s prandial doses.',
         resumption: 'Resume with first regular meal postoperatively. Dose as usual per meal size.',
         evidence: 'Source: ADA Standards of Care 2026: prandial insulin is paired with eating (ADA adds prandial insulin when individuals are eating), so it is held whenever the patient is not eating - including the PM-surgery case, where a breakfast dose is permitted with a full breakfast and every later dose is held. ADA also states that basal insulin must NOT be held in type 1 diabetes even when the patient is taking nothing by mouth. Hyperglycemia while NPO is covered by a correctional protocol rather than the usual prandial doses.'
       },
-      patient: { nightBefore: patientNight, morningOf: patientMorning, dietary: null },
+      patient: { daysBefore: patientDaysBefore, nightBefore: patientNight, morningOf: patientMorning, dietary: null },
       flags,
       comboFlag: null,
     });
@@ -2319,8 +2440,13 @@ function getPremixedInsulinResults(ctx, details, selected) {
     const evDose = doseNum(dd.eveningDose);
     const amDose = doseNum(dd.morningDose);
     const flags = [...baseFlags];
-    const pmClear = clearLiquidDayFlag(ctx, selected, 'premixed insulin doses');
+    // CLEAR LIQUID DAY: the reduced evening dose below assumes a dinner. On a day of clear
+    // liquids no premixed dose is printed at all - not the evening one, not the morning one
+    // of the day before. The patient is told the usual doses are not for that day and that
+    // the clinic will give the doses; the clinician is told to state them with Override.
+    const pmClear = clearLiquidDayFlag(ctx, selected, 'premixed insulin dose', 'clinic');
     if (pmClear) flags.push(pmClear);
+    const clearDay = !!pmClear;
     // Largest reduction of the guideline band → one specific patient dose
     // (user decision 2026-07-05): T1 20%, T2 25%.
     const minReduct = isT1 ? 20 : 25;
@@ -2347,14 +2473,20 @@ function getPremixedInsulinResults(ctx, details, selected) {
       drugNames: [`${drug.name} (${drug.brand})`],
       badge: 'MODIFY DOSE',
       badgeType: 'modify',
+      checklistDispo: clearDay ? 'the Preoperative Clinic will give you your doses for the day before surgery - see below' : undefined,
+      daysBeforeNotStop: clearDay,
       clinician: {
-        nightBefore,
+        daysBefore: clearDay ? `CLEAR LIQUID DAY (${clearLiquidDayWhy(ctx)}): no premixed dose is printed for the day before surgery. The patient is told not to take the usual doses of ${drug.name} (${drug.brand}) that day and that the Preoperative Clinic will give the doses. The usual evening reduction on this card assumes a dinner and is not issued.` : null,
+        nightBefore: clearDay ? null : nightBefore,
         morningOf,
         monitoring: 'Check blood glucose before morning dose. Target 100–180 mg/dL perioperatively. Hold entirely if BG <120 mg/dL (ABSMC institutional safety threshold).',
         resumption: 'Resume usual premixed regimen when tolerating regular meals. Verify with prescriber.',
         evidence: `Source for the premixed split: JBDS Insulin Table and Demma et al., J Clin Anesth 2017. Evening: reduce ${reductPct} (guideline band T1 10-20%, T2 20-25%). Morning: reduce 50%. ADA Standards of Care 2026 does not address premixed insulin in the perioperative period; it supplies the perioperative target of 100-180 mg/dL (Rec 16.15, grade E) and the principle of reducing insulin before surgery. BG <120 mg/dL hold threshold is an ABSMC institutional safety threshold.`
       },
-      patient: { nightBefore: `REDUCE your evening ${drug.brand}: ${nightEvLabel}.`, morningOf: patientMorning, dietary: null },
+      patient: {
+        daysBefore: clearDay ? `On the day before surgery you will be on clear liquids instead of meals, and your usual doses of ${drug.brand} are meant to be taken with meals. Do NOT take your usual doses that day. The Preoperative Clinic will tell you what dose to take instead. If you have not been told, call the Preoperative Clinic before that day - do not guess a dose, and do not simply skip your insulin.` : null,
+        nightBefore: clearDay ? null : `REDUCE your evening ${drug.brand}: ${nightEvLabel}.`,
+        morningOf: patientMorning, dietary: null },
       flags,
       comboFlag: null,
     });
@@ -2685,8 +2817,8 @@ class PerioperativeDMApp {
       ${want('surgeryType') ? `
       <div class="card">
         <div class="question">Surgery Type</div>
-        ${btn('Minor procedure', 'surgeryType', 'minor', ctx.surgeryType, 'e.g., cataract surgery, skin lesion or biopsy, dental extraction, joint/epidural injection, port placement, simple hand or foot procedure. Usually local or MAC anesthesia, brief, same-day discharge.')}
-        ${btn('Colonoscopy / endoscopy', 'surgeryType', 'colonoscopy', ctx.surgeryType)}
+        ${btn('Minor procedure', 'surgeryType', 'minor', ctx.surgeryType, 'e.g., cataract surgery, skin lesion or biopsy, dental extraction, joint/epidural injection, port placement, upper endoscopy (EGD) without bowel preparation, simple hand or foot procedure. Usually local or MAC anesthesia, brief, same-day discharge.')}
+        ${btn('Colonoscopy (bowel preparation)', 'surgeryType', 'colonoscopy', ctx.surgeryType, 'Any procedure with a bowel preparation and a clear-liquid day before it. An upper endoscopy (EGD) without bowel preparation is a minor procedure.')}
         ${btn('Ambulatory or major noncardiac surgery', 'surgeryType', 'majorNoncardiac', ctx.surgeryType, 'e.g., joint replacement, hysterectomy, bowel resection, major abdominal/pelvic, spine, or vascular surgery - including same-day and outpatient surgery.')}
         ${btn('Cardiac surgery', 'surgeryType', 'cardiac', ctx.surgeryType)}
         ${btn('Bariatric surgery', 'surgeryType', 'bariatric', ctx.surgeryType)}
@@ -3582,7 +3714,11 @@ class PerioperativeDMApp {
     // The heading is the bolder element and is what a patient scans. A continue-direction
     // override placed in this slot made it assert a stop the clinician did not order
     // (fifth clinical review 2026-09-19), so the heading drops its "Stop These Early" half.
-    const daysBeforeAsserts = !results.some(r => r.overridden && r.patient.daysBefore && ovDir(r) !== 'stopped');
+    // Also dropped when a card that is NOT a stop prints in this slot: premixed insulin on a
+    // clear-liquid day ("do not take your usual doses ... do not simply skip your insulin")
+    // and halved NPH. Under "Stop These Early" a type 1 patient could read "stop insulin" -
+    // the error those lines exist to prevent (second clinical review).
+    const daysBeforeAsserts = !results.some(r => r.patient.daysBefore && (r.overridden ? ovDir(r) !== 'stopped' : !!r.daysBeforeNotStop));
     const timeline =
       bucket(daysBeforeAsserts ? 'Days Before Surgery - Stop These Early' : 'Days Before Surgery', 'daysBefore') +
       bucket('The Night Before Surgery', 'nightBefore') +
